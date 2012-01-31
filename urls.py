@@ -5,8 +5,7 @@ from django.conf.urls.defaults import patterns, include, url
 # admin.autodiscover()
 
 urlpatterns = patterns('',
-    # Examples:
-    # url(r'^$', 'pycronies.views.home', name='home'),
+                       url(r'^$', 'pycronies.views.home', name='home'),
     # url(r'^pycronies/', include('pycronies.foo.urls')),
 
     # Uncomment the admin/doc line below to enable admin documentation:
