@@ -15,7 +15,7 @@ def hex4():
 class Project(models.Model):
     """Проект
     """
-    uuid = models.CharField(max_length=40, primary_key=True, unique=True, default=mex4)
+    uuid = models.CharField(max_length=40, primary_key=True, unique=True, default=hex4)
     create_date = models.DateTimeField(default=datetime.now, null=False)
     name = models.CharField(max_length=100)
     descr = models.TextField(null=True)
@@ -28,7 +28,7 @@ class Project(models.Model):
 class Activity(models.Model):
     """Мероприятие
     """
-    uuid = models.CharField(max_length=40, primary_key=True, unique=True, default=mex4)
+    uuid = models.CharField(max_length=40, primary_key=True, unique=True, default=hex4)
     create_date = models.DateTimeField(default=datetime.now, null=False)
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
     name = models.CharField(max_length = 100)
@@ -40,7 +40,7 @@ class Activity(models.Model):
 class Participant(models.Model):
     """Участрник проекта
     """
-    uuid = models.CharField(max_length=40, primary_key=True, unique=True, default=mex4)
+    uuid = models.CharField(max_length=40, primary_key=True, unique=True, default=hex4)
     create_date = models.DateTimeField(default=datetime.now, null=False)
     project = models.ForeignKey(Project)
     name = models.CharField(max_length=100)
@@ -50,7 +50,7 @@ class Participant(models.Model):
 class Resource(models.Model):
     """Ресурс проекта
     """
-    uuid = models.CharField(max_length=40, primary_key=True, unique=True, default=mex4)
+    uuid = models.CharField(max_length=40, primary_key=True, unique=True, default=hex4)
     create_date = models.DateTimeField(default=datetime.now, null=False)
     project = models.ForeignKey(Project)
     product = models.CharField(max_length=100) # FIXME: Это должна быть ссылка на продукт !!!
@@ -63,7 +63,7 @@ class Resource(models.Model):
 class ActRes(models.Model):
     """Ресурс мероприятия или личный участника мероприятия
     """
-    uuid = models.CharField(max_length=40, primary_key=True, unique=True, default=mex4)
+    uuid = models.CharField(max_length=40, primary_key=True, unique=True, default=hex4)
     create_date = models.DateTimeField(default=datetime.now, null=False)
     project = models.ForeignKey(Project)
     activity = models.ForeignKey(Activity, on_delete = models.CASCADE)
@@ -77,7 +77,7 @@ class ActRes(models.Model):
 class ActPart(models.Model):
     """Участник мероприятия
     """
-    uuid = models.CharField(max_length=40, primary_key=True, unique=True, default=mex4)
+    uuid = models.CharField(max_length=40, primary_key=True, unique=True, default=hex4)
     create_date = models.DateTimeField(default=datetime.now, null=False)
     project = models.ForeignKey(Project)
     activity = models.ForeignKey(Activity, on_delete = models.CASCADE)
@@ -87,7 +87,7 @@ class ActPart(models.Model):
 class Parameter(models.Model):
     """Описание параметра
     """
-    uuid = models.CharField(max_length=40, primary_key=True, unique=True, default=mex4)
+    uuid = models.CharField(max_length=40, primary_key=True, unique=True, default=hex4)
     name = models.SlugField()
     descr = models.TextField()
     tp = models.CharField(max_length=40)
@@ -97,8 +97,8 @@ class Parameter(models.Model):
 class Param(models.Model):
     """Параметр
     """
-    uuid = models.CharField(max_length=40, primary_key=True, unique=True, default=mex4)
-    creation_date = models.DateTimeField(default=datetime.new, null=False)
+    uuid = models.CharField(max_length=40, primary_key=True, unique=True, default=hex4)
+    creation_date = models.DateTimeField(default=datetime.now, null=False)
     project = models.ForeignKey(Project)
     activity = models.ForeignKey(Activity)
     resource = models.ForeignKey(Resource)
@@ -119,19 +119,19 @@ class ParamVl(models.Model):
 class ParameterVL(models.Model):
     """Возможное значение описания параметра
     """
-    uuid = models.CharField(max_length=40, primary_key=True, unique=True, default=mex4)
+    uuid = models.CharField(max_length=40, primary_key=True, unique=True, default=hex4)
     parameter = models.ForeignKey(Parameter)
     value = models.CharField(max_length=40)
-    caption = models.CharField
+    caption = models.TextField()
 
 class ParamVal(models.Model):
     """Значения параметра
     """
-    uuid = models.CharField(max_length=40, primary_key=True, unique=True, default=mex4)
+    uuid = models.CharField(max_length=40, primary_key=True, unique=True, default=hex4)
     param = models.ForeignKey(Param)
     participant = models.ForeignKey(Participant, null=True)
     value = models.CharField(max_length=40)
-    caption = models.CharField(max_length=40)
+    caption = models.TextField()
     datetime = models.DateTimeField()
     opened = models.BooleanField()
     level = models.CharField(max_length=40)
@@ -139,7 +139,7 @@ class ParamVal(models.Model):
 class PartContakt(models.Model):
     """Контакт участника проекта
     """
-    uuid = models.CharField(max_length=40, primary_key=True, unique=True, default=mex4)
+    uuid = models.CharField(max_length=40, primary_key=True, unique=True, default=hex4)
     participant = models.ForeignKey(Participant)
     tp = models.CharField(max_length = 40)
     contact = models.CharField(max_length=40)
@@ -147,9 +147,9 @@ class PartContakt(models.Model):
 class PartAccept(models.Model):
     """Предложение участника в проект
     """
-    uuid = models.CharField(max_length=40, primary_key=True, unique=True, default=mex4)
+    uuid = models.CharField(max_length=40, primary_key=True, unique=True, default=hex4)
     participant = models.ForeignKey(Participant)
-    acceptant = models.ForeignKey(Participant)
+    acceptant = models.ForeignKey(Participant, related_name = 'acceptant_%(class)s_set')
     vote = models.CharField(max_length=40)
     datetime = models.DateTimeField(default=datetime.now)
 
@@ -162,7 +162,7 @@ class Vote(models.Model):
     resource = models.ForeignKey(Resource)
     participant = models.ForeignKey(Participant)
     parameter = models.ForeignKey(Parameter)
-    acceptant = models.ForeignKey(Participant)
-    voter = models.ForeignKey(Participant)
+    acceptant = models.ForeignKey(Participant, related_name = 'acceptant_%(class)s_set')
+    voter = models.ForeignKey(Participant, related_name = 'voter_%(class)s_set')
     obj = models.CharField(max_length=40)
     vote = models.CharField(max_length=40)
