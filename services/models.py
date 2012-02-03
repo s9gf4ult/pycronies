@@ -268,7 +268,7 @@ class ParticipantContact(BaseModel):
     contact = SafeTextField()
 
 class ParticipantVote(BaseModel):
-    """Предложение о принятии участника в проект
+    """Предложение об участнике проекта
     """
     PARTICIPANT_VOTE_STATUS=((u'voted', u'Предложение открыто'),
                              (u'accepted', u'Предложение принято'),
