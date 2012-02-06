@@ -85,6 +85,7 @@ class Participant(BaseModel):
     is_initiator = models.BooleanField(default=False)
     user = models.CharField(max_length=40, null=True)   # FIXME: Это должна быть ссылка на пользюка, пока заглушка
     psid = models.CharField(max_length=40)
+    token = models.CharField(max_length=40, null=True)
     name = SafeCharField(max_length=100, default=None, null=False)
     descr = SafeTextField(default=u'')
     status = models.CharField(max_length=40, choices=PARTICIPANT_STATUS, default=u'accepted') # FIXME: Заменить на статус с возможными значениями как для ресурсов мероприятия ?

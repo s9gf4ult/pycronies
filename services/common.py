@@ -1,7 +1,17 @@
 #! /bin/env python
 # -*- coding: utf-8 -*-
 
+import datetime
 import re
+
+yearmonthdayhour = ['year', 'month', 'day', 'hour', 'minute', 'second']
+
+def dict2datetime(dct):
+    """
+    Arguments:
+    - `dct`:
+    """
+    return datetime.datetime(*[dct[a] for a in yearmonthdayhour])
 
 def validate_string(val):
     """return true if string is valid for using in content
@@ -31,11 +41,13 @@ def check_safe_string(table, name):
     Return:
     list of errors
     """
-    ret = check_safe_string_or_null(table,name):
+    ret = check_safe_string_or_null(table, name)
     if len(ret) > 0:
         return ret
     if name not in table or (not isinstance(table[name], basestring)):
         return [u'"{0}" refers not to string or does not exists at all'.format(name)]
+    else:
+        return []
 
 def validate_datetime_dict(value):
     """return true if value is dictionary with datetime
@@ -44,10 +56,9 @@ def validate_datetime_dict(value):
     Return:
     True of False
     """
-    x = ['year', 'month', 'day', 'hour', 'minute', 'second']
     good = False
     try:
-        datetime.datetime(*[value[a] for a in x])
+        datetime.datetime(*[value[a] for a in yearmonthdayhour])
     except:
         pass
     finally:
@@ -69,10 +80,10 @@ def check_datetime_or_null(table, name):
     - `table`:
     - `name`:
     """
-    if name not in table or (not table[name] == None);
+    if name not in table or (not table[name] == None):
         return []
     elif not isinstance(table[name], dict) or (not validate_datetime_dict(table[name])):
-        return [u'"{0}" key refers to not valid datetime representaion or not datetime at all']
+        return [u'"{0}" key refers to not valid datetime representaion or not datetime at all'.format(name)]
     else:
         return []
 
@@ -85,7 +96,7 @@ def check_bool(table, name):
     if (name in table) and (isinstance(table[name], bool)):
         return []
     else:
-        return [u'"{0}" does not refers to Bool value or does not exists']
+        return [u'"{0}" does not refers to Bool value or does not exists'.format(name)]
 
 def check_string_or_null(table, name):
     """check if `name` refers to string or null
@@ -107,7 +118,7 @@ def check_string(table, name):
     - `name`:
     """
     if name not in table or (not isinstance(table[name], basestring)):
-        return [u'"{0}" refers not to string or does not exist in parameters']
+        return [u'"{0}" refers not to string or does not exist in parameters'.format(name)]
     else:
         return []
 
@@ -123,3 +134,5 @@ def check_string_choise(table, name, choices):
         return ret
     if not table[name] in choices:
         return [u'"{0}" refers to string {1} which is not in {2}'.format(name, table[name], choices)]
+    else:
+        return []
