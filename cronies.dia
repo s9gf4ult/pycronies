@@ -3937,7 +3937,7 @@
         <dia:point val="35.711,-20.305"/>
       </dia:attribute>
       <dia:attribute name="obj_bb">
-        <dia:rectangle val="35.711,-20.305;45.481,-14.005"/>
+        <dia:rectangle val="35.711,-20.305;45.866,-12.155"/>
       </dia:attribute>
       <dia:attribute name="meta">
         <dia:composite type="dict"/>
@@ -3946,10 +3946,10 @@
         <dia:point val="35.711,-20.305"/>
       </dia:attribute>
       <dia:attribute name="elem_width">
-        <dia:real val="9.7699999999999996"/>
+        <dia:real val="10.155000000000001"/>
       </dia:attribute>
       <dia:attribute name="elem_height">
-        <dia:real val="6.2999999999999998"/>
+        <dia:real val="8.1500000000000004"/>
       </dia:attribute>
       <dia:attribute name="text_colour">
         <dia:color val="#000000"/>
@@ -4058,6 +4058,26 @@
           </dia:attribute>
           <dia:attribute name="unique">
             <dia:boolean val="true"/>
+          </dia:attribute>
+        </dia:composite>
+        <dia:composite type="table_attribute">
+          <dia:attribute name="name">
+            <dia:string>#amount#</dia:string>
+          </dia:attribute>
+          <dia:attribute name="type">
+            <dia:string>#number(20,2)#</dia:string>
+          </dia:attribute>
+          <dia:attribute name="comment">
+            <dia:string>#количество ресурса#</dia:string>
+          </dia:attribute>
+          <dia:attribute name="primary_key">
+            <dia:boolean val="false"/>
+          </dia:attribute>
+          <dia:attribute name="nullable">
+            <dia:boolean val="false"/>
+          </dia:attribute>
+          <dia:attribute name="unique">
+            <dia:boolean val="false"/>
           </dia:attribute>
         </dia:composite>
       </dia:attribute>

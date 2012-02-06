@@ -171,7 +171,7 @@ class ParticipantResource(BaseModel):
     resource = models.ForeignKey(Resource)
     amount = models.DecimalField(max_digits=20, decimal_places=2, null=False, default=None)
     class Meta:
-        unique_together = (("actpart", "resource"), )
+        unique_together = (("participant", "resource"), )
 
 # class ActRes(BaseModel):
 #     """Ресурс мероприятия или личный участника мероприятия
@@ -284,7 +284,7 @@ class ParticipantVote(BaseModel):
     vote = models.CharField(max_length=40)
     status = models.CharField(max_length=40, default=u'voted', choices=PARTICIPANT_VOTE_STATUS)
     class Meta:
-        unique_together((u'participant', u'voter'), )
+        unique_together = ((u'participant', u'voter'), )
 
 # class Vote(BaseModel):
 #     """Голос участника
