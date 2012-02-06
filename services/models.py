@@ -226,9 +226,13 @@ class BaseParameterVl(BaseModel):
 class BaseParameterVal(BaseModel):
     """Базовый класс значения параметра
     """
-    value = models.CharField(max_length=40)
-    caption = models.TextField()
-    opened = models.BooleanField()
+    PARAMETER_VALUE_STATUS=((u'voted', u'Значение предложено'),
+                            (u'accepted', u'Значение принято'),
+                            (u'denied', u'Значение запрещено'))
+    value = models.TextField()
+    caption = SafeTextField(null=True)
+    datatime = models.DateTimeField(null=True)
+    status = models.CharField(max_length=40, choices=PARAMETER_VALUE_STATUS, default=u'voted')
     class Meta:
         abstract = True
 
