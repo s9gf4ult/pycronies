@@ -26,7 +26,7 @@ def check_safe_string_or_null(table, name):
     - `table`:
     - `name`:
     """
-    if name not in table or table[name] == None:
+    if table.get(name) == None:
         return []
     elif not isinstance(table[name], basestring) or (not validate_string(table[name])):
         return [u'"{0}" key refers to not valid string or not string at all'.format(name)]
@@ -41,13 +41,10 @@ def check_safe_string(table, name):
     Return:
     list of errors
     """
-    ret = check_safe_string_or_null(table, name)
-    if len(ret) > 0:
-        return ret
-    if name not in table or (not isinstance(table[name], basestring)):
-        return [u'"{0}" refers not to string or does not exists at all'.format(name)]
-    else:
+    if isinstance(table.get(name), basestring) and validate_string(table[name]):
         return []
+    else:
+        return [u'"{0}" refers not to string or does not exists at all'.format(name)]
 
 def validate_datetime_dict(value):
     """return true if value is dictionary with datetime
@@ -61,7 +58,7 @@ def validate_datetime_dict(value):
         datetime.datetime(*[value[a] for a in yearmonthdayhour])
     except:
         pass
-    finally:
+    else:
         good = True
     return good
 
@@ -80,12 +77,12 @@ def check_datetime_or_null(table, name):
     - `table`:
     - `name`:
     """
-    if name not in table or (not table[name] == None):
+    if table.get(name) == None:
         return []
-    elif not isinstance(table[name], dict) or (not validate_datetime_dict(table[name])):
-        return [u'"{0}" key refers to not valid datetime representaion or not datetime at all'.format(name)]
+    elif isinstance(table[name], dict) and validate_datetime_dict(table[name]):
+        return []
     else:
-        return []
+        return [u'"{0}" key refers to not valid datetime representaion or not datetime at all'.format(name)]
 
 def check_bool(table, name):
     """check if value is bool

@@ -4,10 +4,13 @@ when you run "manage.py test".
 
 Replace this with more appropriate tests for your application.
 """
-
+import datetime
 from django.test import TestCase
-from services import models
 from django.db import IntegrityError, transaction
+from services import models
+from services.common import dict2datetime, check_safe_string_or_null, check_safe_string, \
+    validate_datetime_dict, check_datetime_or_null, check_bool, check_string, check_string_choise, check_string_or_null
+
 
 class SimpleTest(TestCase):
 
@@ -39,4 +42,106 @@ class SimpleTest(TestCase):
         s=transaction.savepoint()
         self.assertRaises(IntegrityError, a.save)
         transaction.savepoint_rollback(s)
+
+    def test_dict2datetime(self, ):
+        """
+        """
+        a = datetime.datetime(2010, 3, 2, 20, 58, 44)
+        d = {'year' : a.year,
+             'month' : a.month,
+             'day' : a.day,
+             'hour' : a.hour,
+             'minute' : a.minute,
+             'second' : a.second}
+        aa = dict2datetime(d)
+        self.assertEqual(a, aa)
+
+    def test_check_safe_string_or_null(self, ):
+        """
+        """
+        self.assertEqual([], check_safe_string_or_null({}, 'a'))
+        self.assertEqual([], check_safe_string_or_null({'a' : None}, 'a'))
+        self.assertEqual([], check_safe_string_or_null({'a' : 'aasdifja'}, 'a'))
+        self.assertEqual(1, len(check_safe_string_or_null({'a' : 34}, 'a')))
+        self.assertEqual(1, len(check_safe_string_or_null({'a' : 'jsdif<script>asd'}, 'a')))
+
+    def test_check_safe_string(self, ):
+        """
+        """
+        self.assertEqual(1, len(check_safe_string({}, 'a')))
+        self.assertEqual(1, len(check_safe_string({'a' : None}, 'a')))
+        self.assertEqual([], check_safe_string({'a' : 'aasdifja'}, 'a'))
+        self.assertEqual(1, len(check_safe_string({'a' : 34}, 'a')))
+        self.assertEqual(1, len(check_safe_string({'a' : 'jsdif<script>asd'}, 'a')))
+
+    def test_validate_datetime_dict(self, ):
+        """
+        """
+        self.assertEqual(True, validate_datetime_dict({'year' : 2011,
+                                                       'month' : 9,
+                                                       'day' : 20,
+                                                       'hour' : 20,
+                                                       'minute' : 20,
+                                                       'second' : 33}))
+        self.assertEqual(False, validate_datetime_dict({'year' : 2011,
+                                                        'month' : 9,
+                                                        'day' : 20,
+                                                        'hour' : 34,
+                                                        'minute' : 20,
+                                                        'second' : 33}))
+        self.assertEqual(False, validate_datetime_dict({'month' : 9,
+                                                        'day' : 20,
+                                                        'hour' : 20,
+                                                        'minute' : 20,
+                                                        'second' : 33}))
+
+    def test_check_datetime_or_null(self, ):
+        """
+        """
+        self.assertEqual([], check_datetime_or_null({'a' : {'year' : 2011,
+                                                            'month' : 9,
+                                                            'day' : 20,
+                                                            'hour' : 20,
+                                                            'minute' : 20,
+                                                            'second' : 33}}, 'a'))
+        self.assertEqual([], check_datetime_or_null({'a' : None}, 'a'))
+        self.assertEqual([], check_datetime_or_null({}, 'a'))
+        self.assertEqual(1, len(check_datetime_or_null({'a' : {'year' : 2011,
+                                                               'month' : 9,
+                                                               'day' : 40,
+                                                               'hour' : 20,
+                                                               'minute' : 20,
+                                                               'second' : 33}}, 'a')))
+        self.assertEqual(1, len(check_datetime_or_null({'a' : 'asdfasdf'}, 'a')))
+
+    def test_check_bool(self, ):
+        """
+        """
+        self.assertEqual([], check_bool({'a': True}, 'a'))
+        self.assertEqual(1, len(check_bool({'a' : 'True'}, 'a')))
+        self.assertEqual(1, len(check_bool({}, 'a')))
+
+    def test_check_string_or_null(self, ):
+        """
+        """
+        self.assertEqual([], check_string_or_null({'a' : ' iasdf a'}, 'a'))
+        self.assertEqual([], check_string_or_null({'a' : None}, 'a'))
+        self.assertEqual([], check_string_or_null({}, 'a'))
+        self.assertEqual(1, len(check_string_or_null({'a' : 23}, 'a')))
+
+    def test_check_string(self, ):
+        """
+        """
+        self.assertEqual([], check_string({'a' : 'asdfasd'}, 'a'))
+        self.assertEqual(1, len(check_string({'a' : None}, 'a')))
+        self.assertEqual(1, len(check_string({}, 'a')))
+        self.assertEqual(1, len(check_string({'a' : 23}, 'a')))
+
+    def test_check_string_choise(self, ):
+        """
+        """
+        self.assertEqual([], check_string_choise({'a' : 'a'}, 'a', ['er', 'sdj', 'a', 'efef']))
+        self.assertEqual(1, len(check_string_choise({'a' : 23}, 'a', ['a', '23', 23, 'iadf'])))
+        self.assertEqual(1, len(check_string_choise({}, 'a', ['234', 'sdf'])))
+        self.assertEqual(1, len(check_string_choise({'a' : 'a'}, 'a', [])))
         

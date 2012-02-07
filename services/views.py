@@ -30,6 +30,7 @@ def create_project_route(request):
     - `token` : string, access key for "magic link"
     Return status 201(created) if project is created
     Return status 412(precondition failed) if parameters are wrong, body will contain details
+    Return status 404 if method was not POST
     Otherwise return 500
     """
     if request.method == 'POST':
