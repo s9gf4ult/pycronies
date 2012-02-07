@@ -22,7 +22,7 @@ class mytest(TestCase):
         """
         c = httplib.HTTPConnection(host, port)
         enc, dec = getencdec()
-        p1 = enc.encode({'name' : u'Убер йоба проект',
+        p1 = enc.encode({'name' : u'Новый проект',
                          'description' : 'blah blah, something here',
                          'begin_date' : {'year' : 2012,
                                          'month' : 3,

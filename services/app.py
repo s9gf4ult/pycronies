@@ -3,8 +3,11 @@
 
 from services.common import check_safe_string, check_safe_string_or_null, \
     check_datetime_or_null, check_bool, check_string, check_string_choise, check_string_or_null, dict2datetime
-from services.models import Project, Participant, hex4
+from services.models import Project, Participant, hex4, ParticipantVote, \
+    DefaultProjectParameter, DefaultProjectParameterVl, ProjectParameter, ProjectParameterVl, ProjectParameterVal
 from django.db import transaction
+from django.db.models import Q
+from datetime import datetime
 
 def precheck_create_project(parameters):
     """check given parameters if they are correct
@@ -72,6 +75,27 @@ def execute_create_project(parameters):
         pr.descr = parameters['user_description']
     pr.status = u'accepted'
     pr.save()
+
+    pv = ParticipantVote(participant=pr, voter=pr, vote='include', status='accepted')
+    pv.save()
+
+    for param in DefaultProjectParameter.objects.filter((Q(ruleset=p.ruleset) | Q(ruleset=None)) & (Q(status=p.status) | Q(status=None))).all():
+        projpar = ProjectParameter(project=p, default_parameter=param,
+                                   name=param.name, descr=param.descr,
+                                   tp=param.tp, enum=param.enum)
+        projpar.save()
+        if param.enum:          # перечисляемое значение, добавляем из таблицы значений по умолчанию
+            for enums in DefaultProjectParameterVl.objects.filter(parameter=param).all():
+                penum = ProjectParameterVl(parameter=projpar, value=enums.value, caption=enums.caption)
+                penum.save()
+        else:                   # значение одиночное, создаем запись со значением
+            pval = ProjectParameterVal(parameter=projpar,
+                                       value=param.default_value,
+                                       dt=datetime.now(),
+                                       status='accepted')
+            pval.save()
+            
+    
     return {'project_uuid' : p.uuid,
             'psid' : pr.psid,
             'token' : pr.token}

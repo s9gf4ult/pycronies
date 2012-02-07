@@ -1,7 +1,7 @@
 # Django settings for pycronies project.
 
 DEBUG = True
-DEBUG_PROPAGATE_EXCEPTIONS=True
+DEBUG_PROPAGATE_EXCEPTIONS=DEBUG
 TEMPLATE_DEBUG = DEBUG
 
 ADMINS = (

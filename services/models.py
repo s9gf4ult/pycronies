@@ -13,7 +13,7 @@ class SafeTextField(models.TextField):
         Arguments:
         - `value`:
         """
-        if re.search('[<>]', value):
+        if isinstance(value, basestring) and re.search('[<>]', value):
             raise models.validators.ValidationError('Text field must not contain < or > symbols')
         return super(SafeTextField, self).get_prep_value(value)
 
@@ -23,7 +23,7 @@ class SafeCharField(models.SlugField):
         Arguments:
         - `value`:
         """
-        if re.search('[<>]', value):
+        if isinstance(value, basestring) and re.search('[<>]', value):
             raise models.validators.ValidationError('Text field must not contain < or > symbols')
         return super(SafeCharField, self).get_prep_value(value)
 
@@ -67,7 +67,7 @@ class Activity(BaseModel):
                      (u'accepted', u'Мероприятие используется в проекте'))
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
     name = SafeTextField(default=None, null=False)
-    descr = SafeTextField()
+    descr = SafeTextField(default=u'')
     begin_date = models.DateTimeField(null=True)
     end_date = models.DateTimeField(null=True)
     status = models.CharField(max_length=40, default=u'voted', choices=ACTIVITY_STATUS)
@@ -98,7 +98,7 @@ class MeasureUnits(BaseModel):
     """Еденицы измерения количества ресурса
     """
     name = SafeCharField(max_length=50)
-    descr = SafeTextField()
+    descr = SafeTextField(default=u'')
 
 class Resource(BaseModel):
     """Доступный ресурс проекта
@@ -189,7 +189,7 @@ class ParticipantResource(BaseModel):
 #     class Meta:
 #         unique_together = (("project", "activity", "participant", "resource"), )
 
-class DefaultParameter(BaseModel):
+class DefaultParameter(BaseModel): #  FIXME: параметр чего ? переделать
     """Предлагаемый параметр
     """
     name = SafeCharField(max_length=100, default=None)
@@ -198,17 +198,37 @@ class DefaultParameter(BaseModel):
     enum = models.BooleanField(default = False)
     default_value = models.CharField(max_length=40, default=None)
 
-class DefaultParameterVl(BaseModel):
+class DefaultParameterVl(BaseModel): #  FIXME: таблица выше
     """Перечисляемое значение предлагаемого параметра
     """
     parameter = models.ForeignKey(DefaultParameter)
     value = models.CharField(max_length=40, default=None, null=False)
     caption = models.TextField()
 
+class DefaultProjectParameter(BaseModel):
+    """Предлагаемый параметр
+    """
+    ruleset = models.CharField(max_length=40, null=True, choices=Project.PROJECT_RULESET)
+    status = models.CharField(max_length=40, null=True, choices=Project.PROJECT_STATUS)
+    name = SafeCharField(max_length=100, default=None)
+    descr = SafeTextField(default=u'')
+    tp = models.CharField(max_length=40)
+    enum = models.BooleanField(default = False)
+    default_value = models.CharField(max_length=40, null=True, default=None)
+    class Meta:
+        unique_together=(('ruleset', 'name'), )
+
+class DefaultProjectParameterVl(BaseModel):
+    """Перечисляемое значение предлагаемого параметра
+    """
+    parameter = models.ForeignKey(DefaultProjectParameter)
+    value = models.CharField(max_length=40, default=None, null=False)
+    caption = models.TextField()
+
+
 class BaseParameter(BaseModel):
     """Базовый класс для параметров
     """
-    default_parameter = models.ForeignKey(DefaultParameter, null=True)
     name = SafeCharField(max_length=100, default=None, null=False)
     descr = SafeTextField(default=u'')
     tp = models.CharField(max_length=40)
@@ -232,13 +252,14 @@ class BaseParameterVal(BaseModel):
                             (u'denied', u'Значение запрещено'))
     value = models.TextField()
     caption = SafeTextField(null=True)
-    datatime = models.DateTimeField(null=True)
+    dt = models.DateTimeField(null=True)
     status = models.CharField(max_length=40, choices=PARAMETER_VALUE_STATUS, default=u'voted')
     class Meta:
         abstract = True
 
 class ProjectParameter(BaseParameter):
     project = models.ForeignKey(Project)
+    default_parameter = models.ForeignKey(DefaultProjectParameter, null=True)
 class ProjectParameterVl(BaseParameterVl):
     parameter = models.ForeignKey(ProjectParameter)
 class ProjectParameterVal(BaseParameterVal):
@@ -246,6 +267,7 @@ class ProjectParameterVal(BaseParameterVal):
 
 class ActivityParameter(BaseParameter):
     activity = models.ForeignKey(Activity)
+    default_parameter = models.ForeignKey(DefaultParameter, null=True)
 class ActivityParameterVl(BaseParameterVl):
     parameter = models.ForeignKey(ActivityParameter)
 class ActivityParameterVal(BaseParameterVal):
@@ -253,6 +275,7 @@ class ActivityParameterVal(BaseParameterVal):
 
 class ResourceParameter(BaseParameter):
     resource = models.ForeignKey(Resource)
+    default_parameter = models.ForeignKey(DefaultParameter, null=True)
 class ResourceParameterVl(BaseParameterVl):
     parameter = models.ForeignKey(ResourceParameter)
 class ResourceParameterVal(BaseParameterVal):
@@ -260,6 +283,7 @@ class ResourceParameterVal(BaseParameterVal):
 
 class ParticipantParameter(BaseParameter):
     participant = models.ForeignKey(Participant)
+    default_parameter = models.ForeignKey(DefaultParameter, null=True)
 class ParticipantParameterVl(BaseParameterVl):
     parameter = models.ForeignKey(ParticipantParameter)
 class ParticipantParameterVal(BaseParameterVal):
