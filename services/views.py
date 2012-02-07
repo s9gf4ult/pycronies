@@ -47,3 +47,39 @@ def create_project_route(request):
         return r
     else:
         raise http.Http404
+
+
+def list_projects_route(request):
+    """Return list of projects which parameters suit to query
+    query is json formated table with keys:
+    - `page_number`: number of page to get, if null return first page
+    - `projects_per_page`: number of projects per one page, if null return all projects
+    - `status`: status of projects to return, if null return projects of any status
+    - `begin_date`: the earliest date for project to return
+    - `search`: string to search projects by name or description
+    Return list, table values are:
+    - `uuid`: string with uuid of project
+    - `name`: name of project
+    - `descr`: description of project
+    - `begin_date`: datetime table, begin date of project
+    return code 200 if everithin is ok
+    return code 412 if wring parameter got
+    return code 404 if GET method tried
+    """
+    if request.method == 'POST':
+        enc,dec = getencdec()
+        rc = request.read()
+        try:
+            pars = dec.decode(rc)
+        except:
+            pars={}
+        errs = precheck_list_projects(pars)
+        if len(errs) > 0:
+            rt = http.HttpResponse(enc.encode(errs))
+            rt.status_code = httplib.PRECONDITION_FAILED
+            return rt
+        result = execute_list_projects(pars)
+        r = http.HttpResponse(enc.encode(result))
+        r.status_code=httplib.OK
+        return r
+    raise http.Http404

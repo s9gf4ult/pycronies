@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 
 from services.common import check_safe_string, check_safe_string_or_null, \
-    check_datetime_or_null, check_bool, check_string, check_string_choise, check_string_or_null, dict2datetime
+    check_datetime_or_null, check_bool, check_string, check_string_choise, \
+    check_string_or_null, dict2datetime, check_int_or_null
 from services.models import Project, Participant, hex4, ParticipantVote, \
     DefaultProjectParameter, DefaultProjectParameterVl, ProjectParameter, ProjectParameterVl, ProjectParameterVal
 from django.db import transaction
@@ -99,3 +100,53 @@ def execute_create_project(parameters):
     return {'project_uuid' : p.uuid,
             'psid' : pr.psid,
             'token' : pr.token}
+
+def precheck_list_projects(props):
+    """check properties and return list of errors
+    Arguments:
+    - `props`:
+    """
+    ret = []
+    ret += check_int_or_null(props, 'page_number')
+    ret += check_int_or_null(props, 'projects_per_page')
+    ret += check_string_choise_or_null(props, 'status', [a[0] for a in Project.PROJECT_STATUS])
+    ret += check_datetime_or_null(props, 'begin_date')
+    ret += check_safe_string_or_null(props, 'search')
+
+def execute_list_projects(props):
+    """select projects and return data
+    return list of hash tables to serialize
+    Arguments:
+    - `props`:
+    """
+    def none_and(fst, snd):
+        if fst==None:
+            return None
+        else:
+            return (fst & snd)
+        
+    qry = None
+    if props.get('status') != None:
+        qry = none_and(qry, Q(status=props['status']))
+    if props.get('begin_date') != None:
+        qry = none_and(qry, Q(begin_date=props['begin_date']))
+    if props.get('search') != None:
+        qry = none_and(qry, (Q(name__contains=props['search']) | Q(descr__contains=props['search'])))
+
+    qr = None
+    if qry == None:
+        qr = Project.objects
+    else:
+        qr = Project.objects.filter(qry)
+
+    if props.get('projects_per_page') != None:
+        pn = props.get('page_number') if props.get('page_number') != None else 0
+        ppp = props['projects_per_page']
+        ret = qr[ppp*pn:ppp*(pn+1)]
+    else:
+        ret = qr
+
+    return [{'uuid' : a.uuid,
+             'name' : a.name,
+             'descr' : a.descr,
+             'begin_date' : a.begin_date} for a in ret.all()]

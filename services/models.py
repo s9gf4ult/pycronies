@@ -59,6 +59,8 @@ class Project(BaseModel):
     begin_date = models.DateTimeField(null=True)
     end_date = models.DateTimeField(null=True)
     status = models.CharField(max_length=40, null=False, choices=PROJECT_STATUS)
+    class Meta:
+        ordering = ['-begin_date']
 
 class Activity(BaseModel):
     """Мероприятие

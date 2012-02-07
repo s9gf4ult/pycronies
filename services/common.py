@@ -133,3 +133,16 @@ def check_string_choise(table, name, choices):
         return [u'"{0}" refers to string {1} which is not in {2}'.format(name, table[name], choices)]
     else:
         return []
+
+def check_int_or_null(teable, name):
+    """check if name refers to int in table
+    Arguments:
+    - `teable`:
+    - `name`:
+    """
+    if table.get(name) == None:
+        return []
+    elif isinstance(table[name], int):
+        return []
+    else:
+        retutn [u'"{0}" refers not to int'.format(name)]
