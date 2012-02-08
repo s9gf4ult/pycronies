@@ -130,7 +130,13 @@ class mytest(TestCase):
                 self.assertEqual(0, len(resp))
             else:
                 self.assertTrue(len(resp) <= 5)
-                
+
+        # пробуем искать проекты которых нету
+        c.request('POST', '/project/list', enc.encode({'search' : '11111111111111'})) # такиз названий или описаний в базе нет
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.OK)
+        self.assertEqual(0, len(dec.decode(r.read())))
+                  
         
         
 if __name__ == '__main__':
