@@ -13,10 +13,13 @@ def getencdec():
     """
     return (json.JSONEncoder(), json.JSONDecoder())
 
+from services.common import dict2datetime
+import datetime
+
 class mytest(TestCase):
     """
     """
-    
+
     def test_create_project(self, ):
         """
         """
@@ -72,7 +75,7 @@ class mytest(TestCase):
 
         c.request('GET', '/project/create', p3)
         r4 = c.getresponse()
-        self.assertEqual(r4.status, httplib.NOT_FOUND)
+        self.assertEqual(r4.status, httplib.NOT_IMPLEMENTED)
 
     def test_list_projects(self, ):
         """check list projects
@@ -106,6 +109,8 @@ class mytest(TestCase):
         self.assertEqual(r.status, httplib.OK)
         resp = dec.decode(r.read())
         self.assertTrue(len(resp) >= 50)
+        for pr in resp:
+            self.assertTrue(('test project' in pr['name']) or ('test project' in pr['descr']))
 
         # запрашиваем проекты по дате
         c.request('POST', '/project/list', enc.encode({'begin_date' : {'year' : 2012,
@@ -118,6 +123,8 @@ class mytest(TestCase):
         self.assertEqual(r.status, httplib.OK)
         resp = dec.decode(r.read())
         self.assertTrue(len(resp) >= 20)
+        for pr in resp:
+            self.assertTrue(dict2datetime(pr['begin_date']) >= datetime.datetime(2012, 3, 13, 12, 12, 30))
 
         # пробуем пролистать страницами по 5 проектов на страницу
         for pn in range(0, 12): # должно быть 10 страниц +1 если другие тесты выполнились раньше
@@ -136,8 +143,8 @@ class mytest(TestCase):
         r = c.getresponse()
         self.assertEqual(r.status, httplib.OK)
         self.assertEqual(0, len(dec.decode(r.read())))
-                  
-        
-        
+
+
+
 if __name__ == '__main__':
     main()

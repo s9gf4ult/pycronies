@@ -1,10 +1,18 @@
 #! /bin/env python
 # -*- coding: utf-8 -*-
 
+import django.http as http
+import httplib
 import datetime
 import re
+import json
 
 yearmonthdayhour = ['year', 'month', 'day', 'hour', 'minute', 'second']
+
+def getencdec():
+    """return json encoder and decoder
+    """
+    return (json.JSONEncoder(), json.JSONDecoder())
 
 def dict2datetime(dct):
     """
@@ -172,3 +180,24 @@ def datetime2dict(value):
             'hour' : value.hour,
             'minute' : value.minute,
             'second' : value.second}
+
+def json_request_handler(function):
+    """wraps `function` with request parser
+    first argument of `function` must be request method
+    Arguments:
+    - `function`:
+    """
+    def ret(*args, **kargs):
+        req = args[0]
+        if req.method=='POST':
+            enc, dec = getencdec()
+            try:
+                resp = dec.decode(req.read())
+            except:
+                return http.HttpResponse(status=httplib.PRECONDITION_FAILED, content=enc.encode([u'Could not parse content']))
+            else:
+                return function(*tuple([resp] + list(args[1:])), **kargs)
+
+        else:
+            return http.HttpResponse(status = httplib.NOT_IMPLEMENTED, content=u'You must use POST method here')
+    return ret

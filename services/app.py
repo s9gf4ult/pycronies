@@ -121,7 +121,6 @@ def execute_list_projects(props):
     if qry == None:
         qr = Project.objects.all()
     else:
-        print(qry)
         qr = Project.objects.filter(qry).all()
 
     ret = None                                 # запрос с ограниченным количеством проектов

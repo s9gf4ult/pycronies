@@ -94,7 +94,9 @@ class Participant(BaseModel):
     last_login = models.DateTimeField(null=True)
 
     class Meta:
-        unique_together = (("project", "name"), )
+        unique_together = (("project", "name"),
+                           ("project", "user"))
+        
 
 class MeasureUnits(BaseModel):
     """Еденицы измерения количества ресурса
