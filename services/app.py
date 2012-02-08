@@ -3,7 +3,8 @@
 
 from services.common import check_safe_string, check_safe_string_or_null, \
     check_datetime_or_null, check_bool, check_string, check_string_choise, \
-    check_string_or_null, dict2datetime, check_int_or_null
+    check_string_or_null, dict2datetime, check_int_or_null, check_string_choise_or_null, \
+    datetime2dict
 from services.models import Project, Participant, hex4, ParticipantVote, \
     DefaultProjectParameter, DefaultProjectParameterVl, ProjectParameter, ProjectParameterVl, ProjectParameterVal
 from django.db import transaction
@@ -15,15 +16,6 @@ def precheck_create_project(parameters):
     Return list of errors found in parameters
     Arguments:
     - `parameters`:
-    Acceptable keys are:
-    - `name`: name of new project
-    - `description`: description of new project, may be null
-    - `begin_date`: hash table with fields `year`, `month`, `day`, `hour`, `minute`, `second`. May be null
-    - `sharing` : Boolean
-    - `ruleset` : string with ruleset name, may be 'despot'
-    - `user_name` : string, name of user
-    - `user_id` : external user id to bind participant with user
-    - `user_description`: string, description of user. May be null
     """
     ret = []
     ret += check_safe_string(parameters, 'name')
@@ -40,29 +32,20 @@ def execute_create_project(parameters):
     """create project and related objects based on parameters
     Arguments:
     - `parameters`: dict with parametes
-    Acceptable keys are:
-    - `name`: name of new project
-    - `description`: description of new project, may be null
-    - `begin_date`: hash table with fields `year`, `month`, `day`, `hour`, `minute`, `second`. May be null
-    - `sharing` : Boolean
-    - `ruleset` : string with ruleset name, may be 'despot'
-    - `user_name` : string, name of user
-    - `user_id` : external user id to bind participant with user
-    - `user_description`: string, description of user. May be null
-    Return data in response body in json format:
-    - `project_uuid` : string, universal identificator for project
-    - `psid` : string, access key for new participant
-    - `token` : string, access key for "magic link"
     """
     p = Project(name = parameters['name'])
     if 'description' in parameters:
         p.description = parameters['description']
     if 'begin_date' in parameters:
         p.begin_date = dict2datetime(parameters['begin_date'])
+    else:
+        p.begin_date=datetime.now()
     if 'sharing' in parameters:
         p.sharing = parameters['sharing']
     if 'ruleset' in parameters:
         p.ruleset = parameters['ruleset']
+    else:
+        p.ruleset='despot'
     p.status = 'opened'
     p.save()
     
@@ -112,6 +95,7 @@ def precheck_list_projects(props):
     ret += check_string_choise_or_null(props, 'status', [a[0] for a in Project.PROJECT_STATUS])
     ret += check_datetime_or_null(props, 'begin_date')
     ret += check_safe_string_or_null(props, 'search')
+    return ret
 
 def execute_list_projects(props):
     """select projects and return data
@@ -125,7 +109,7 @@ def execute_list_projects(props):
         else:
             return (fst & snd)
         
-    qry = None
+    qry = None                  # сформированное условие для отбора
     if props.get('status') != None:
         qry = none_and(qry, Q(status=props['status']))
     if props.get('begin_date') != None:
@@ -133,20 +117,23 @@ def execute_list_projects(props):
     if props.get('search') != None:
         qry = none_and(qry, (Q(name__contains=props['search']) | Q(descr__contains=props['search'])))
 
-    qr = None
+    qr = None                   # сформированный запрос для выборки
     if qry == None:
-        qr = Project.objects
+        qr = Project.objects.all()
     else:
-        qr = Project.objects.filter(qry)
+        qr = Project.objects.filter(qry).all()
 
-    if props.get('projects_per_page') != None:
-        pn = props.get('page_number') if props.get('page_number') != None else 0
-        ppp = props['projects_per_page']
+    ret = None                                 # запрос с ограниченным количеством проектов
+    if props.get('projects_per_page') != None: # указано количество пректов на страницу
+        pn = props.get('page_number') if int(props.get('page_number')) != None else 0 # номер страницы
+        ppp = int(props['projects_per_page']) # количество проектов на страницу
+        if qr.count() < pn*ppp:
+            return []           # количество проектов меньше чем начало куска который был запрошел
         ret = qr[ppp*pn:ppp*(pn+1)]
-    else:
+    else:                       # количество проектов на страницу не указано
         ret = qr
 
     return [{'uuid' : a.uuid,
              'name' : a.name,
              'descr' : a.descr,
-             'begin_date' : a.begin_date} for a in ret.all()]
+             'begin_date' : datetime2dict(a.begin_date)} for a in ret]

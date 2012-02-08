@@ -134,10 +134,10 @@ def check_string_choise(table, name, choices):
     else:
         return []
 
-def check_int_or_null(teable, name):
+def check_int_or_null(table, name):
     """check if name refers to int in table
     Arguments:
-    - `teable`:
+    - `table`:
     - `name`:
     """
     if table.get(name) == None:
@@ -145,4 +145,30 @@ def check_int_or_null(teable, name):
     elif isinstance(table[name], int):
         return []
     else:
-        retutn [u'"{0}" refers not to int'.format(name)]
+        return [u'"{0}" refers not to int'.format(name)]
+
+def check_string_choise_or_null(table, name, values):
+    """check if `name` references to string from `values`
+    Arguments:
+    - `table`:
+    - `name`:
+    - `values`:
+    """
+    if table.get(name) == None:
+        return []
+    elif isinstance(table[name], basestring) and (table[name] in values):
+        return []
+    else:
+        return [u'key "{0}" references to "{1}" value, which does not belong to {2}'.format(name, table[name], values)]
+
+def datetime2dict(value):
+    """convert datetime to dictionary
+    Arguments:
+    - `value`:
+    """
+    return {'year' : value.year,
+            'month' : value.month,
+            'day' : value.day,
+            'hour' : value.hour,
+            'minute' : value.minute,
+            'second' : value.second}

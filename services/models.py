@@ -52,9 +52,9 @@ class Project(BaseModel):
                      (u'vote', u'Проект управляется голосованием'),
                      (u'auto', u'Проект управляется автоматически'))
     PROJECT_STATUS=((u'opened', u'Проект открыт для изменения' ),)   # FIXME: Это не полный список статусов проекта
-    name = SafeCharField(max_length=100, default=None)
-    descr = SafeTextField(default=u'')
-    sharing = models.BooleanField()
+    name = SafeCharField(max_length=100, default=None, db_index=True)
+    descr = SafeTextField(default=u'', db_index=True)
+    sharing = models.BooleanField(default=True)
     ruleset = models.CharField(max_length=40, default='despot', null=False, choices=PROJECT_RULESET)
     begin_date = models.DateTimeField(null=True)
     end_date = models.DateTimeField(null=True)
@@ -83,7 +83,7 @@ class Participant(BaseModel):
     PARTICIPANT_STATUS= ((u'accepted', u'Участник проекта активен'),
                          (u'denied', u'Участник проекта запрещен'),
                          (u'voted', u'Участник пректа предложен для участия в проекте'))
-    project = models.ForeignKey(Project)
+    project = models.ForeignKey(Project, on_delete=models.CASCADE)
     is_initiator = models.BooleanField(default=False)
     user = models.CharField(max_length=40, null=True)   # FIXME: Это должна быть ссылка на пользюка, пока заглушка
     psid = models.CharField(max_length=40)
@@ -107,7 +107,7 @@ class Resource(BaseModel):
     """
     RESOURCE_USAGE = ((u'personal', u'Можно использовать как личный ресурс'),
                       (u'common', u'Можно использовать только как общий'))
-    project = models.ForeignKey(Project)
+    project = models.ForeignKey(Project, on_delete=models.CASCADE)
     product = models.CharField(max_length=100, null=True) # FIXME: Это должна быть ссылка на продукт !!!
     name = SafeCharField(max_length=100, null=False, default=None)
     descr = SafeTextField(default=u'')
@@ -134,7 +134,7 @@ class ActivityParticipant(BaseModel):
 class ActivityParticipantVote(BaseModel):
     ACTIVITY_PARTICIPANT_VOTE=((u'include', u'Предложение о принятии в мероприятие участника'),
                                (u'exclude', u'Предложение об исключении участника из мероприятия'))
-    voter = models.ForeignKey(Participant)
+    voter = models.ForeignKey(Participant, on_delete=models.CASCADE)
     activity_participnt = models.ForeignKey(ActivityParticipant)
     vote = models.CharField(max_length=40, choices=ACTIVITY_PARTICIPANT_VOTE, default=u'include')
 
@@ -144,8 +144,8 @@ class ActivityResource(BaseModel):
     ACTIVITY_RESOURCE_STATUS=((u'accepted', u'Ресурс доступен в мероприятии'),
                               (u'denied', u'Ресурс исключен из мероприятия'),
                               (u'voted', u'Ресурс предложен для использования в мероприятии'))
-    activity = models.ForeignKey(Activity)
-    resource = models.ForeignKey(Resource)
+    activity = models.ForeignKey(Activity, on_delete=models.CASCADE)
+    resource = models.ForeignKey(Resource, on_delete=models.CASCADE)
     required = models.BooleanField(default=False)
     amount = models.DecimalField(max_digits=20, decimal_places=2, null=False, default=None) # NOTE: так как за количество ресурса в мероприятии тоже будут голосовать, а таблица голосов содержит ForeignKey на параметр ресурса, то может количество тоже сделать параметром ресурса ??
     status = models.CharField(max_length=40, default=u'voted', choices=ACTIVITY_RESOURCE_STATUS)
@@ -162,16 +162,16 @@ class ActivityResourceVote(BaseModel):
                                      (u'accepted', u'Принято'),
                                      (u'denied', u'Отклонено'),
                                      (u'imposed', u'Вынесено на голосование'))
-    resource = models.ForeignKey(ActivityResource)
-    voter = models.ForeignKey(Participant)
+    resource = models.ForeignKey(ActivityResource, on_delete=models.CASCADE)
+    voter = models.ForeignKey(Participant, on_delete=models.CASCADE)
     vote = models.CharField(max_length=40, null=False, default=None, choices = ACTIVITY_RESOURCE_VOTE)
     status = models.CharField(max_length=40, null=False, default=u'voted', choices = ACTIVITY_RESOURCE_VOTE_STATUS)
 
 class ParticipantResource(BaseModel):
     """Личный ресурс участника мероприятия
     """
-    participant = models.ForeignKey(ActivityParticipant)
-    resource = models.ForeignKey(Resource)
+    participant = models.ForeignKey(ActivityParticipant, on_delete=models.CASCADE)
+    resource = models.ForeignKey(Resource, on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=20, decimal_places=2, null=False, default=None)
     class Meta:
         unique_together = (("participant", "resource"), )
@@ -203,7 +203,7 @@ class DefaultParameter(BaseModel): #  FIXME: параметр чего ? пер�
 class DefaultParameterVl(BaseModel): #  FIXME: таблица выше
     """Перечисляемое значение предлагаемого параметра
     """
-    parameter = models.ForeignKey(DefaultParameter)
+    parameter = models.ForeignKey(DefaultParameter, on_delete=models.CASCADE)
     value = models.CharField(max_length=40, default=None, null=False)
     caption = models.TextField()
 
@@ -223,7 +223,7 @@ class DefaultProjectParameter(BaseModel):
 class DefaultProjectParameterVl(BaseModel):
     """Перечисляемое значение предлагаемого параметра
     """
-    parameter = models.ForeignKey(DefaultProjectParameter)
+    parameter = models.ForeignKey(DefaultProjectParameter, on_delete=models.CASCADE)
     value = models.CharField(max_length=40, default=None, null=False)
     caption = models.TextField()
 
@@ -260,41 +260,41 @@ class BaseParameterVal(BaseModel):
         abstract = True
 
 class ProjectParameter(BaseParameter):
-    project = models.ForeignKey(Project)
-    default_parameter = models.ForeignKey(DefaultProjectParameter, null=True)
+    project = models.ForeignKey(Project, on_delete=models.CASCADE)
+    default_parameter = models.ForeignKey(DefaultProjectParameter, null=True, on_delete=models.CASCADE)
 class ProjectParameterVl(BaseParameterVl):
-    parameter = models.ForeignKey(ProjectParameter)
+    parameter = models.ForeignKey(ProjectParameter, on_delete=models.CASCADE)
 class ProjectParameterVal(BaseParameterVal):
-    parameter = models.ForeignKey(ProjectParameter)
+    parameter = models.ForeignKey(ProjectParameter, on_delete=models.CASCADE)
 
 class ActivityParameter(BaseParameter):
-    activity = models.ForeignKey(Activity)
-    default_parameter = models.ForeignKey(DefaultParameter, null=True)
+    activity = models.ForeignKey(Activity, on_delete=models.CASCADE)
+    default_parameter = models.ForeignKey(DefaultParameter, null=True, on_delete=models.CASCADE)
 class ActivityParameterVl(BaseParameterVl):
-    parameter = models.ForeignKey(ActivityParameter)
+    parameter = models.ForeignKey(ActivityParameter, on_delete=models.CASCADE)
 class ActivityParameterVal(BaseParameterVal):
-    parameter = models.ForeignKey(ActivityParameter)
+    parameter = models.ForeignKey(ActivityParameter, on_delete=models.CASCADE)
 
 class ResourceParameter(BaseParameter):
-    resource = models.ForeignKey(Resource)
-    default_parameter = models.ForeignKey(DefaultParameter, null=True)
+    resource = models.ForeignKey(Resource, on_delete=models.CASCADE)
+    default_parameter = models.ForeignKey(DefaultParameter, null=True, on_delete=models.CASCADE)
 class ResourceParameterVl(BaseParameterVl):
-    parameter = models.ForeignKey(ResourceParameter)
+    parameter = models.ForeignKey(ResourceParameter, on_delete=models.CASCADE)
 class ResourceParameterVal(BaseParameterVal):
-    parameter = models.ForeignKey(ResourceParameter)
+    parameter = models.ForeignKey(ResourceParameter, on_delete=models.CASCADE)
 
 class ParticipantParameter(BaseParameter):
-    participant = models.ForeignKey(Participant)
-    default_parameter = models.ForeignKey(DefaultParameter, null=True)
+    participant = models.ForeignKey(Participant, on_delete=models.CASCADE)
+    default_parameter = models.ForeignKey(DefaultParameter, null=True, on_delete=models.CASCADE)
 class ParticipantParameterVl(BaseParameterVl):
-    parameter = models.ForeignKey(ParticipantParameter)
+    parameter = models.ForeignKey(ParticipantParameter, on_delete=models.CASCADE)
 class ParticipantParameterVal(BaseParameterVal):
-    parameter = models.ForeignKey(ParticipantParameter)
+    parameter = models.ForeignKey(ParticipantParameter, on_delete=models.CASCADE)
 
 class ParticipantContact(BaseModel):
     """Контакт участника проекта
     """
-    participant = models.ForeignKey(Participant)
+    participant = models.ForeignKey(Participant, on_delete=models.CASCADE)
     tp = models.CharField(max_length = 40)
     contact = SafeTextField()
 
@@ -306,8 +306,8 @@ class ParticipantVote(BaseModel):
                              (u'denied', u'Предложение отклонено'))
     PARTICIPANT_VOTE=((u'include', u'Предложение о добавлении участника в проект'), # FIXME: возможно какие то еще предложения над участником ?
                       (u'exclude', u'Предложение об удалении участника из проекта'))
-    participant = models.ForeignKey(Participant)
-    voter = models.ForeignKey(Participant, related_name = 'acceptant_%(class)s_set')
+    participant = models.ForeignKey(Participant, on_delete=models.CASCADE)
+    voter = models.ForeignKey(Participant, related_name = 'acceptant_%(class)s_set', on_delete=models.CASCADE)
     vote = models.CharField(max_length=40)
     status = models.CharField(max_length=40, default=u'voted', choices=PARTICIPANT_VOTE_STATUS)
     class Meta:

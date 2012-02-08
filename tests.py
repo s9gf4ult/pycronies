@@ -73,6 +73,65 @@ class mytest(TestCase):
         c.request('GET', '/project/create', p3)
         r4 = c.getresponse()
         self.assertEqual(r4.status, httplib.NOT_FOUND)
+
+    def test_list_projects(self, ):
+        """check list projects
+        """
+        enc, dec = getencdec()
+        c = httplib.HTTPConnection(host, port)
+        for x in range(0, 50):
+            c.request('POST', '/project/create', enc.encode({'name' : u'test project {0}'.format(x),
+                                                            'description' : u'description blah blah',
+                                                            'begin_date' : {'year' : 2012,
+                                                                            'month' : 3,
+                                                                            'day' : 13,
+                                                                            'hour' : 12,
+                                                                            'minute' : 12,
+                                                                            'second' : x},
+                                                            'sharing' : True,
+                                                            'ruleset' : 'despot',
+                                                            'user_name' : u'Spiderman'}))
+            r = c.getresponse()
+            self.assertEqual(r.status, httplib.CREATED)
+        # пробуем посмотреть все проекты
+        c.request('POST', '/project/list', enc.encode({}))
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.OK)
+        resp = dec.decode(r.read())
+        self.assertTrue(len(resp) >= 50) # мы не знаем выполнился ли тест на создание проектов раньше
+
+        # пробуем посмотреть проекты по строке поиска
+        c.request('POST', '/project/list', enc.encode({'search' : 'test project'}))
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.OK)
+        resp = dec.decode(r.read())
+        self.assertTrue(len(resp) >= 50)
+
+        # запрашиваем проекты по дате
+        c.request('POST', '/project/list', enc.encode({'begin_date' : {'year' : 2012,
+                                                                       'month' : 3,
+                                                                       'day' : 13,
+                                                                       'hour' : 12,
+                                                                       'minute' : 12,
+                                                                       'second' : 30}})) # пропускаем первые 30 по дате
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.OK)
+        resp = dec.decode(r.read())
+        self.assertTrue(len(resp) >= 20)
+
+        # пробуем пролистать страницами по 5 проектов на страницу
+        for pn in range(0, 12): # должно быть 10 страниц +1 если другие тесты выполнились раньше
+            c.request('POST', '/project/list', enc.encode({'page_number' : pn,
+                                                           'projects_per_page' : 5}))
+            r = c.getresponse()
+            self.assertEqual(r.status, httplib.OK)
+            resp = dec.decode(r.read())
+            if pn == 11:        # последняя страница пустая
+                self.assertEqual(0, len(resp))
+            else:
+                self.assertTrue(len(resp) <= 5)
+                
+        
         
 if __name__ == '__main__':
     main()

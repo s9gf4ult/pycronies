@@ -9,7 +9,8 @@ from django.test import TestCase
 from django.db import IntegrityError, transaction
 from services import models
 from services.common import dict2datetime, check_safe_string_or_null, check_safe_string, \
-    validate_datetime_dict, check_datetime_or_null, check_bool, check_string, check_string_choise, check_string_or_null
+    validate_datetime_dict, check_datetime_or_null, check_bool, check_string, check_string_choise, \
+    check_string_or_null, check_int_or_null, check_string_choise_or_null, dict2datetime, datetime2dict
 
 
 class SimpleTest(TestCase):
@@ -145,3 +146,27 @@ class SimpleTest(TestCase):
         self.assertEqual(1, len(check_string_choise({}, 'a', ['234', 'sdf'])))
         self.assertEqual(1, len(check_string_choise({'a' : 'a'}, 'a', [])))
         
+    def test_check_int_or_null(self, ):
+        """
+        """
+        self.assertEqual([], check_int_or_null({'a' : 34}, 'a'))
+        self.assertEqual([], check_int_or_null({}, 'a'))
+        self.assertEqual([], check_int_or_null({'a' : None}, 'a'))
+        self.assertEqual(1, len(check_int_or_null({'a' : '3'}, 'a')))
+
+    def test_check_string_choise_or_null(self, ):
+        """
+        """
+        self.assertEqual([], check_string_choise_or_null({}, 'a', ['a', 'b']))
+        self.assertEqual([], check_string_choise_or_null({'a' : None}, 'a', ['a', 'b']))
+        self.assertEqual([], check_string_choise_or_null({'a' : 'a'}, 'a', ['a', 'b']))
+        self.assertEqual(1, len(check_string_choise_or_null({'a' : 2}, 'a', [2, '2', 'a'])))
+        self.assertEqual(1, len(check_string_choise_or_null({'a' : '2'}, 'a', [2, 'a'])))
+
+    def test_datetime2dict_and_back(self, ):
+        """
+        """
+        dd = datetime.datetime(2030, 8, 27, 4, 44, 20)
+        dct = datetime2dict(dd)
+        dd2 = dict2datetime(dct)
+        self.assertEqual(dd, dd2)

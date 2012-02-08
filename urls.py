@@ -6,7 +6,8 @@ from django.conf.urls.defaults import patterns, include, url
 
 urlpatterns = patterns('',
                        # url(r'^$', 'pycronies.views.home', name='home'),
-                       url(r'^project/create$', 'services.views.create_project_route')
+                       url(r'^project/create$', 'services.views.create_project_route'),
+                       url(r'^project/list$', 'services.views.list_projects_route'),
     # url(r'^pycronies/', include('pycronies.foo.urls')),
 
     # Uncomment the admin/doc line below to enable admin documentation:
