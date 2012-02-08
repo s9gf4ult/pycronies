@@ -139,12 +139,76 @@ class mytest(TestCase):
                 self.assertTrue(len(resp) <= 5)
 
         # пробуем искать проекты которых нету
-        c.request('POST', '/project/list', enc.encode({'search' : '11111111111111'})) # такиз названий или описаний в базе нет
+        c.request('POST', '/project/list', enc.encode({'search' : '11111111111111'})) # таких названий или описаний в базе нет
         r = c.getresponse()
         self.assertEqual(r.status, httplib.OK)
         self.assertEqual(0, len(dec.decode(r.read())))
 
+    def test_list_user_projects_route(self, ):
+        """
+        """
+        enc, dec = getencdec()
+        c = httplib.HTTPConnection(host, port)
+        c.request('POST', '/project/create', enc.encode({'name' : 'test',
+                                                         'sharing' : True,
+                                                         'ruleset' : 'despot',
+                                                         'user_name' : 'mega_user',
+                                                         'user_id' : 'test_id'}))
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.CREATED)
 
+        c.request('POST', '/project/list/userid', enc.encode('test_id'))
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.OK)
+        resp = dec.decode(r.read())
+        self.assertEqual(1, len(resp))
+        self.assertEqual(resp[0]['name'], 'test')
+        self.assertEqual(resp[0]['initiator'], True)
+        self.assertEqual(resp[0]['status'], 'opened')
+
+        c.request('POST', '/project/list/userid', enc.encode('11111111111')) # такого ид в базе нет
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.NOT_FOUND)
+        
+    def test_change_project_status(self, ):
+        """
+        """
+        enc, dec = getencdec()
+        c = httplib.HTTPConnection(host, port)
+        c.request('POST', '/project/create', enc.encode({'name' : 'something',
+                                                         'sharing' : True,
+                                                         'ruleset' : 'despot',
+                                                         'user_name' : 'user name'}))
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.CREATED)
+        psid = dec.decode(r.read())['psid']
+
+        c.request('POST', '/project/status/change', enc.encode({'psid' : psid, # все нормально
+                                                                'status' : 'planning'}))
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.OK)
+
+        c.request('POST', '/project/status/change', enc.encode({'psid' : psid,
+                                                                'status' : 'blah blah'})) # не верный статус
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.PRECONDITION_FAILED) # должны зафейлиться
+
+        c.request('POST', '/project/create', enc.encode({'name' : 'ajsdfasd',
+                                                         'sharing' : True,
+                                                         'ruleset' : 'vote', # создаем не управляемый проект
+                                                         'user_name' : 'someuser'}))
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.CREATED)
+        psid = dec.decode(r.read())['psid']
+
+        c.request('POST', '/project/status/change', enc.encode({'psid' : psid, # пробуем этот проект изменить
+                                                                'status' : 'planning'}))
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.PRECONDITION_FAILED)
+        c.request('POST', '/project/status/change', enc.encode({'psid' : 'aisjdf', # не верный psid
+                                                                'status' : 'planning'}))
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.NOT_FOUND)
 
 if __name__ == '__main__':
     main()

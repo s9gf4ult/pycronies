@@ -51,7 +51,12 @@ class Project(BaseModel):
     PROJECT_RULESET=((u'despot', u'Проект управляется инициатором'),
                      (u'vote', u'Проект управляется голосованием'),
                      (u'auto', u'Проект управляется автоматически'))
-    PROJECT_STATUS=((u'opened', u'Проект открыт для изменения' ),)   # FIXME: Это не полный список статусов проекта
+    PROJECT_STATUS=((u'opened', u'Проект открыт' ),
+                    (u'planning', u'Проект на стадии планирования'),
+                    (u'contractor', u'Выбор контрагента'),
+                    (u'budget', u'Формирование бюджета'),
+                    (u'control', u'Контроль'),
+                    (u'closed', u'Закрыт'))
     name = SafeCharField(max_length=100, default=None, db_index=True)
     descr = SafeTextField(default=u'', db_index=True)
     sharing = models.BooleanField(default=True)
@@ -86,8 +91,8 @@ class Participant(BaseModel):
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
     is_initiator = models.BooleanField(default=False)
     user = models.CharField(max_length=40, null=True)   # FIXME: Это должна быть ссылка на пользюка, пока заглушка
-    psid = models.CharField(max_length=40)
-    token = models.CharField(max_length=40, null=True)
+    psid = models.CharField(max_length=40, unique=True)
+    token = models.CharField(max_length=40, null=True, unique=True)
     name = SafeCharField(max_length=100, default=None, null=False)
     descr = SafeTextField(default=u'')
     status = models.CharField(max_length=40, choices=PARTICIPANT_STATUS, default=u'accepted') # FIXME: Заменить на статус с возможными значениями как для ресурсов мероприятия ?

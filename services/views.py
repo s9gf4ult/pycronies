@@ -4,8 +4,10 @@ from django.db import transaction
 import json
 import httplib
 from services.app import precheck_create_project, execute_create_project, \
-    precheck_list_projects, execute_list_projects
-from services.common import json_request_handler, getencdec
+    precheck_list_projects, execute_list_projects, execute_user_projects, \
+    execute_change_project_status
+from services.common import json_request_handler, getencdec, check_string, check_string_choise
+from services.models import Project
 
 @transaction.commit_on_success
 @json_request_handler
@@ -42,6 +44,7 @@ def create_project_route(prs):
     r.status_code = httplib.CREATED
     return r
 
+@transaction.commit_on_success
 @json_request_handler
 def list_projects_route(pars):
     """Return list of projects which parameters suit to query
@@ -71,6 +74,7 @@ def list_projects_route(pars):
     r.status_code=httplib.OK
     return r
 
+@transaction.commit_on_success
 @json_request_handler
 def list_user_projects_route(params):
     """return list of projects assigned to user
@@ -91,5 +95,30 @@ def list_user_projects_route(params):
     enc, dec = getencdec()
     if not isinstance(params, basestring):
         return http.HttpResponse(enc.encode([u'You must give just one string, not {0}'.format(params)]), status=httplib.PRECONDITION_FAILED)
+    ret, st = execute_user_projects(params)
+    return http.HttpResponse(enc.encode(ret), status=st)
+
+@transaction.commit_on_success
+@json_request_handler
+def change_project_status_route(params):
+    """
+    get hash table with keys:
+    - `psid`: string, access key
+    - `status`: status to change to, may be "opened", "planning", "contractor", "budget", "control", "closed"
+    return no data
+    Return status 200 if changed
+    Return status 404 if no projecs or users found
+    Return status 412(precondition failed) if given psid has no rights to change project or ruleset of project is not 'despot'
+    Return 501(not implemented) if GET method was used
+    Arguments:
+    - `params`:
+    """
+    enc, dec = getencdec()
+    errs = []
+    errs += check_string(params, 'psid')
+    errs += check_string_choise(params, 'status', [a[0] for a in Project.PROJECT_STATUS])
+    if len(errs) > 0:
+        return http.HttpResponse(enc.encode(errs), status=httplib.PRECONDITION_FAILED)
+    ret, st = execute_change_project_status(params)
+    return http.HttpResponse(enc.encode(ret), status=st)
     
-        

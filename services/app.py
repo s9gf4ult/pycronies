@@ -10,6 +10,7 @@ from services.models import Project, Participant, hex4, ParticipantVote, \
 from django.db import transaction
 from django.db.models import Q
 from datetime import datetime
+import httplib
 
 def precheck_create_project(parameters):
     """check given parameters if they are correct
@@ -137,3 +138,42 @@ def execute_list_projects(props):
              'name' : a.name,
              'descr' : a.descr,
              'begin_date' : datetime2dict(a.begin_date)} for a in ret]
+
+def execute_user_projects(user_id):
+    """return tuple of response and status 
+    response is json encodable answer, list of projects assigned to given user_id
+    Arguments:
+    - `user_id`:
+    Return:
+    (`response`, `answer`)
+    """
+    cnt = Participant.objects.filter(user=user_id).count()
+    if cnt==0:
+        return [u'There is no one user found'], httplib.NOT_FOUND
+    parts = Participant.objects.filter(user=user_id).all() # список участиков
+    ret = []
+    for part in parts:
+        pr = Project.objects.get(participant=part) # вязанный проект
+        ret.append({'uuid' : pr.uuid,
+                    'name' : pr.name,
+                    'descr' : pr.descr,
+                    'begin_date' : datetime2dict(pr.begin_date),
+                    'initiator' : part.is_initiator,
+                    'status' : pr.status})
+    return ret, httplib.OK
+
+def execute_change_project_status(params):
+    """
+    - `params`:
+    """
+    if Participant.objects.filter(psid=params['psid']).count() == 0:
+        return [u'There is no participants with that psid'], httplib.NOT_FOUND
+    part = Participant.objects.filter(psid=params['psid']).all()
+    if part[0].is_initiator == False:
+        return [u'this user is not initiator'], httplib.PRECONDITION_FAILED
+    prj = Project.objects.get(participant=part[0])
+    if prj.ruleset != 'despot':
+        return [u'project ruleset is not "despot"'], httplib.PRECONDITION_FAILED
+    prj.status = params['status']
+    prj.save()
+    return '', httplib.OK
