@@ -57,7 +57,7 @@ class Project(BaseModel):
                     (u'budget', u'Формирование бюджета'),
                     (u'control', u'Контроль'),
                     (u'closed', u'Закрыт'))
-    name = SafeCharField(max_length=100, default=None, db_index=True)
+    name = SafeCharField(max_length=100, default=None, db_index=True, verbose_name="nom nom nom")
     descr = SafeTextField(default=u'', db_index=True)
     sharing = models.BooleanField(default=True)
     ruleset = models.CharField(max_length=40, default='despot', null=False, choices=PROJECT_RULESET)
@@ -183,22 +183,7 @@ class ParticipantResource(BaseModel):
     class Meta:
         unique_together = (("participant", "resource"), )
 
-# class ActRes(BaseModel):
-#     """Ресурс мероприятия или личный участника мероприятия
-#     """
-#     project = models.ForeignKey(Project)
-#     activity = models.ForeignKey(Activity, on_delete = models.CASCADE)
-#     participant = models.ForeignKey(ActPart, null=True, on_delete = models.CASCADE)
-#     resource = models.ForeignKey(Resource)
-#     vote = models.CharField(max_length=40, null=True)   # NOTE:  можно null ?
-#     required = models.BooleanField(default=False)
-#     amount = models.DecimalField(max_digits=20, decimal_places = 2, null=False, default=None)
-#     accept = models.BooleanField()
-
-#     class Meta:
-#         unique_together = (("project", "activity", "participant", "resource"), )
-
-class DefaultParameter(BaseModel): #  FIXME: параметр чего ? переделать
+class DefaultParameter(BaseModel):
     """Предлагаемый параметр
     """
     name = SafeCharField(max_length=100, default=None)
@@ -206,33 +191,41 @@ class DefaultParameter(BaseModel): #  FIXME: параметр чего ? пер�
     tp = models.CharField(max_length=40)
     enum = models.BooleanField(default = False)
     default_value = models.CharField(max_length=40, default=None)
+    user_created = models.BooleanField(default=False)
 
-class DefaultParameterVl(BaseModel): #  FIXME: таблица выше
+class DefaultParameterVl(BaseModel):
     """Перечисляемое значение предлагаемого параметра
     """
     parameter = models.ForeignKey(DefaultParameter, on_delete=models.CASCADE)
     value = models.CharField(max_length=40, default=None, null=False)
     caption = models.TextField()
 
-class DefaultProjectParameter(BaseModel):
-    """Предлагаемый параметр
-    """
-    ruleset = models.CharField(max_length=40, null=True, choices=Project.PROJECT_RULESET)
-    status = models.CharField(max_length=40, null=True, choices=Project.PROJECT_STATUS)
-    name = SafeCharField(max_length=100, default=None)
-    descr = SafeTextField(default=u'')
-    tp = models.CharField(max_length=40)
-    enum = models.BooleanField(default = False)
-    default_value = models.CharField(max_length=40, null=True, default=None)
+class ProjectRulesetDefaults(BaseModel): # соответствия свойств проекта дефолтным параметрам
+    parameter = models.ForeignKey(DefaultParameter)
+    ruleset = models.CharField(max_length=40, null=True, choices=Project.PROJECT_RULESET) # Если null значит для проектов с любым ruleset
     class Meta:
-        unique_together=(('ruleset', 'name'), )
+        unique_together = (('parameter', 'ruleset'))
+                           
 
-class DefaultProjectParameterVl(BaseModel):
-    """Перечисляемое значение предлагаемого параметра
-    """
-    parameter = models.ForeignKey(DefaultProjectParameter, on_delete=models.CASCADE)
-    value = models.CharField(max_length=40, default=None, null=False)
-    caption = models.TextField()
+# class DefaultProjectParameter(BaseModel):
+#     """Предлагаемый параметр
+#     """
+#     ruleset = models.CharField(max_length=40, null=True, choices=Project.PROJECT_RULESET)
+#     status = models.CharField(max_length=40, null=True, choices=Project.PROJECT_STATUS)
+#     name = SafeCharField(max_length=100, default=None)
+#     descr = SafeTextField(default=u'')
+#     tp = models.CharField(max_length=40)
+#     enum = models.BooleanField(default = False)
+#     default_value = models.CharField(max_length=40, null=True, default=None)
+#     class Meta:
+#         unique_together=(('ruleset', 'name'), )
+
+# class DefaultProjectParameterVl(BaseModel):
+#     """Перечисляемое значение предлагаемого параметра
+#     """
+#     parameter = models.ForeignKey(DefaultProjectParameter, on_delete=models.CASCADE)
+#     value = models.CharField(max_length=40, default=None, null=False)
+#     caption = models.TextField()
 
 
 class BaseParameter(BaseModel):
@@ -268,7 +261,7 @@ class BaseParameterVal(BaseModel):
 
 class ProjectParameter(BaseParameter):
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
-    default_parameter = models.ForeignKey(DefaultProjectParameter, null=True, on_delete=models.CASCADE)
+    default_parameter = models.ForeignKey(DefaultParameter, null=True, on_delete=models.CASCADE)
 class ProjectParameterVl(BaseParameterVl):
     parameter = models.ForeignKey(ProjectParameter, on_delete=models.CASCADE)
 class ProjectParameterVal(BaseParameterVal):

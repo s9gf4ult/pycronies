@@ -6,7 +6,8 @@ from services.common import check_safe_string, check_safe_string_or_null, \
     check_string_or_null, dict2datetime, check_int_or_null, check_string_choise_or_null, \
     datetime2dict
 from services.models import Project, Participant, hex4, ParticipantVote, \
-    DefaultProjectParameter, DefaultProjectParameterVl, ProjectParameter, ProjectParameterVl, ProjectParameterVal
+    ProjectParameter, ProjectParameterVl, ProjectParameterVal, DefaultParameter, \
+    DefaultParameterVl, ProjectRulesetDefaults
 from django.db import transaction
 from django.db.models import Q
 from datetime import datetime
@@ -50,6 +51,7 @@ def execute_create_project(parameters):
     p.status = 'opened'
     p.save()
     
+    # создаем участника - владельца
     pr = Participant(project=p, name=parameters['user_name'])
     pr.psid=hex4()
     pr.token=hex4()
@@ -60,25 +62,36 @@ def execute_create_project(parameters):
         pr.descr = parameters['user_description']
     pr.status = u'accepted'
     pr.save()
-
+    
+    # создаем предложение на добавление участника
     pv = ParticipantVote(participant=pr, voter=pr, vote='include', status='accepted')
     pv.save()
 
-    for param in DefaultProjectParameter.objects.filter((Q(ruleset=p.ruleset) | Q(ruleset=None)) & (Q(status=p.status) | Q(status=None))).all():
-        projpar = ProjectParameter(project=p, default_parameter=param,
-                                   name=param.name, descr=param.descr,
-                                   tp=param.tp, enum=param.enum)
+    # заполняем дефолтные параметры проекта
+    for dpr in DefaultParameter.objects.filter(Q(projectrulesetdefaults__ruleset=p.ruleset) | Q(projectrulesetdefaults__ruleset=None)).all():
+        projpar = ProjectParameter(project=p, default_parameter=dpr,
+                                   name=dpr.name, descr=dpr.descr,
+                                   tp=dpr.tp, enum=dpr.enum)
         projpar.save()
-        if param.enum:          # перечисляемое значение, добавляем из таблицы значений по умолчанию
-            for enums in DefaultProjectParameterVl.objects.filter(parameter=param).all():
-                penum = ProjectParameterVl(parameter=projpar, value=enums.value, caption=enums.caption)
-                penum.save()
-        else:                   # значение одиночное, создаем запись со значением
-            pval = ProjectParameterVal(parameter=projpar,
-                                       value=param.default_value,
-                                       dt=datetime.now(),
-                                       status='accepted')
-            pval.save()
+        
+
+
+    
+    # for param in DefaultProjectParameter.objects.filter((Q(ruleset=p.ruleset) | Q(ruleset=None)) & (Q(status=p.status) | Q(status=None))).all():
+    #     projpar = ProjectParameter(project=p, default_parameter=param,
+    #                                name=param.name, descr=param.descr,
+    #                                tp=param.tp, enum=param.enum)
+    #     projpar.save()
+    #     if param.enum:          # перечисляемое значение, добавляем из таблицы значений по умолчанию
+    #         for enums in DefaultProjectParameterVl.objects.filter(parameter=param).all():
+    #             penum = ProjectParameterVl(parameter=projpar, value=enums.value, caption=enums.caption)
+    #             penum.save()
+    #     else:                   # значение одиночное, создаем запись со значением
+    #         pval = ProjectParameterVal(parameter=projpar,
+    #                                    value=param.default_value,
+    #                                    dt=datetime.now(),
+    #                                    status='accepted')
+    #         pval.save()
             
     
     return {'project_uuid' : p.uuid,
