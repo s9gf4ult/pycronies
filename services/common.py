@@ -201,3 +201,16 @@ def json_request_handler(function):
         else:
             return http.HttpResponse(status = httplib.NOT_IMPLEMENTED, content=u'You must use POST method here')
     return ret
+
+def check_list_or_null(table, name):
+    """
+    Arguments:
+    - `table`:
+    - `name`:
+    """
+    if table.get(name) == None:
+        return []
+    if isinstance(table[name], list):
+        return []
+    else:
+        return [u'key "{0}" references to {1} which is not list type'.format(name, table[name])]

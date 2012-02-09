@@ -4,7 +4,7 @@
 from services.common import check_safe_string, check_safe_string_or_null, \
     check_datetime_or_null, check_bool, check_string, check_string_choise, \
     check_string_or_null, dict2datetime, check_int_or_null, check_string_choise_or_null, \
-    datetime2dict
+    datetime2dict, check_list_or_null
 from services.models import Project, Participant, hex4, ParticipantVote, \
     ProjectParameter, ProjectParameterVl, ProjectParameterVal, DefaultParameter, \
     DefaultParameterVl, ProjectRulesetDefaults
@@ -73,26 +73,16 @@ def execute_create_project(parameters):
                                    name=dpr.name, descr=dpr.descr,
                                    tp=dpr.tp, enum=dpr.enum)
         projpar.save()
-        
-
-
-    
-    # for param in DefaultProjectParameter.objects.filter((Q(ruleset=p.ruleset) | Q(ruleset=None)) & (Q(status=p.status) | Q(status=None))).all():
-    #     projpar = ProjectParameter(project=p, default_parameter=param,
-    #                                name=param.name, descr=param.descr,
-    #                                tp=param.tp, enum=param.enum)
-    #     projpar.save()
-    #     if param.enum:          # перечисляемое значение, добавляем из таблицы значений по умолчанию
-    #         for enums in DefaultProjectParameterVl.objects.filter(parameter=param).all():
-    #             penum = ProjectParameterVl(parameter=projpar, value=enums.value, caption=enums.caption)
-    #             penum.save()
-    #     else:                   # значение одиночное, создаем запись со значением
-    #         pval = ProjectParameterVal(parameter=projpar,
-    #                                    value=param.default_value,
-    #                                    dt=datetime.now(),
-    #                                    status='accepted')
-    #         pval.save()
-            
+        if dpr.enum:
+            for enums in DefaultParameterVl.objects.filter(parameter=dpr).all():
+                penum = ProjectParameterVl(parameter=projpar, value=enums.value, caption=enums.caption)
+                penum.save()
+        else:
+            pval=ProjectParameterVal(parameter=projpar,
+                                     value=dpr.default_value,
+                                     dt=datetime.now(),
+                                     status='accepted')
+            pval.save()
     
     return {'project_uuid' : p.uuid,
             'psid' : pr.psid,
@@ -190,3 +180,81 @@ def execute_change_project_status(params):
     prj.status = params['status']
     prj.save()
     return '', httplib.OK
+
+def execute_list_default_parameters():
+    """return list of dicts with default parameters
+    """
+    ret=[]
+    for defpr in DefaultParameter.objects.all():
+        a = {'uuid' : defpr.uuid,
+             'name' : defpr.name,
+             'descr' : defpr.descr,
+             'tp' : defpr.tp,
+             'enum' : defpr.enum,
+             'default' : defpr.default_value}
+        if defpr.enum:
+            x = []
+            for enpr in DefaultParameterVl.objects.filter(parameter=defpr).all():
+                x.append({'value' : enpr.value,
+                          'caption' : enpr.caption})
+            a['values'] = x
+        ret.append(a)
+    return ret
+
+def precheck_create_project_parameter(params):
+    """
+    Arguments:
+    - `params`:
+    """
+    ret = []
+    ret += check_string(params, 'psid')
+    ret += check_safe_string(params, 'name')
+    ret += check_safe_string_or_null(params, 'descr')
+    ret += check_string(params, 'tp')
+    ret += check_bool(params, 'enum')
+    ret += check_safe_string_or_null(params, 'value')
+    ret += check_list_or_null(params, 'values')
+    return ret
+
+def execute_create_project_parameter(params):
+    """
+    Arguments:
+    - `params`:
+    """
+    if Participant.objects.filter(psid=params['psid']).count() == 0:
+        return [u'There is no participants with that psid'], httplib.NOT_FOUND
+    user = Participant.objects.filter(psid=params['psid']).all()[0]
+    if user.is_initiator==False:
+        return [u'participant is not initiator of project'], httplib.PRECONDITION_FAILED
+    proj = Project.objects.get(participant=user)
+    if proj.ruleset != 'despot':
+        return [u'ruleset of project must be "despot"'], httplib.PRECONDITION_FAILED
+
+    par = ProjectParameter(project=proj, name=params['name'],
+                           tp=params['tp'], enum=params['enum'])
+    if params.get('descr') != None:
+        par.descr = params['descr']
+    par.save()                  # создали параметр
+    if par.enum == False:       # одиночное значение параметра
+        if params.get('value') == None or (not isinstance(params['value'], basestring)):
+            return [u'if "enum" is false then "value" must be set and be string'], httplib.PRECONDITION_FAILED
+        parval = ProjectParameterVal(parameter=par, status='accepted',
+                                     dt=datetime.now(), value=params['value'])
+        parval.save()
+        return 'OK', httplib.CREATED
+    else:                       # множественное значение параметра
+        if params.get('values') == None or (not isinstance(params['values'], list)):
+            return [u'if "enum" is true then "values" must exists and be a list'], httplib.PRECONDITION_FAILED
+        for val in params['values']: # проходим по множеству объектов
+            if not isinstance(val, dict):
+                return [u'"values" must be list of dictionaries, "{0}" met in this list'.format(val)], httplib.PRECONDITION_FAILED
+            if 'value' not in val:
+                return [u'"values" must be list of dictionaries with keys "value" and "caption", there is one dictionary withour "value" key'], httplib.PRECONDITION_FAILED
+            enval = ProjectParameterVl(parameter=par, value=val['value'])
+            if val.get('caption') != None and (not isinstance(val['caption'], basestring)):
+                return [u'"values" must be list of dictionaries, each dictionary must contain field "caption" with string or do not at all, there is dictionaries with field "caption" not string'], httplib.PRECONDITION_FAILED
+            if val.get('caption') != None and isinstance(val['caption'], basestring):
+                enval.caption=val['caption']
+            enval.save()
+        return 'OK', httplib.CREATED
+    

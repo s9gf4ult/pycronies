@@ -210,5 +210,85 @@ class mytest(TestCase):
         r = c.getresponse()
         self.assertEqual(r.status, httplib.NOT_FOUND)
 
+    def test_create_project_parameter(self, ):
+        """
+        """
+        enc, dec = getencdec()
+        c = httplib.HTTPConnection(host, port)
+        c.request('POST', '/project/create', enc.encode({'name' : 'test project',
+                                                         'sharing' : False,
+                                                         'ruleset' : 'despot',
+                                                         'user_name' : 'name blah blah'}))
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.CREATED)
+        resp = dec.decode(r.read())
+        psid = resp['psid']
+
+        c.request('POST', '/project/parameter/create', enc.encode({'psid' : psid,
+                                                                   'name' : 'parameter test name',
+                                                                   'tp' : 'text',
+                                                                   'enum' : False,
+                                                                   'value' : 'blah blah'}))
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.CREATED)
+        
+        c.request('POST', '/project/parameter/create', enc.encode({'psid' : psid,
+                                                                   'name' : 'parameter test name',
+                                                                   'tp' : 'text',
+                                                                   'enum' : True,
+                                                                   'values' : [{'value' : 'you you you',
+                                                                                'caption' : 'blah blah'},
+                                                                               {'value' : 'fufuf'}]}))
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.CREATED)
+
+        c.request('POST', '/project/parameter/create', enc.encode({'psid' : psid,
+                                                                   'name' : 'parameter test name',
+                                                                   'tp' : 'text',
+                                                                   'enum' : True,
+                                                                   'value' : 'blah blah'}))
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.PRECONDITION_FAILED)
+
+        c.request('POST', '/project/parameter/create', enc.encode({'psid' : psid,
+                                                                   'name' : 'parameter test name',
+                                                                   'tp' : 'text',
+                                                                   'enum' : False}))
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.PRECONDITION_FAILED)
+
+        c.request('POST', '/project/parameter/create', enc.encode({'psid' : psid,
+                                                                   'name' : 'parameter test name',
+                                                                   'tp' : 'text',
+                                                                   'enum' : True,
+                                                                   'values' : [{'values' : 23}]}))
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.PRECONDITION_FAILED)
+
+        c.request('POST', '/project/parameter/create', enc.encode({'psid' : psid,
+                                                                   'name' : 'parameter test name',
+                                                                   'tp' : 'text',
+                                                                   'enum' : True,
+                                                                   'values' : [{'value' : 'avasd',
+                                                                                'caption' : 'asidf'},
+                                                                               {'value' : 'sijsji',
+                                                                                'caption' : 234}]}))
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.PRECONDITION_FAILED)
+
+        c.request('POST', '/project/parameter/create', enc.encode({'psid' : 'sdf',
+                                                                   'name' : 'parameter test name',
+                                                                   'tp' : 'text',
+                                                                   'enum' : True,
+                                                                   'values' : [{'value' : 'you you you',
+                                                                                'caption' : 'blah blah'},
+                                                                               {'value' : 'fufuf'}]}))
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.NOT_FOUND)
+
+    
+        
+
+
 if __name__ == '__main__':
     main()

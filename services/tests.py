@@ -10,7 +10,8 @@ from django.db import IntegrityError, transaction
 from services import models
 from services.common import dict2datetime, check_safe_string_or_null, check_safe_string, \
     validate_datetime_dict, check_datetime_or_null, check_bool, check_string, check_string_choise, \
-    check_string_or_null, check_int_or_null, check_string_choise_or_null, dict2datetime, datetime2dict
+    check_string_or_null, check_int_or_null, check_string_choise_or_null, dict2datetime, datetime2dict, \
+    check_list_or_null
 
 
 class SimpleTest(TestCase):
@@ -170,3 +171,10 @@ class SimpleTest(TestCase):
         dct = datetime2dict(dd)
         dd2 = dict2datetime(dct)
         self.assertEqual(dd, dd2)
+
+    def test_check_list_or_null(self, ):
+        """
+        """
+        self.assertEqual([], check_list_or_null({'a': [1, 3,4]}, 'a'))
+        self.assertEqual([], check_list_or_null({}, 'a'))
+        self.assertEqual(1, len(check_list_or_null({'a' : 'list'}, 'a')))

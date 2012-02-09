@@ -190,7 +190,7 @@ class DefaultParameter(BaseModel):
     descr = SafeTextField(default=u'')
     tp = models.CharField(max_length=40)
     enum = models.BooleanField(default = False)
-    default_value = models.CharField(max_length=40, default=None)
+    default_value = models.CharField(max_length=40, null=True, default=None)
     user_created = models.BooleanField(default=False)
 
 class DefaultParameterVl(BaseModel):
@@ -242,7 +242,7 @@ class BaseParameterVl(BaseModel):
     """Базовый класс перечисляемых значений параметра
     """
     value = models.CharField(max_length=40)
-    caption = models.TextField()
+    caption = models.TextField(null=True)
     class Meta:
         abstract = True
 

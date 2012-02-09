@@ -9,7 +9,9 @@ urlpatterns = patterns('',
                        url(r'^project/create$', 'services.views.create_project_route'),
                        url(r'^project/list$', 'services.views.list_projects_route'),
                        url(r'^project/list/userid$', 'services.views.list_user_projects_route'),
-                       url(r'^project/status/change', 'services.views.change_project_status_route'),
+                       url(r'^project/status/change$', 'services.views.change_project_status_route'),
+                       url(r'^project/parameter/create$', 'services.views.create_project_parameter_route'),
+                       url(r'^parameters/list$', 'services.views.list_default_parameters_route'),
     # url(r'^pycronies/', include('pycronies.foo.urls')),
 
     # Uncomment the admin/doc line below to enable admin documentation:

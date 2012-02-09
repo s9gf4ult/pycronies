@@ -5,7 +5,8 @@ import json
 import httplib
 from services.app import precheck_create_project, execute_create_project, \
     precheck_list_projects, execute_list_projects, execute_user_projects, \
-    execute_change_project_status
+    execute_change_project_status, execute_list_default_parameters, \
+    precheck_create_project_parameter, execute_create_project_parameter
 from services.common import json_request_handler, getencdec, check_string, check_string_choise
 from services.models import Project
 
@@ -120,5 +121,57 @@ def change_project_status_route(params):
     if len(errs) > 0:
         return http.HttpResponse(enc.encode(errs), status=httplib.PRECONDITION_FAILED)
     ret, st = execute_change_project_status(params)
+    if st != httplib.OK:
+        transaction.rollback()
     return http.HttpResponse(enc.encode(ret), status=st)
     
+@transaction.commit_on_success
+def list_default_parameters_route(request):
+    """return default parameters
+    request with any method and any body of request.
+    Return status 200 everywhere. Body is json coded list of tables with keys:
+    - `uuid`
+    - `name`
+    - `descr`
+    - `tp`
+    - `enum`: boolean 
+    - `default`: string with value or null
+    - `values': if enum is True, then list of tables with keys:
+                                 -- `value`: enum value
+                                 -- `caption`: caption
+                                 | Otherwise none.
+    """
+    
+    ret = execute_list_default_parameters()
+    enc = json.JSONEncoder()
+    return http.HttpResponse(enc.encode(ret))
+
+@transaction.commit_on_success
+@json_request_handler
+def create_project_parameter_route(params):
+    """Add project parameter by psid
+    get parameters in body of request as json coded dict with keys:
+    - `psid`
+    - `name`
+    - `descr`: string, may be null
+    - `tp`
+    - `enum`: boolean
+    - `value` : string, parameter value, may be null (if enum is true)
+    - `values` : list if dictionaries with keys :
+                                        -- `value`
+                                        -- `caption`
+                                      may be null if enum is false
+    Return parameter id as just one string
+    Return code is 201(created) if everything is ok
+    Return code is 404 if user not found
+    Return code is 412 if failed validtion of parameter, body will contain errors list
+    Return code is 501 if request method was not POST
+    """
+    enc, dec = getencdec()
+    errs = precheck_create_project_parameter(params)
+    if len(errs) > 0:
+        return http.HttpResponse(enc.encode(errs), status=httplib.PRECONDITION_FAILED)
+    ret, stat = execute_create_project_parameter(params)
+    if stat != httplib.CREATED:
+        transaction.rollback()
+    return http.HttpResponse(enc.encode(ret), status=stat)
