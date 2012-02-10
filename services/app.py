@@ -231,7 +231,9 @@ def precheck_create_project_parameter(params):
             if len(ret) > 0:
                 return ret
     else:
-        if not isinstance(params['value'], basestring)
+        if not isinstance(params['value'], basestring):
+            return [u'"value" key must exist if "enum" is false']
+        ret += check_safe_string_or_null(params, 'caption')
     
     return ret
 
