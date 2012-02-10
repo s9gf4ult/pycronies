@@ -258,3 +258,34 @@ def execute_create_project_parameter(params):
             enval.save()
         return 'OK', httplib.CREATED
     
+def execute_list_project_parameters(psid):
+    """
+    Arguments:
+    - `psid`: psid as string
+    """
+    if Participant.objects.filter(psid=psid).count() == 0:
+        return [u'There is no user with such psid'], httplib.NOT_FOUND
+    proj = Project.objects.filter(participant__psid=psid).all()[0]
+    ret = []
+    for param in ProjectParameter.objects.filter(project=proj).all():
+        p = {'uuid' : param.uuid,
+             'name' : param.name,
+             'descr' : param.descr,
+             'tp' : param.tp,
+             'enum' : param.tp}
+        if param.default_parameter == None:
+            p['tecnical'] = False
+        else:
+            p['tecnical'] = param.default_parameter.tecnical
+        if param.enum:          # параметр перечисляемый
+            vs = []
+            for v in ProjectParameterVl.objects.filter(parameter=param).all():
+                vs.append({'value': v.value,
+                           'caption' : v.caption})
+            p['values'] = vs
+        else:                   # параметр с одиночным значением
+            pv = ProjectParameterVal.objects.filter(parameter=param).all()[0]
+            p['value'] = pv.value
+            p['caption'] = pv.caption
+        ret.append(p)
+    return ret, httplib.OK

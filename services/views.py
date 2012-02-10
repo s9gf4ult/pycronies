@@ -6,7 +6,8 @@ import httplib
 from services.app import precheck_create_project, execute_create_project, \
     precheck_list_projects, execute_list_projects, execute_user_projects, \
     execute_change_project_status, execute_list_default_parameters, \
-    precheck_create_project_parameter, execute_create_project_parameter
+    precheck_create_project_parameter, execute_create_project_parameter, \
+    execute_list_project_parameters
 from services.common import json_request_handler, getencdec, check_string, check_string_choise
 from services.models import Project
 
@@ -175,3 +176,29 @@ def create_project_parameter_route(params):
     if stat != httplib.CREATED:
         transaction.rollback()
     return http.HttpResponse(enc.encode(ret), status=stat)
+
+@transaction.commit_on_success
+@json_request_handler
+def list_project_parameters_route(params):
+    """
+    Read json coded data as one string with psid
+    Return json coded list of dictionaries with keys:
+    - `uuid`: parameter uuid
+    - `name`: parameter name
+    - `descr`: parameter description
+    - `tp`: param type
+    - `enum`: Boolean, enumerated value
+    - `tecnical`: Boolean, True if parameter is tecnical
+    - `values`: enumerated values of parameters. List of dictionaries with keys:
+                                          - `value`:
+                                          - `caption`:
+    - `value`: signle value of parameter (if enum is false), string
+    - `caption`: value description
+    Return code 200 if everything is ok
+    Return code 404 if no users found with given psid
+    Arguments:
+    - `params`:
+    """
+    enc = json.JSONEncoder()
+    ret, st = execute_list_project_parameters(params)
+    return http.HttpResponse(enc.encode(ret), status=st)

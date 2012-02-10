@@ -191,7 +191,7 @@ class DefaultParameter(BaseModel):
     tp = models.CharField(max_length=40)
     enum = models.BooleanField(default = False)
     default_value = models.CharField(max_length=40, null=True, default=None)
-    user_created = models.BooleanField(default=False)
+    tecnical = models.BooleanField(default=False)
 
 class DefaultParameterVl(BaseModel):
     """Перечисляемое значение предлагаемого параметра
