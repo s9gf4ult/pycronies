@@ -142,7 +142,7 @@ class ActivityParticipantVote(BaseModel):
     ACTIVITY_PARTICIPANT_VOTE=((u'include', u'Предложение о принятии в мероприятие участника'),
                                (u'exclude', u'Предложение об исключении участника из мероприятия'))
     voter = models.ForeignKey(Participant, on_delete=models.CASCADE)
-    activity_participnt = models.ForeignKey(ActivityParticipant)
+    activity_particapnt = models.ForeignKey(ActivityParticipant)
     vote = models.CharField(max_length=40, choices=ACTIVITY_PARTICIPANT_VOTE, default=u'include')
 
 class ActivityResource(BaseModel):
@@ -239,7 +239,7 @@ class BaseParameter(BaseModel):
         abstract = True
 
 class BaseParameterVl(BaseModel):
-    """Базовый класс перечисляемых значений параметра
+    """Базовый класс возможных значений параметра
     """
     value = models.CharField(max_length=40)
     caption = models.TextField(null=True)
@@ -251,10 +251,11 @@ class BaseParameterVal(BaseModel):
     """
     PARAMETER_VALUE_STATUS=((u'voted', u'Значение предложено'),
                             (u'accepted', u'Значение принято'),
-                            (u'denied', u'Значение запрещено'))
-    value = models.TextField()
+                            (u'denied', u'Значение запрещено'),
+                            (u'changed', u'Значение было изменено'))
+    value = SafeTextField()
     caption = SafeTextField(null=True)
-    dt = models.DateTimeField(null=True)
+    dt = models.DateTimeField(null=True) # время начала действия значения
     status = models.CharField(max_length=40, choices=PARAMETER_VALUE_STATUS, default=u'voted')
     class Meta:
         abstract = True
@@ -266,6 +267,14 @@ class ProjectParameterVl(BaseParameterVl):
     parameter = models.ForeignKey(ProjectParameter, on_delete=models.CASCADE)
 class ProjectParameterVal(BaseParameterVal):
     parameter = models.ForeignKey(ProjectParameter, on_delete=models.CASCADE)
+
+class ProjectParameterVote(BaseModel):
+    PROJECT_PARAMETER_VOTE=(('change', u'Изменить значение параметра на указанное'),)
+    voter = models.ForeignKey(Participant)
+    parameter_val = models.ForeignKey(ProjectParameterVal)
+    vote = models.CharField(max_length=40, choices=PROJECT_PARAMETER_VOTE)
+    class Meta:
+        unique_together=(('voter', 'parameter_val'), )
 
 class ActivityParameter(BaseParameter):
     activity = models.ForeignKey(Activity, on_delete=models.CASCADE)

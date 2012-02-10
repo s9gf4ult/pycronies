@@ -8,7 +8,8 @@ from services.app import precheck_create_project, execute_create_project, \
     execute_change_project_status, execute_list_default_parameters, \
     precheck_create_project_parameter, execute_create_project_parameter, \
     execute_list_project_parameters
-from services.common import json_request_handler, getencdec, check_string, check_string_choise
+from services.common import json_request_handler, getencdec, check_string, check_string_choise, \
+    check_safe_string_or_null
 from services.models import Project
 
 @transaction.commit_on_success
@@ -117,6 +118,8 @@ def change_project_status_route(params):
     """
     enc, dec = getencdec()
     errs = []
+    if params == None or (not isinstance(params, dict)):
+        return http.HttpResponse(enc.encode([u'You must give json encoded dictionary']), httplib.PRECONDITION_FAILED)
     errs += check_string(params, 'psid')
     errs += check_string_choise(params, 'status', [a[0] for a in Project.PROJECT_STATUS])
     if len(errs) > 0:
@@ -152,15 +155,15 @@ def list_default_parameters_route(request):
 def create_project_parameter_route(params):
     """Add project parameter by psid
     get parameters in body of request as json coded dict with keys:
-    - `psid`
-    - `name`
+    - `psid`:
+    - `name`:
     - `descr`: string, may be null
-    - `tp`
+    - `tp`:
     - `enum`: boolean
     - `value` : string, parameter value, may be null (if enum is true)
     - `values` : list if dictionaries with keys :
-                                        -- `value`
-                                        -- `caption`
+                                        -- `value`:
+                                        -- `caption`:
                                       may be null if enum is false
     Return parameter id as just one string
     Return code is 201(created) if everything is ok
@@ -169,6 +172,8 @@ def create_project_parameter_route(params):
     Return code is 501 if request method was not POST
     """
     enc, dec = getencdec()
+    if params == None or (not isinstance(params, dict)):
+        return http.HttpResponse(enc.encode([u'You must give json encoded dictionary']), httplib.PRECONDITION_FAILED)
     errs = precheck_create_project_parameter(params)
     if len(errs) > 0:
         return http.HttpResponse(enc.encode(errs), status=httplib.PRECONDITION_FAILED)
@@ -176,6 +181,36 @@ def create_project_parameter_route(params):
     if stat != httplib.CREATED:
         transaction.rollback()
     return http.HttpResponse(enc.encode(ret), status=stat)
+
+@transaction.commit_on_success
+@json_request_handler
+def create_project_parameter_from_default_route(params):
+    """create project parameter from default parameter given in request
+    get json coded dictionary with keys:
+    - `psid`:
+    - `uuid`: default parameter uuid
+    Return parameter id as just one string
+    Return code is 201(created) if everything is ok
+    Return code is 404 if user not found
+    Return code is 412 if failed validtion of parameter, body will contain errors list
+    Return code is 501 if request method was not POST
+    Arguments:
+    - `params`:
+    """
+    enc, dec = getencdec()
+    if params == None or (not isinstance(params, dict)):
+        return http.HttpResponse(enc.encode([u'You must give dictionary']), httplib.PRECONDITION_FAILED)
+    errs = []
+    errs += check_string(params, 'psid')
+    errs += check_string(params, 'uuid')
+    if len(errs) > 0:
+        return http.HttpResponse(enc.encode(errs), httplib.PRECONDITION_FAILED)
+    ret, st = execute_create_project_parameter_from_default(params)
+    if st != httplib.CREATED:
+        transaction.rollback()
+    return http.HttpResponse(enc.encode(ret), status=st)
+    
+    
 
 @transaction.commit_on_success
 @json_request_handler
@@ -189,16 +224,80 @@ def list_project_parameters_route(params):
     - `tp`: param type
     - `enum`: Boolean, enumerated value
     - `tecnical`: Boolean, True if parameter is tecnical
-    - `values`: enumerated values of parameters. List of dictionaries with keys:
+    - `values`: posible values of parameter, null if enum is false.
+                List of dictionaries with keys:
                                           - `value`:
                                           - `caption`:
-    - `value`: signle value of parameter (if enum is false), string
-    - `caption`: value description
+    - `value`: value of parameter, null if there is no one accepted value
+    - `caption`: value description, null if `vote` is null
+    - `votes`: list of dictionaries with keys:
+                                          - `voter`: uuid of voter
+                                          - `value`: value voted by user
+                                          - `caption`: value description
+                                          - `dt`: datetime of vote
     Return code 200 if everything is ok
     Return code 404 if no users found with given psid
     Arguments:
     - `params`:
     """
     enc = json.JSONEncoder()
+    if params == None or (not isinstance(params, basestring)):
+        return http.HttpResponse(enc.encode([u'you must give just one string with psid at all']), status=httplib.PRECONDITION_FAILED)
     ret, st = execute_list_project_parameters(params)
+    return http.HttpResponse(enc.encode(ret), status=st)
+
+@transaction.commit_on_success
+@json_request_handler
+def change_project_parameter_route(params):
+    """
+    Get json coded dictionary with keys:
+    - `psid`:
+    - `uuid`: parameter uuid
+    - `value`: parameter value
+    - `caption`: value caption, may be null
+    Return status 200 if everything is ok
+    Return status 404 if user with this `psid` not found
+    Return status 412 when incorrect parameters, details with response body
+    Arguments:
+    - `params`:
+    """
+    enc = json.JSONEncoder()
+    if params == None or (not isinstance(params, dict)):
+        return http.HttpResponse(enc.encode([u'You must give json encoded dictionary']), status=httplib.PRECONDITION_FAILED)
+    errs = []
+    errs += check_string(params, 'psid')
+    errs += check_string(params, 'uuid')
+    errs += check_string(params, 'value')
+    errs += check_safe_string_or_null(params, 'caption')
+    if len(errs) > 0:
+        return http.HttpResponse(enc.encode(errs), status=httplib.PRECONDITION_FAILED)
+    ret, st = execute_change_project_parameter(params)
+    if st != httplib.OK:
+        transaction.rollback()
+    return http.HttpResponse(enc.encode(ret), status=st)
+
+@transaction.commit_on_success
+@json_request_handler
+def conform_project_parameter_route(params):
+    """
+    get json encoded dictionary with keys:
+    - `psid`:
+    - `uuid`: string, parameter uuid
+    Return code 201 if saved
+    Return code 404 if user not found
+    Return code 412 if other mistake
+    Arguments:
+    - `params`:
+    """
+    enc = json.JSONEncoder()
+    if params == None or (not isinstance(params, dict)):
+        return http.HttpResponse(enc.encode([u'You must give json encoded dictionary']), status=httplib.PRECONDITION_FAILED)
+    errs = []
+    errs += check_string(params, 'psid')
+    errs += check_string(params, 'uuid')
+    if len(errs) > 0:
+        return http.HttpResponse(enc.encode(errs), status=httplib.PRECONDITION_FAILED)
+    ret, st = execute_conform_project_parameter(params)
+    if st != httplib.CREATED
+        transaction.rollback()
     return http.HttpResponse(enc.encode(ret), status=st)

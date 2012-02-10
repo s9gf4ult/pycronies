@@ -20,6 +20,8 @@ def precheck_create_project(parameters):
     - `parameters`:
     """
     ret = []
+    if parameters == None or (not isinstance(parameters, dict)):
+        return [u'You must give json coded dictionary']
     ret += check_safe_string(parameters, 'name')
     ret += check_safe_string_or_null(parameters, 'description')
     ret += check_datetime_or_null(parameters, 'begin_date')
@@ -94,6 +96,8 @@ def precheck_list_projects(props):
     - `props`:
     """
     ret = []
+    if props == None or (not isinstance(props, dict)):
+        return [u'You must give json coded dictionary']
     ret += check_int_or_null(props, 'page_number')
     ret += check_int_or_null(props, 'projects_per_page')
     ret += check_string_choise_or_null(props, 'status', [a[0] for a in Project.PROJECT_STATUS])
@@ -214,6 +218,21 @@ def precheck_create_project_parameter(params):
     ret += check_bool(params, 'enum')
     ret += check_safe_string_or_null(params, 'value')
     ret += check_list_or_null(params, 'values')
+    if len(ret) > 0:
+        return ret
+    if params['enum']:
+        if params.get('values') == None:
+            return ['"values" must be not null if "enum" is set']
+        for vl in params['values']:
+            if not isinstance(vl, dict):
+                return [u'"values" must refer to list of dictionaries']
+            ret += check_string(vl, 'value')
+            ret += check_safe_string_or_null(vl, 'caption')
+            if len(ret) > 0:
+                return ret
+    else:
+        if not isinstance(params['value'], basestring)
+    
     return ret
 
 def execute_create_project_parameter(params):
@@ -221,42 +240,44 @@ def execute_create_project_parameter(params):
     Arguments:
     - `params`:
     """
-    if Participant.objects.filter(psid=params['psid']).count() == 0:
-        return [u'There is no participants with that psid'], httplib.NOT_FOUND
-    user = Participant.objects.filter(psid=params['psid']).all()[0]
-    if user.is_initiator==False:
-        return [u'participant is not initiator of project'], httplib.PRECONDITION_FAILED
-    proj = Project.objects.get(participant=user)
-    if proj.ruleset != 'despot':
-        return [u'ruleset of project must be "despot"'], httplib.PRECONDITION_FAILED
+    z
 
-    par = ProjectParameter(project=proj, name=params['name'],
-                           tp=params['tp'], enum=params['enum'])
-    if params.get('descr') != None:
-        par.descr = params['descr']
-    par.save()                  # создали параметр
-    if par.enum == False:       # одиночное значение параметра
-        if params.get('value') == None or (not isinstance(params['value'], basestring)):
-            return [u'if "enum" is false then "value" must be set and be string'], httplib.PRECONDITION_FAILED
-        parval = ProjectParameterVal(parameter=par, status='accepted',
-                                     dt=datetime.now(), value=params['value'])
-        parval.save()
-        return 'OK', httplib.CREATED
-    else:                       # множественное значение параметра
-        if params.get('values') == None or (not isinstance(params['values'], list)):
-            return [u'if "enum" is true then "values" must exists and be a list'], httplib.PRECONDITION_FAILED
-        for val in params['values']: # проходим по множеству объектов
-            if not isinstance(val, dict):
-                return [u'"values" must be list of dictionaries, "{0}" met in this list'.format(val)], httplib.PRECONDITION_FAILED
-            if 'value' not in val:
-                return [u'"values" must be list of dictionaries with keys "value" and "caption", there is one dictionary withour "value" key'], httplib.PRECONDITION_FAILED
-            enval = ProjectParameterVl(parameter=par, value=val['value'])
-            if val.get('caption') != None and (not isinstance(val['caption'], basestring)):
-                return [u'"values" must be list of dictionaries, each dictionary must contain field "caption" with string or do not at all, there is dictionaries with field "caption" not string'], httplib.PRECONDITION_FAILED
-            if val.get('caption') != None and isinstance(val['caption'], basestring):
-                enval.caption=val['caption']
-            enval.save()
-        return 'OK', httplib.CREATED
+
+    
+    # if Participant.objects.filter(psid=params['psid']).count() == 0:
+    #     return [u'There is no participants with that psid'], httplib.NOT_FOUND
+    # user = Participant.objects.filter(psid=params['psid']).all()[0]
+    # if user.is_initiator==False:
+    #     return [u'participant is not initiator of project'], httplib.PRECONDITION_FAILED
+    # proj = Project.objects.get(participant=user)
+    # if proj.ruleset != 'despot':
+    #     return [u'ruleset of project must be "despot"'], httplib.PRECONDITION_FAILED
+
+    # par = ProjectParameter(project=proj, name=params['name'],
+    #                        tp=params['tp'], enum=params['enum'])
+    # if params.get('descr') != None:
+    #     par.descr = params['descr']
+    # par.save()                  # создали параметр
+    # if params.get('value') == None or (not isinstance(params['value'], basestring)):
+    #     return [u'if "enum" is false then "value" must be set and be string'], httplib.PRECONDITION_FAILED
+    # parval = ProjectParameterVal(parameter=par, status='accepted',
+    #                              dt=datetime.now(), value=params['value'])
+    # parval.save()               # создали и присвоили значение параметра
+    # else:                       # множественное значение параметра
+    #     if params.get('values') == None or (not isinstance(params['values'], list)):
+    #         return [u'if "enum" is true then "values" must exists and be a list'], httplib.PRECONDITION_FAILED
+    #     for val in params['values']: # проходим по множеству объектов
+    #         if not isinstance(val, dict):
+    #             return [u'"values" must be list of dictionaries, "{0}" met in this list'.format(val)], httplib.PRECONDITION_FAILED
+    #         if 'value' not in val:
+    #             return [u'"values" must be list of dictionaries with keys "value" and "caption", there is one dictionary withour "value" key'], httplib.PRECONDITION_FAILED
+    #         enval = ProjectParameterVl(parameter=par, value=val['value'])
+    #         if val.get('caption') != None and (not isinstance(val['caption'], basestring)):
+    #             return [u'"values" must be list of dictionaries, each dictionary must contain field "caption" with string or do not at all, there is dictionaries with field "caption" not string'], httplib.PRECONDITION_FAILED
+    #         if val.get('caption') != None and isinstance(val['caption'], basestring):
+    #             enval.caption=val['caption']
+    #         enval.save()
+    #     return 'OK', httplib.CREATED
     
 def execute_list_project_parameters(psid):
     """
@@ -277,15 +298,25 @@ def execute_list_project_parameters(psid):
             p['tecnical'] = False
         else:
             p['tecnical'] = param.default_parameter.tecnical
-        if param.enum:          # параметр перечисляемый
+        if param.enum:          # параметр перечисляемый - добавляем возможные значения
             vs = []
             for v in ProjectParameterVl.objects.filter(parameter=param).all():
                 vs.append({'value': v.value,
                            'caption' : v.caption})
             p['values'] = vs
-        else:                   # параметр с одиночным значением
-            pv = ProjectParameterVal.objects.filter(parameter=param).all()[0]
+        if ProjectParameterVal.objects.filter(Q(parameter=param) & Q(status='accepted')).count() > 0: # есть принятое значение параметра
+            pv = ProjectParameterVal.objects.filter(Q(parameter=param) & Q(status='accepted')).all()[0]
             p['value'] = pv.value
             p['caption'] = pv.caption
+        votes = []
+        for vts in ProjectParameter.objects.filter(Q(parameter=param) & Q(status='voted')).all(): # проходим по предложенным значениям
+            x = vts.projectparametervote_set.all()[0] # объект предложения
+            v = {'uuid', x.voter.uuid,
+                 'value', vts.value,
+                 'caption', vts.caption,
+                 'dt', vts.dt}
+            votes.append(v)
+
+        
         ret.append(p)
     return ret, httplib.OK
