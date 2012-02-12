@@ -11,6 +11,9 @@ from services.app import precheck_create_project, execute_create_project, \
 from services.common import json_request_handler, getencdec, check_string, check_string_choise, \
     check_safe_string_or_null
 from services.models import Project
+from svalidate import validate, OrNone, Any, DateTime, RegexpMatch, Equal
+
+_good_string = RegexpMatch(r'^[^;:"''|\\/#@&><]*$')
 
 @transaction.commit_on_success
 @json_request_handler
@@ -37,11 +40,17 @@ def create_project_route(prs):
     Otherwise return 500
     """
     enc, dec = getencdec()
-    errs = precheck_create_project(prs)
-    if len(errs) > 0:
-        r = http.HttpResponse(enc.encode(errs))
-        r.status_code = httplib.PRECONDITION_FAILED
-        return r
+    r = validate({'name' : _good_string,
+                  'description' : OrNone(_good_string),
+                  'begin_date' : OrNone(DateTime()),
+                  'sharing' : True,
+                  'ruleset' : Any(*[Equal(a[0]) for a in Project.PROJECT_RULESET]), # fucken amazing !
+                  'user_name' : _good_string,
+                  'user_id' : OrNone(''),
+                  'user_description' : OrNone(_good_string)},
+                 prs)
+    if r != None:
+        return http.HttpResponse(enc.encode(r), status=httplib.PRECONDITION_FAILED)
     result = execute_create_project(prs)
     r = http.HttpResponse(enc.encode(result))
     r.status_code = httplib.CREATED
@@ -67,11 +76,15 @@ def list_projects_route(pars):
     return code 501(not implemented) if GET method tried
     """
     enc,dec = getencdec()
-    errs = precheck_list_projects(pars)
-    if len(errs) > 0:
-        rt = http.HttpResponse(enc.encode(errs))
-        rt.status_code = httplib.PRECONDITION_FAILED
-        return rt
+    r = validate({'page_number' : OrNone(0),
+                  'projects_per_page' : OrNone(0),
+                  'status' : OrNone(Any(*[Equal(a[0]) for a in Project.PROJECT_STATUS])),
+                  'begin_date' : OrNone(DateTime()),
+                  'search' : OrNone(_good_string)},
+                 pars)
+    if r != None:
+        return http.HttpResponse(enc.encode(r), status=httplib.PRECONDITION_FAILED)
+    
     result = execute_list_projects(pars)
     r = http.HttpResponse(enc.encode(result))
     r.status_code=httplib.OK
@@ -105,7 +118,7 @@ def list_user_projects_route(params):
 @json_request_handler
 def change_project_status_route(params):
     """
-    get hash table with keys:
+    get dictionary with keys:
     - `psid`: string, access key
     - `status`: status to change to, may be "opened", "planning", "contractor", "budget", "control", "closed"
     return no data
@@ -117,13 +130,11 @@ def change_project_status_route(params):
     - `params`:
     """
     enc, dec = getencdec()
-    errs = []
-    if params == None or (not isinstance(params, dict)):
-        return http.HttpResponse(enc.encode([u'You must give json encoded dictionary']), httplib.PRECONDITION_FAILED)
-    errs += check_string(params, 'psid')
-    errs += check_string_choise(params, 'status', [a[0] for a in Project.PROJECT_STATUS])
-    if len(errs) > 0:
-        return http.HttpResponse(enc.encode(errs), status=httplib.PRECONDITION_FAILED)
+    r = validate({'psid' : '',
+                  'status' : Any(*[Equal(a[0]) for a in Project.PROJECT_STATUS])})
+    if r != None:
+        return http.HttpResponse(enc.encode(r), status=httplib.PRECONDITION_FAILED)
+    
     ret, st = execute_change_project_status(params)
     if st != httplib.OK:
         transaction.rollback()
@@ -172,11 +183,20 @@ def create_project_parameter_route(params):
     Return code is 501 if request method was not POST
     """
     enc, dec = getencdec()
-    if params == None or (not isinstance(params, dict)):
-        return http.HttpResponse(enc.encode([u'You must give json encoded dictionary']), httplib.PRECONDITION_FAILED)
-    errs = precheck_create_project_parameter(params)
-    if len(errs) > 0:
-        return http.HttpResponse(enc.encode(errs), status=httplib.PRECONDITION_FAILED)
+    r = validate({'psid' : _good_string,
+                  'name' : _good_string,
+                  'descr' : OrNone(_good_string),
+                  'tp' : _good_string,
+                  'enum' : True,
+                  'value' : _good_string,
+                  'values' : OrNone([{'value' : _good_string,
+                                      'caption' : OrNone(_good_string)}])},
+                 params)
+    if r != None:
+        return http.HttpResponse(enc.encode(r), status=httplib.PRECONDITION_FAILED)
+    if params['enum'] and (params.get('values') == None):
+        return http.HttpResponse(u'if "enum" is true then "values" key must exist', status=httplib.PRECONDITION_FAILED)
+    
     ret, stat = execute_create_project_parameter(params)
     if stat != httplib.CREATED:
         transaction.rollback()
@@ -198,13 +218,12 @@ def create_project_parameter_from_default_route(params):
     - `params`:
     """
     enc, dec = getencdec()
-    if params == None or (not isinstance(params, dict)):
-        return http.HttpResponse(enc.encode([u'You must give dictionary']), httplib.PRECONDITION_FAILED)
-    errs = []
-    errs += check_string(params, 'psid')
-    errs += check_string(params, 'uuid')
-    if len(errs) > 0:
-        return http.HttpResponse(enc.encode(errs), httplib.PRECONDITION_FAILED)
+    r = validate({'psid' : _good_string,
+                  'uuid' : _good_string},
+                 params)
+    if r != None:
+        return http.HttpResponse(enc.encode(r), status=httplib.PRECONDITION_FAILED)
+    
     ret, st = execute_create_project_parameter_from_default(params)
     if st != httplib.CREATED:
         transaction.rollback()
@@ -241,8 +260,9 @@ def list_project_parameters_route(params):
     - `params`:
     """
     enc = json.JSONEncoder()
-    if params == None or (not isinstance(params, basestring)):
-        return http.HttpResponse(enc.encode([u'you must give just one string with psid at all']), status=httplib.PRECONDITION_FAILED)
+    r = validate(_good_string, params)
+    if r != None:
+        return http.HttpResponse(enc.encode(r), status=httplib.PRECONDITION_FAILED)
     ret, st = execute_list_project_parameters(params)
     return http.HttpResponse(enc.encode(ret), status=st)
 
@@ -262,15 +282,14 @@ def change_project_parameter_route(params):
     - `params`:
     """
     enc = json.JSONEncoder()
-    if params == None or (not isinstance(params, dict)):
-        return http.HttpResponse(enc.encode([u'You must give json encoded dictionary']), status=httplib.PRECONDITION_FAILED)
-    errs = []
-    errs += check_string(params, 'psid')
-    errs += check_string(params, 'uuid')
-    errs += check_string(params, 'value')
-    errs += check_safe_string_or_null(params, 'caption')
-    if len(errs) > 0:
-        return http.HttpResponse(enc.encode(errs), status=httplib.PRECONDITION_FAILED)
+    r = validate({'psid' : _good_string,
+                  'uuid' : _good_string,
+                  'value' : _good_string,
+                  'caption' : OrNone(_good_string)},
+                 params)
+    if r != None:
+        return http.HttpResponse(enc.encode(r), status=httplib.PRECONDITION_FAILED)
+    
     ret, st = execute_change_project_parameter(params)
     if st != httplib.OK:
         transaction.rollback()
@@ -290,13 +309,12 @@ def conform_project_parameter_route(params):
     - `params`:
     """
     enc = json.JSONEncoder()
-    if params == None or (not isinstance(params, dict)):
-        return http.HttpResponse(enc.encode([u'You must give json encoded dictionary']), status=httplib.PRECONDITION_FAILED)
-    errs = []
-    errs += check_string(params, 'psid')
-    errs += check_string(params, 'uuid')
-    if len(errs) > 0:
-        return http.HttpResponse(enc.encode(errs), status=httplib.PRECONDITION_FAILED)
+    r = validate({'psid' : _good_string,
+                  'uuid' : _good_string},
+                 params)
+    if r != None:
+        return http.HttpResponse(enc.encode(r), status=httplib.PRECONDITION_FAILED)
+    
     ret, st = execute_conform_project_parameter(params)
     if st != httplib.CREATED
         transaction.rollback()

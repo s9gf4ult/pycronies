@@ -13,43 +13,19 @@ from django.db.models import Q
 from datetime import datetime
 import httplib
 
-def precheck_create_project(parameters):
-    """check given parameters if they are correct
-    Return list of errors found in parameters
-    Arguments:
-    - `parameters`:
-    """
-    ret = []
-    if parameters == None or (not isinstance(parameters, dict)):
-        return [u'You must give json coded dictionary']
-    ret += check_safe_string(parameters, 'name')
-    ret += check_safe_string_or_null(parameters, 'description')
-    ret += check_datetime_or_null(parameters, 'begin_date')
-    ret += check_bool(parameters, 'sharing')
-    ret += check_string_choise(parameters, 'ruleset', [a[0] for a in Project.PROJECT_RULESET])
-    ret += check_safe_string(parameters, 'user_name')
-    ret += check_string_or_null(parameters, 'user_id')
-    ret += check_safe_string_or_null(parameters, 'user_description')
-    return ret
-
 def execute_create_project(parameters):
     """create project and related objects based on parameters
     Arguments:
     - `parameters`: dict with parametes
     """
-    p = Project(name = parameters['name'])
+    p = Project(name = parameters['name'], sharing=parameter['sharing'],
+                ruleset=parameter['ruleset'])
     if 'description' in parameters:
         p.description = parameters['description']
     if 'begin_date' in parameters:
         p.begin_date = dict2datetime(parameters['begin_date'])
     else:
         p.begin_date=datetime.now()
-    if 'sharing' in parameters:
-        p.sharing = parameters['sharing']
-    if 'ruleset' in parameters:
-        p.ruleset = parameters['ruleset']
-    else:
-        p.ruleset='despot'
     p.status = 'opened'
     p.save()
     
@@ -89,21 +65,6 @@ def execute_create_project(parameters):
     return {'project_uuid' : p.uuid,
             'psid' : pr.psid,
             'token' : pr.token}
-
-def precheck_list_projects(props):
-    """check properties and return list of errors
-    Arguments:
-    - `props`:
-    """
-    ret = []
-    if props == None or (not isinstance(props, dict)):
-        return [u'You must give json coded dictionary']
-    ret += check_int_or_null(props, 'page_number')
-    ret += check_int_or_null(props, 'projects_per_page')
-    ret += check_string_choise_or_null(props, 'status', [a[0] for a in Project.PROJECT_STATUS])
-    ret += check_datetime_or_null(props, 'begin_date')
-    ret += check_safe_string_or_null(props, 'search')
-    return ret
 
 def execute_list_projects(props):
     """select projects and return data
@@ -205,38 +166,6 @@ def execute_list_default_parameters():
         ret.append(a)
     return ret
 
-def precheck_create_project_parameter(params):
-    """
-    Arguments:
-    - `params`:
-    """
-    ret = []
-    ret += check_string(params, 'psid')
-    ret += check_safe_string(params, 'name')
-    ret += check_safe_string_or_null(params, 'descr')
-    ret += check_string(params, 'tp')
-    ret += check_bool(params, 'enum')
-    ret += check_safe_string_or_null(params, 'value')
-    ret += check_list_or_null(params, 'values')
-    if len(ret) > 0:
-        return ret
-    if params['enum']:
-        if not isinstance(params.get('values'), dict):
-            return ['"values" must be not null if "enum" is set']
-        for vl in params['values']:
-            if not isinstance(vl, dict):
-                return [u'"values" must refer to list of dictionaries']
-            ret += check_safe_string(vl, 'value')
-            ret += check_safe_string_or_null(vl, 'caption')
-            if len(ret) > 0:
-                return ret
-    else:
-        if not isinstance(params['value'], basestring):
-            return [u'"value" key must exist if "enum" is false']
-        ret += check_safe_string_or_null(params, 'caption')
-    
-    return ret
-
 def execute_create_project_parameter(params):
     """
     Arguments:
@@ -317,42 +246,6 @@ def despot_change_project_parameter(proj, params):
     return execute_conform_project_parameter({'psid' : params['psid'],
                                               'uuid' : par.uuid})
         
-        
-    
-    # if Participant.objects.filter(psid=params['psid']).count() == 0:
-    #     return [u'There is no participants with that psid'], httplib.NOT_FOUND
-    # user = Participant.objects.filter(psid=params['psid']).all()[0]
-    # if user.is_initiator==False:
-    #     return [u'participant is not initiator of project'], httplib.PRECONDITION_FAILED
-    # proj = Project.objects.get(participant=user)
-    # if proj.ruleset != 'despot':
-    #     return [u'ruleset of project must be "despot"'], httplib.PRECONDITION_FAILED
-
-    # par = ProjectParameter(project=proj, name=params['name'],
-    #                        tp=params['tp'], enum=params['enum'])
-    # if params.get('descr') != None:
-    #     par.descr = params['descr']
-    # par.save()                  # создали параметр
-    # if params.get('value') == None or (not isinstance(params['value'], basestring)):
-    #     return [u'if "enum" is false then "value" must be set and be string'], httplib.PRECONDITION_FAILED
-    # parval = ProjectParameterVal(parameter=par, status='accepted',
-    #                              dt=datetime.now(), value=params['value'])
-    # parval.save()               # создали и присвоили значение параметра
-    # else:                       # множественное значение параметра
-    #     if params.get('values') == None or (not isinstance(params['values'], list)):
-    #         return [u'if "enum" is true then "values" must exists and be a list'], httplib.PRECONDITION_FAILED
-    #     for val in params['values']: # проходим по множеству объектов
-    #         if not isinstance(val, dict):
-    #             return [u'"values" must be list of dictionaries, "{0}" met in this list'.format(val)], httplib.PRECONDITION_FAILED
-    #         if 'value' not in val:
-    #             return [u'"values" must be list of dictionaries with keys "value" and "caption", there is one dictionary withour "value" key'], httplib.PRECONDITION_FAILED
-    #         enval = ProjectParameterVl(parameter=par, value=val['value'])
-    #         if val.get('caption') != None and (not isinstance(val['caption'], basestring)):
-    #             return [u'"values" must be list of dictionaries, each dictionary must contain field "caption" with string or do not at all, there is dictionaries with field "caption" not string'], httplib.PRECONDITION_FAILED
-    #         if val.get('caption') != None and isinstance(val['caption'], basestring):
-    #             enval.caption=val['caption']
-    #         enval.save()
-    #     return 'OK', httplib.CREATED
     
 def execute_list_project_parameters(psid):
     """
