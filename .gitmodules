@@ -1,0 +1,3 @@
+[submodule "svalidate"]
+	path = svalidate
+	url = git://github.com/s9gf4ult/svalidate.git
