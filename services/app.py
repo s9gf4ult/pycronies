@@ -8,7 +8,7 @@ from services.common import check_safe_string, check_safe_string_or_null, \
 from services.models import Project, Participant, hex4, ParticipantVote, \
     ProjectParameter, ProjectParameterVl, ProjectParameterVal, DefaultParameter, \
     DefaultParameterVl, ProjectRulesetDefaults
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.db.models import Q
 from datetime import datetime
 import httplib
@@ -55,12 +55,12 @@ def execute_create_project(parameters):
             for enums in DefaultParameterVl.objects.filter(parameter=dpr).all():
                 penum = ProjectParameterVl(parameter=projpar, value=enums.value, caption=enums.caption)
                 penum.save()
-        else:
-            pval=ProjectParameterVal(parameter=projpar,
-                                     value=dpr.default_value,
-                                     dt=datetime.now(),
-                                     status='accepted')
-            pval.save()
+                
+        pval=ProjectParameterVal(parameter=projpar,
+                                 value=dpr.default_value,
+                                 dt=datetime.now(),
+                                 status='accepted')
+        pval.save()
     
     return {'project_uuid' : p.uuid,
             'psid' : pr.psid,
@@ -94,8 +94,8 @@ def execute_list_projects(props):
 
     ret = None                                 # запрос с ограниченным количеством проектов
     if props.get('projects_per_page') != None: # указано количество пректов на страницу
-        pn = props.get('page_number') if int(props.get('page_number')) != None else 0 # номер страницы
-        ppp = int(props['projects_per_page']) # количество проектов на страницу
+        pn = props.get('page_number') if props.get('page_number') != None else 0 # номер страницы
+        ppp = props['projects_per_page'] # количество проектов на страницу
         if qr.count() < pn*ppp:
             return []           # количество проектов меньше чем начало куска который был запрошел
         ret = qr[ppp*pn:ppp*(pn+1)]
@@ -107,7 +107,7 @@ def execute_list_projects(props):
              'descr' : a.descr,
              'begin_date' : datetime2dict(a.begin_date)} for a in ret]
 
-def execute_user_projects(user_id):
+def execute_list_user_projects(user_id):
     """return tuple of response and status 
     response is json encodable answer, list of projects assigned to given user_id
     Arguments:
@@ -115,11 +115,14 @@ def execute_user_projects(user_id):
     Return:
     (`response`, `answer`)
     """
+    # проверяем есть ли пользователь с указанным user_id
     cnt = Participant.objects.filter(user=user_id).count()
     if cnt==0:
-        return [u'There is no one user found'], httplib.NOT_FOUND
+        return u'There is no one user found', httplib.NOT_FOUND
+    # берем список участников с указанным user_id
     parts = Participant.objects.filter(user=user_id).all() # список участиков
     ret = []
+    # формируем список проектов для соответствующего списка участников
     for part in parts:
         pr = Project.objects.get(participant=part) # вязанный проект
         ret.append({'uuid' : pr.uuid,
@@ -134,14 +137,18 @@ def execute_change_project_status(params):
     """
     - `params`:
     """
+    # проверяем наличие пользователя с указанным psid
     if Participant.objects.filter(psid=params['psid']).count() == 0:
-        return [u'There is no participants with that psid'], httplib.NOT_FOUND
+        return u'There is no participants with that psid', httplib.NOT_FOUND
     part = Participant.objects.filter(psid=params['psid']).all()
+    # если участник не инициатор - выходим
     if part[0].is_initiator == False:
-        return [u'this user is not initiator'], httplib.PRECONDITION_FAILED
+        return u'this user is not initiator', httplib.PRECONDITION_FAILED
     prj = Project.objects.get(participant=part[0])
+    # если проект не управляемый - выходим
     if prj.ruleset != 'despot':
-        return [u'project ruleset is not "despot"'], httplib.PRECONDITION_FAILED
+        return u'project ruleset is not "despot"', httplib.PRECONDITION_FAILED
+    # меняем статус проекта
     prj.status = params['status']
     prj.save()
     return '', httplib.OK
@@ -171,13 +178,16 @@ def execute_create_project_parameter(params):
     Arguments:
     - `params`:
     """
+    # проверяем наличие пользователя с указанным psid
     if Participant.objects.filter(psid=params['psid']).count() == 0:
-        return [u'There is no participants with that psid'], httplib.NOT_FOUND
+        return u'There is no participants with that psid', httplib.NOT_FOUND
+    # выбираем проект для соответствующего пользователя
     proj = Project.objects.filter(participant__psid=params['psid']).all()[0]
+    # проверяем тип проекта и вызываем соответствующий обработчик
     if proj.ruleset='despot':
         despot_create_project_parameter(proj, params)
     else:
-        return [u'Create project parameter is not implemented for ruleset "{0}"'.format(proj.ruleset)], httplib.NOT_IMPLEMENTED
+        return u'Create project parameter is not implemented for ruleset "{0}"'.format(proj.ruleset), httplib.NOT_IMPLEMENTED
     
 def despot_create_project_parameter(proj, params):
     """
@@ -185,39 +195,58 @@ def despot_create_project_parameter(proj, params):
     Arguments:
     - `params`:
     """
+    # проверяем является ли пользователь инициатором
     user = Participant.objects.filter(psid=params['psid']).all()[0]
     if user.is_initiator == False:
-        return [u'You must be initiator if project is "despot" ruleset'], httplib.PRECONDITION_FAILED
+        return u'You must be initiator if project is "despot" ruleset', httplib.PRECONDITION_FAILED
+    # формируем параметр
     projpar = ProjectParameter(project=proj, name=params['name'],
                                tp=params['tp'], enum=params['enum'])
     if params.get('descr') != None:
         projpar.descr = params['descr']
-    projpar.save()        # сохранили параметр проекта
-    if params['enum']:                    # параметр имеет ограниченный набор значений
+    # пытаемся сохранить параметр
+    try:
+        projpar.save()        # сохранили параметр проекта
+    except IntegrityError:
+        return u'The project has a parameter with the same name', httplib.PRECONDITION_FAILED
+    # если параметр с ограниченным набором значений заполняем набор
+    if params['enum']:
         for v in params['values']:
             vs = ProjectParameterVl(parameter=projpar,
                                     value=v['value'])
-            if isinstance(v['caption'], basestring):
+            if v.get('caption') != None:
                 vs.caption=v['caption']
-            vs.save()
-    return execute_change_project_parameter({'psid' : params['psid'],
-                                             'uuid' : projpar.uuid,
-                                             'value' : params['value'],
-                                             'caption' : params.get('caption')})
-    
+            # пробуем сохранить, если значения одинаковые - пропускаем вставку
+            try:
+                vs.save()
+            except IntegrityError:
+                pass
+    # вызываем изменение значения параметра
+    return despot_change_project_parameter(proj, {'psid' : params['psid'],
+                                                  'uuid' : projpar.uuid,
+                                                  'value' : params['value'],
+                                                  'caption' : params.get('caption')})
 
 def execute_change_project_parameter(params):
     """
     Arguments:
     - `params`:
     """
+    # проверяем есть ли пользователь с указанным psid
     if Participant.objects.filter(psid=params['psid']).count() == 0:
-        return [u'There is no user with this psid'], httplib.NOT_FOUND
+        return u'There is no user with this psid', httplib.NOT_FOUND
+    # проверяем отностися ли параметр к проекту указанного пользователя
     proj = Project.objects.filter(participant__psid=params['psid']).all()[0]
+    par = ProjectParameter.objects.get(uuid=params['uuid'])
+    if par == None:
+        return u'There is no such parameter', httplib.PRECONDITION_FAILED
+    if par.project != proj:
+        return u'This user can not change specified parameter', httplib.PRECONDITION_FAILED
+    # выбираем обработчик для соответствующего типа проекта
     if proj.ruleset == 'despot':
-        despot_change_project_parameter(proj, params)
+        return despot_change_project_parameter(proj, params)
     else:
-        return [u'Change parameter is not implemented for project with ruleset "{0}"'.format(proj.ruleset)], httplib.NOT_IMPLEMENTED
+        return u'Change parameter is not implemented for project with ruleset "{0}"'.format(proj.ruleset), httplib.NOT_IMPLEMENTED
 
 def despot_change_project_parameter(proj, params):
     """
@@ -225,14 +254,16 @@ def despot_change_project_parameter(proj, params):
     - `proj`:
     - `params`:
     """
-    user = Participant.objects.filter(psid=params['psid']).all()[0]
-    if user.is_initiator == False:
-        return [u'If project ruleset if "despot" then you must be initiator to change parameter'], httplib.PRECONDITION_FAILED
     par = ProjectParameter.objects.get(uuid=params['uuid'])
+    # если параметр перечисляемый, проверяем входил ли значение в список возможных значений
+    if par.enum:
+        if ProjectParameterVl.objects.filter(Q(parameter=par) & Q(value=params['value'])).count() == 0:
+            return u'This value can not set for enumerated parameter', httplib.PRECONDITION_FAILED
+    # если мы еще не предлагали это значение параметра, то создаем предложение. Иначе меняем старое
     if ProjectParameterVal.objects.filter(Q(status='voted') & Q(parameter=par) & Q(projectparametervote__voter=user)).count() == 0: #нет значений предложынных нами
         np = ProjectParameterVal(parameter=par, status='voted', dt=datetime.now(),
                                  value=params['value'])
-        if isinstance(params.get('caption'), basestring):
+        if params.get('caption') != None:
             np.caption = params['caption']
         np.save()
         npvote = ProjectParameterVote(parameter_val=np, voter=user, vote='change')
@@ -240,20 +271,66 @@ def despot_change_project_parameter(proj, params):
     else:                                 # изменяем значение которое мы уже предложили
         np = ProjectParameterVal.objects.filter(Q(status='voted') & Q(parameter=par) & Q(projectparametervote__voter=user)).all()[0]
         np.value = params['value']
-        if isinstance(params.get('caption'), basestring):
+        if params.get('caption') != None:
             np.caption = params['caption']
         np.save()
+    # согласуем предложенный параметр
     return execute_conform_project_parameter({'psid' : params['psid'],
                                               'uuid' : par.uuid})
-        
+
+def execute_conform_project_parameter(params):
+    """
+    Arguments:
+    - `params`:
+    """
+    # проверяем наличие пользователя с указанным psid
+    if Participant.objects.filter(psid=params['psid']).count() == 0:
+        return u'There is no users with specified psid', httplib.PRECONDITION_FAILED
+    # проверяем есть ли такой параметр и находиться ли он в том же проекте что и пользователь
+    pr = ProjectParameter.objects.get(uuid=params['uuid'])
+    if pr == None:
+        return u'There is no such parameters', httplib.PRECONDITION_FAILED
+    proj = Project.objects.filter(participant__psid=params['psid']).all()[0]
+    if pr.project != proj:
+        return u'Parameter is not assigned to specified project', httplib.PRECONDITION_FAILED
+    # вызываем обработчик для соответствующего типа проекта
+    if proj.ruleset == 'despot':
+        return despot_conform_project_parameter(proj, params)
+    else:
+        return u'conform parameter is not implemented for ruleset "{0}"'.format(proj.ruleset), httplib.NOT_IMPLEMENTED
+
+
+def despot_conform_project_parameter(proj, params):
+    """
+    conform project with 'despot' ruleset
+    Arguments:
+    - `proj`:
+    - `params`:
+    """
+    # если пользователь - инициатор: присваиваем предложенное пользователем значение как текущее значение параметра
+    user = Participant.objects.filter(psid=params['psid']).all()[0]
+    if user.is_initiator:
+        # проверяем есть ли предложенные значения
+        if ProjectParameterVal.objects.filter(Q(status='voted') & Q(parameter__uuid=params['uuid']) & Q(projectparametervote__voter=user)).count() == 0:
+            return u'There is nothing to conform (no votes)', httplib.CREATED
+        # если есть присваиваем ему статус accepted, остальным присваиваем denied
+        vl = ProjectParameterVal.objects.filter(Q(status='voted') & Q(parameter__uuid=params['uuid']) & Q(projectparametervote__voter=user)).all()[0]
+        ProjectParameterVal.objects.filter(Q(status='accepted') & Q(parameter__uuid=params['uuid'])).update(status='changed')
+        vl.status='accepted'
+        vl.save()
+        ProjectParameterVal.objects.filter(Q(status='voted') & Q(parameter__uuid=params['uuid'])).update(status='denied')
+        return u'Accepted new value', httplib.CREATED
+    else:                                 #пользователь не инициатор - согласование ничего неделает
+        return u'User is not initiator, conform doing nothing', httplib.CREATED
     
 def execute_list_project_parameters(psid):
     """
     Arguments:
     - `psid`: psid as string
     """
+    # проверяем есть ли пользователь 
     if Participant.objects.filter(psid=psid).count() == 0:
-        return [u'There is no user with such psid'], httplib.NOT_FOUND
+        return u'There is no user with such psid', httplib.NOT_FOUND
     proj = Project.objects.filter(participant__psid=psid).all()[0]
     ret = []
     for param in ProjectParameter.objects.filter(project=proj).all():

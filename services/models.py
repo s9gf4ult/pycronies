@@ -262,23 +262,27 @@ class BaseParameterVal(BaseModel):
 
 class ProjectParameter(BaseParameter):
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
-    default_parameter = models.ForeignKey(DefaultParameter, null=True, on_delete=models.CASCADE)
+    default_parameter = models.ForeignKey(DefaultParameter, null=True, on_delete=models.SET_NULL)
+    class Meta:
+        unique_together = (('project', 'name'), )
 class ProjectParameterVl(BaseParameterVl):
     parameter = models.ForeignKey(ProjectParameter, on_delete=models.CASCADE)
+    class Meta:
+        unique_together = (('parameter', 'value'), )
 class ProjectParameterVal(BaseParameterVal):
     parameter = models.ForeignKey(ProjectParameter, on_delete=models.CASCADE)
 
 class ProjectParameterVote(BaseModel):
     PROJECT_PARAMETER_VOTE=(('change', u'Изменить значение параметра на указанное'),)
     voter = models.ForeignKey(Participant)
-    parameter_val = models.ForeignKey(ProjectParameterVal)
+    parameter_val = models.ForeignKey(ProjectParameterVal, on_delete=models.CASCADE)
     vote = models.CharField(max_length=40, choices=PROJECT_PARAMETER_VOTE)
     class Meta:
         unique_together=(('voter', 'parameter_val'), )
 
 class ActivityParameter(BaseParameter):
     activity = models.ForeignKey(Activity, on_delete=models.CASCADE)
-    default_parameter = models.ForeignKey(DefaultParameter, null=True, on_delete=models.CASCADE)
+    default_parameter = models.ForeignKey(DefaultParameter, null=True, on_delete=models.SET_NULL)
 class ActivityParameterVl(BaseParameterVl):
     parameter = models.ForeignKey(ActivityParameter, on_delete=models.CASCADE)
 class ActivityParameterVal(BaseParameterVal):
@@ -286,7 +290,7 @@ class ActivityParameterVal(BaseParameterVal):
 
 class ResourceParameter(BaseParameter):
     resource = models.ForeignKey(Resource, on_delete=models.CASCADE)
-    default_parameter = models.ForeignKey(DefaultParameter, null=True, on_delete=models.CASCADE)
+    default_parameter = models.ForeignKey(DefaultParameter, null=True, on_delete=models.SET_NULL)
 class ResourceParameterVl(BaseParameterVl):
     parameter = models.ForeignKey(ResourceParameter, on_delete=models.CASCADE)
 class ResourceParameterVal(BaseParameterVal):
@@ -294,7 +298,7 @@ class ResourceParameterVal(BaseParameterVal):
 
 class ParticipantParameter(BaseParameter):
     participant = models.ForeignKey(Participant, on_delete=models.CASCADE)
-    default_parameter = models.ForeignKey(DefaultParameter, null=True, on_delete=models.CASCADE)
+    default_parameter = models.ForeignKey(DefaultParameter, null=True, on_delete=models.SET_NULL)
 class ParticipantParameterVl(BaseParameterVl):
     parameter = models.ForeignKey(ParticipantParameter, on_delete=models.CASCADE)
 class ParticipantParameterVal(BaseParameterVal):

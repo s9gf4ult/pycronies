@@ -111,7 +111,7 @@ def list_user_projects_route(params):
     enc, dec = getencdec()
     if not isinstance(params, basestring):
         return http.HttpResponse(enc.encode([u'You must give just one string, not {0}'.format(params)]), status=httplib.PRECONDITION_FAILED)
-    ret, st = execute_user_projects(params)
+    ret, st = execute_list_user_projects(params)
     return http.HttpResponse(enc.encode(ret), status=st)
 
 @transaction.commit_on_success
