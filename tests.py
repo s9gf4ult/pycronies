@@ -26,7 +26,7 @@ class mytest(TestCase):
         c = httplib.HTTPConnection(host, port)
         enc, dec = getencdec()
         p1 = enc.encode({'name' : u'Новый проект',
-                         'description' : 'blah blah, something here',
+                         'descr' : 'blah blah, something here',
                          'begin_date' : {'year' : 2012,
                                          'month' : 3,
                                          'day' : 20,
@@ -37,11 +37,11 @@ class mytest(TestCase):
                          'ruleset' : 'despot',
                          'user_name' : u'Вася',
                          'user_id' : 'some_id',
-                         'user_description' : u'местный дурачек'})
+                         'user_descr' : u'местный дурачек'})
         c.request('POST', '/project/create', p1)
         r1 = c.getresponse()
         self.assertEqual(r1.status, httplib.CREATED)
-        p2 = enc.encode({'description' : 'blah blah, something here',
+        p2 = enc.encode({'descr' : 'blah blah, something here',
                          'begin_date' : {'year' : 2012,
                                          'month' : 3,
                                          'day' : 20,
@@ -52,13 +52,13 @@ class mytest(TestCase):
                          'ruleset' : 'despot',
                          'user_name' : u'Вася',
                          'user_id' : 'some_id',
-                         'user_description' : u'местный дурачек'})
+                         'user_descr' : u'местный дурачек'})
         c.request('POST', '/project/create', p2)
         r2 = c.getresponse()
         self.assertEqual(r2.status, httplib.PRECONDITION_FAILED)
         self.assertIsInstance(dec.decode(r2.read()), basestring)
         p3 = enc.encode({'name' : 'jsij',
-                         'description' : 'blah blah, something here',
+                         'descr' : 'blah blah, something here',
                          'begin_date' : {'year' : 2012,
                                          'month' : 3,
                                          'hour' : 20,
@@ -67,7 +67,7 @@ class mytest(TestCase):
                          'sharing' : True,
                          'ruleset' : 'despot',
                          'user_id' : 'some_id',
-                         'user_description' : u'местный дурачек'})
+                         'user_descr' : u'местный дурачек'})
         c.request('POST', '/project/create', p3)
         r3 = c.getresponse()
         self.assertEqual(r3.status, httplib.PRECONDITION_FAILED)
@@ -83,7 +83,7 @@ class mytest(TestCase):
         c = httplib.HTTPConnection(host, port)
         for x in range(0, 50):
             c.request('POST', '/project/create', enc.encode({'name' : u'test project {0}'.format(x),
-                                                            'description' : u'description blah blah',
+                                                            'descr' : u'description blah blah',
                                                             'begin_date' : {'year' : 2012,
                                                                             'month' : 3,
                                                                             'day' : 13,
@@ -324,7 +324,55 @@ class mytest(TestCase):
         r = c.getresponse()
         self.assertEqual(r.status, httplib.CREATED)
 
-
+    def test_create_project_parameter_from_default_route(self, ):
+        """
+        """
+        enc, dec = getencdec()
+        c = httplib.HTTPConnection(host, port)
+        c.request("POST", "/parameters/list")
+        r = c.getresponse()
+        self.assertEqual(httplib.OK, r.status)
+        defparams = dec.decode(r.read()) # список default параметров
+        c.request('POST', '/project/create', enc.encode({'name' : 'project blah blah',
+                                                         'descr' : 'this is project',
+                                                         'sharing' : True,
+                                                         'ruleset' : 'despot',
+                                                         'user_name' : 'kumare'}))
+        r = c.getresponse()
+        self.assertEqual(httplib.CREATED, r.status)
+        resp = dec.decode(r.read())
+        psid = resp['psid']
+        c.request('POST', '/project/parameter/list', enc.encode(psid))
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.OK)
+        params = dec.decode(r.read()) # список параметров проекта
+        for defpar in defparams:
+            if defpar['name'] in [p['name'] for p in params]: # дефолт параметр уже есть в проекте (создан во время создания проекта)
+                c.request('POST', '/project/parameter/create/fromdefault', enc.encode({'psid' : psid,
+                                                                                       'uuid' : defpar['uuid']}))
+                r = c.getresponse()
+                self.assertEqual(httplib.PRECONDITION_FAILED, r.status)
+            else:               # дефолт параметра нет в параметрах проекта
+                c.request('POST', '/project/parameter/create/fromdefault', enc.encode({'psid' : psid,
+                                                                                       'uuid' : defpar['uuid']}))
+                r = c.getresponse()
+                self.assertEqual(httplib.CREATED, r.status)
+        # создали все параметры из дефолтных, теперь проверим что параметры проекта совпадают со списокм дефолтных параметров
+        names = set([(p['name'], p['default']) for p in defparams]) # дефолт параметры в множество
+        c.request('POST', '/project/parameter/list', enc.encode(psid))
+        r = c.getresponse()
+        self.assertEqual(httplib.OK, r.status)
+        ppars = dec.decode(r.read())
+        pnames = set([(p['name'], p['value']) for p in ppars]) # новые параметры проекта в множестве
+        self.assertEqual(names, pnames)
+                
+                
+        
+        
+        
+        
+        
+        
 
 
 if __name__ == '__main__':

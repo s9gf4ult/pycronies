@@ -20,8 +20,8 @@ def execute_create_project(parameters):
     """
     p = Project(name = parameters['name'], sharing=parameters['sharing'],
                 ruleset=parameters['ruleset'])
-    if 'description' in parameters:
-        p.description = parameters['description']
+    if 'descr' in parameters:
+        p.descr = parameters['descr']
     if 'begin_date' in parameters:
         p.begin_date = dict2datetime(parameters['begin_date'])
     else:
@@ -36,8 +36,8 @@ def execute_create_project(parameters):
     pr.is_initiator=True
     if 'user_id' in parameters:
         pr.user = parameters['user_id']
-    if 'user_description' in parameters:
-        pr.descr = parameters['user_description']
+    if 'user_descr' in parameters:
+        pr.descr = parameters['user_descr']
     pr.status = u'accepted'
     pr.save()
     
@@ -46,7 +46,8 @@ def execute_create_project(parameters):
     pv.save()
 
     # заполняем дефолтные параметры проекта
-    for dpr in DefaultParameter.objects.filter(Q(projectrulesetdefaults__ruleset=p.ruleset) | Q(projectrulesetdefaults__ruleset=None)).all():
+    for prd in ProjectRulesetDefaults.objects.filter(Q(ruleset=p.ruleset) | Q(ruleset=None)).all():
+        dpr = prd.parameter
         projpar = ProjectParameter(project=p, default_parameter=dpr,
                                    name=dpr.name, descr=dpr.descr,
                                    tp=dpr.tp, enum=dpr.enum)
@@ -60,11 +61,14 @@ def execute_create_project(parameters):
                                  value=dpr.default_value,
                                  dt=datetime.now(),
                                  status='accepted')
+        if dpr.enum and DefaultParameterVl.objects.filter(Q(parameter=dpr) & Q(value=dpr.default_value)).count() == 0:
+            print('Error in default parameters of project, default value not in posible values "{0}"'.format(dpr.uuid))
+            return 'Error in default parameters of project, default value not in posible values "{0}"'.format(dpr.uuid), httplib.INTERNAL_SERVER_ERROR
         pval.save()
     
     return {'project_uuid' : p.uuid,
             'psid' : pr.psid,
-            'token' : pr.token}
+            'token' : pr.token}, httplib.CREATED
 
 def execute_list_projects(props):
     """select projects and return data
@@ -383,7 +387,7 @@ def execute_list_project_parameters(psid):
             p['value'] = pv.value
             p['caption'] = pv.caption
         votes = []
-        for vts in ProjectParameter.objects.filter(Q(parameter=param) & Q(status='voted')).all(): # проходим по предложенным значениям
+        for vts in ProjectParameterVal.objects.filter(Q(parameter=param) & Q(status='voted')).all(): # проходим по предложенным значениям
             x = vts.projectparametervote_set.all()[0] # объект предложения
             v = {'uuid', x.voter.uuid,
                  'value', vts.value,

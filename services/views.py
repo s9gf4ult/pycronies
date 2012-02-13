@@ -5,7 +5,7 @@ import json
 import httplib
 from services.app import execute_create_project, execute_list_projects, execute_list_user_projects, \
     execute_change_project_status, execute_list_default_parameters, execute_create_project_parameter, \
-    execute_list_project_parameters
+    execute_list_project_parameters, execute_create_project_parameter_from_default
 from services.common import json_request_handler, getencdec
 from services.models import Project
 from svalidate import validate, OrNone, Any, DateTime, RegexpMatch, Equal
@@ -20,7 +20,7 @@ def create_project_route(prs):
     Parameters must be hash table in json format sent in request body.
     Acceptable keys are:
     - `name`: name of new project
-    - `description`: description of new project, may be null
+    - `descr`: description of new project, may be null
     - `begin_date`: hash table with fields `year`, `month`, `day`, `hour`, `minute`, `second`. May be null
     - `sharing` : Boolean
     - `ruleset` : string with ruleset name, may be 'despot'
@@ -38,19 +38,21 @@ def create_project_route(prs):
     """
     enc, dec = getencdec()
     r = validate({'name' : _good_string,
-                  'description' : OrNone(_good_string),
+                  'descr' : OrNone(_good_string),
                   'begin_date' : OrNone(DateTime()),
                   'sharing' : True,
                   'ruleset' : Any(*[Equal(a[0]) for a in Project.PROJECT_RULESET]), # fucken amazing !
                   'user_name' : _good_string,
                   'user_id' : OrNone(''),
-                  'user_description' : OrNone(_good_string)},
+                  'user_descr' : OrNone(_good_string)},
                  prs)
     if r != None:
         return http.HttpResponse(enc.encode(r), status=httplib.PRECONDITION_FAILED)
-    result = execute_create_project(prs)
+    result, stat = execute_create_project(prs)
+    if stat != httplib.CREATED:
+        transaction.rollback()
     r = http.HttpResponse(enc.encode(result))
-    r.status_code = httplib.CREATED
+    r.status_code = stat
     return r
 
 @transaction.commit_on_success

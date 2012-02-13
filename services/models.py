@@ -35,7 +35,7 @@ def hex4():
 class BaseModel(models.Model):
     """Все объекты в базе имеют поля uuid и create_date, а также один и тот же метод __unicode__
     """
-    uuid = models.CharField(max_length=40, primary_key=True, unique=True, default=hex4)
+    uuid = models.CharField(max_length=40, primary_key=True, unique=True, default=hex4, db_index=True)
     create_date = models.DateTimeField(default=datetime.now, null=False)
     def __unicode__(self, ):
         """Return uuid
@@ -199,6 +199,8 @@ class DefaultParameterVl(BaseModel):
     parameter = models.ForeignKey(DefaultParameter, on_delete=models.CASCADE)
     value = models.CharField(max_length=40, default=None, null=False)
     caption = models.TextField()
+    class Meta:
+        unique_together = (('value', 'parameter'), )
 
 class ProjectRulesetDefaults(BaseModel): # соответствия свойств проекта дефолтным параметрам
     parameter = models.ForeignKey(DefaultParameter)
