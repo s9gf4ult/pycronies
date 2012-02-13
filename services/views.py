@@ -3,13 +3,10 @@ import django.http as http
 from django.db import transaction
 import json
 import httplib
-from services.app import precheck_create_project, execute_create_project, \
-    precheck_list_projects, execute_list_projects, execute_user_projects, \
-    execute_change_project_status, execute_list_default_parameters, \
-    precheck_create_project_parameter, execute_create_project_parameter, \
+from services.app import execute_create_project, execute_list_projects, execute_list_user_projects, \
+    execute_change_project_status, execute_list_default_parameters, execute_create_project_parameter, \
     execute_list_project_parameters
-from services.common import json_request_handler, getencdec, check_string, check_string_choise, \
-    check_safe_string_or_null
+from services.common import json_request_handler, getencdec
 from services.models import Project
 from svalidate import validate, OrNone, Any, DateTime, RegexpMatch, Equal
 
@@ -131,7 +128,8 @@ def change_project_status_route(params):
     """
     enc, dec = getencdec()
     r = validate({'psid' : '',
-                  'status' : Any(*[Equal(a[0]) for a in Project.PROJECT_STATUS])})
+                  'status' : Any(*[Equal(a[0]) for a in Project.PROJECT_STATUS])},
+                 params)
     if r != None:
         return http.HttpResponse(enc.encode(r), status=httplib.PRECONDITION_FAILED)
     
@@ -316,6 +314,7 @@ def conform_project_parameter_route(params):
         return http.HttpResponse(enc.encode(r), status=httplib.PRECONDITION_FAILED)
     
     ret, st = execute_conform_project_parameter(params)
-    if st != httplib.CREATED
+    if st != httplib.CREATED:
         transaction.rollback()
     return http.HttpResponse(enc.encode(ret), status=st)
+

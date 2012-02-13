@@ -7,7 +7,7 @@ from services.common import check_safe_string, check_safe_string_or_null, \
     datetime2dict, check_list_or_null
 from services.models import Project, Participant, hex4, ParticipantVote, \
     ProjectParameter, ProjectParameterVl, ProjectParameterVal, DefaultParameter, \
-    DefaultParameterVl, ProjectRulesetDefaults
+    DefaultParameterVl, ProjectRulesetDefaults, ProjectParameterVote
 from django.db import transaction, IntegrityError
 from django.db.models import Q
 from datetime import datetime
@@ -18,8 +18,8 @@ def execute_create_project(parameters):
     Arguments:
     - `parameters`: dict with parametes
     """
-    p = Project(name = parameters['name'], sharing=parameter['sharing'],
-                ruleset=parameter['ruleset'])
+    p = Project(name = parameters['name'], sharing=parameters['sharing'],
+                ruleset=parameters['ruleset'])
     if 'description' in parameters:
         p.description = parameters['description']
     if 'begin_date' in parameters:
@@ -173,6 +173,34 @@ def execute_list_default_parameters():
         ret.append(a)
     return ret
 
+def execute_create_project_parameter_from_default(params):
+    """
+    Arguments:
+    - `params`:
+    """
+    # проверяем наличие пользователя
+    if Participant.objects.filter(psid=params['psid']).count() == 0:
+        return u'There is no such user', httplib.NOT_FOUND
+    # проверяем наличие дефолт параметра пректа
+    dpr = DefaultParameter.objects.get(uuid=params['uuid'])
+    if dpr == None:
+        return u'There is no such default parameter', httplib.PRECONDITION_FAILED
+    # достаем данные из дефолт параметра и передаем их execute_create_project_parameter
+    r = {'psid' : params['psid'],
+         'name' : dpr.name,
+         'descr' : dpr.descr,
+         'tp' : dpr.tp,
+         'enum' : dpr.enum,
+         'value' : dpr.default_value}
+    # значение перечисляемое - добавляем перечисляемые значения
+    if dpr.enum:
+        rvs = []
+        for x in DefaultParameterVl.objects.filter(parameter=dpr).all():
+            rvs.append({'value' : x.value,
+                        'caption' : x.caption})
+        r['values'] = rvs
+    return execute_create_project_parameter(r)
+
 def execute_create_project_parameter(params):
     """
     Arguments:
@@ -184,8 +212,8 @@ def execute_create_project_parameter(params):
     # выбираем проект для соответствующего пользователя
     proj = Project.objects.filter(participant__psid=params['psid']).all()[0]
     # проверяем тип проекта и вызываем соответствующий обработчик
-    if proj.ruleset='despot':
-        despot_create_project_parameter(proj, params)
+    if proj.ruleset == 'despot':
+        return despot_create_project_parameter(proj, params)
     else:
         return u'Create project parameter is not implemented for ruleset "{0}"'.format(proj.ruleset), httplib.NOT_IMPLEMENTED
     
@@ -260,6 +288,7 @@ def despot_change_project_parameter(proj, params):
         if ProjectParameterVl.objects.filter(Q(parameter=par) & Q(value=params['value'])).count() == 0:
             return u'This value can not set for enumerated parameter', httplib.PRECONDITION_FAILED
     # если мы еще не предлагали это значение параметра, то создаем предложение. Иначе меняем старое
+    user = Participant.objects.filter(psid=params['psid']).all()[0]
     if ProjectParameterVal.objects.filter(Q(status='voted') & Q(parameter=par) & Q(projectparametervote__voter=user)).count() == 0: #нет значений предложынных нами
         np = ProjectParameterVal(parameter=par, status='voted', dt=datetime.now(),
                                  value=params['value'])
