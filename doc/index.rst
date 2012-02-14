@@ -11,6 +11,8 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
+.. automodule:: services.views
+   :members:   
 
 
 Indices and tables

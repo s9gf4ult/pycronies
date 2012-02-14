@@ -1,4 +1,6 @@
 # Create your views here.
+# -*- coding: utf-8 -*-
+
 import django.http as http
 from django.db import transaction
 import json
@@ -15,26 +17,34 @@ _good_string = RegexpMatch(r'^[^;:"''|\\/#@&><]*$')
 @transaction.commit_on_success
 @json_request_handler
 def create_project_route(prs):
-    """Creates project in database
-    Handles just POST requests.
-    Parameters must be hash table in json format sent in request body.
-    Acceptable keys are:
+    """
+    **Create project**
+    
+    address to query **/project/create**
+
+    The body of query must contain dictionary with keys:
+    
     - `name`: name of new project
     - `descr`: description of new project, may be null
     - `begin_date`: hash table with fields `year`, `month`, `day`, `hour`, `minute`, `second`. May be null
-    - `sharing` : Boolean
-    - `ruleset` : string with ruleset name, may be 'despot'
-    - `user_name` : string, name of user
-    - `user_id` : external user id to bind participant with user
+    - `sharing`: Boolean
+    - `ruleset`: string with ruleset name, may be 'despot'
+    - `user_name`: string, name of user
+    - `user_id`: external user id to bind participant with user
     - `user_description`: string, description of user. May be null
-    Return data in response body in json format:
+    
+    Return dictionary with keys:
+    
     - `project_uuid` : string, universal identificator for project
     - `psid` : string, access key for new participant
     - `token` : string, access key for "magic link"
-    Return status 201(created) if project is created
-    Return status 412(precondition failed) if parameters are wrong, body will contain details
-    Return status 501(not implemented) if method was not POST
-    Otherwise return 500
+
+    Posible return http status:
+
+    - `201`: project is created
+    - `412`: precondition failed, project was not created because of wrong data details in response body
+    - `501`: query was not post
+    - `500`: otherwise
     """
     enc, dec = getencdec()
     r = validate({'name' : _good_string,
@@ -58,21 +68,33 @@ def create_project_route(prs):
 @transaction.commit_on_success
 @json_request_handler
 def list_projects_route(pars):
-    """Return list of projects which parameters suit to query
-    query is json formated table with keys:
+    """
+    **List Projects**
+
+    address to query: **/project/list**
+    
+    Return list of projects which parameters suit to query
+    query is json formated dictionary with keys:
+    
     - `page_number`: number of page to get, if null return first page
     - `projects_per_page`: number of projects per one page, if null return all projects
     - `status`: status of projects to return, if null return projects of any status
     - `begin_date`: the earliest date for project to return
     - `search`: string to search projects by name or description
-    Return list, table values are:
+    
+    Return list of dictionaries with keys:
+    
     - `uuid`: string with uuid of project
     - `name`: name of project
     - `descr`: description of project
     - `begin_date`: datetime table, begin date of project
-    return code 200 if everithin is ok
-    return code 412 if wring parameter got
-    return code 501(not implemented) if GET method tried
+
+    Posible return status:
+
+    - `200`: ok
+    - `412`: precondition failed, details in response body
+    - `501`: query was not post
+    - `500`: otherwise
     """
     enc,dec = getencdec()
     r = validate({'page_number' : OrNone(0),
@@ -92,20 +114,28 @@ def list_projects_route(pars):
 @transaction.commit_on_success
 @json_request_handler
 def list_user_projects_route(params):
-    """return list of projects assigned to user
-    get one string with user_id to ger projects
+    """
+    **List Projects assigned to user**
+
+    address to query: **/project/list/userid**
+
+    Get one string with user_id
+    
     Return list of tables with keys:
+    
     - `uuid`: uuid of project
     - `name`: name of project
     - `descr` :description of project
     - `begin_date`: datetime table
     - `initiator` boolean, if user is initiator
     - `status`: string, project status
-    Return status 200 if everithing ok
-    Return status 404 (not found) if no one user found
-    Return status 501 if GET method was called
-    Arguments:
-    - `request`:
+
+    Posible return status:
+    
+    - `200`: ok
+    - `412`: precondition failed, details in response body
+    - `501`: query was not post
+    - `500`: otherwise
     """
     enc, dec = getencdec()
     if not isinstance(params, basestring):
@@ -117,16 +147,24 @@ def list_user_projects_route(params):
 @json_request_handler
 def change_project_status_route(params):
     """
-    get dictionary with keys:
+    **Change project status**
+
+    address to query: **/project/status/change**
+    
+    Get dictionary with keys:
+    
     - `psid`: string, access key
     - `status`: status to change to, may be "opened", "planning", "contractor", "budget", "control", "closed"
-    return no data
-    Return status 200 if changed
-    Return status 404 if no projecs or users found
-    Return status 412(precondition failed) if given psid has no rights to change project or ruleset of project is not 'despot'
-    Return 501(not implemented) if GET method was used
-    Arguments:
-    - `params`:
+    
+    Return no data
+
+    Posible return status:
+    
+    - `200`: ok
+    - `412`: precondition failed, details in response body
+    - `404`: user was not found
+    - `501`: query was not post
+    - `500`: otherwise
     """
     enc, dec = getencdec()
     r = validate({'psid' : '',
@@ -142,19 +180,29 @@ def change_project_status_route(params):
     
 @transaction.commit_on_success
 def list_default_parameters_route(request):
-    """return default parameters
-    request with any method and any body of request.
-    Return status 200 everywhere. Body is json coded list of tables with keys:
-    - `uuid`
-    - `name`
-    - `descr`
-    - `tp`
-    - `enum`: boolean 
-    - `default`: string with value or null
-    - `values': if enum is True, then list of tables with keys:
-                                 -- `value`: enum value
-                                 -- `caption`: caption
-                                 | Otherwise none.
+    """
+    **List default parameters**
+
+    address to query: **/parameters/list**
+
+    Get no data
+    
+    Return list of dictionaries with keys:
+    
+    - `uuid`: parameter uuid
+    - `name`: parameter name
+    - `descr`: parameter description
+    - `tp`: type of parameter 
+    - `enum`: (boolean) parameter is enumerable
+    - `default`: string with default parameter value
+    - `values`: if `enum` list of dictionaries with keys:
+       - `value`: one of posible values
+       - `caption`: value description
+
+    Return status:
+    
+    - `200`: ok
+    - `500`: otherwise
     """
     
     ret = execute_list_default_parameters()
@@ -164,23 +212,30 @@ def list_default_parameters_route(request):
 @transaction.commit_on_success
 @json_request_handler
 def create_project_parameter_route(params):
-    """Add project parameter by psid
-    get parameters in body of request as json coded dict with keys:
-    - `psid`:
-    - `name`:
+    """
+    **Create project parameter**
+
+    address to query **/project/parameter/create**
+
+    Get parameters in body of request as json coded dictionary with keys:
+    
+    - `psid`: access key
+    - `name`: name of parameter
     - `descr`: string, may be null
-    - `tp`:
+    - `tp`: type of parameter
     - `enum`: boolean
-    - `value` : string, parameter value, may be null (if enum is true)
-    - `values` : list if dictionaries with keys :
-                                        -- `value`:
-                                        -- `caption`:
-                                      may be null if enum is false
-    Return parameter id as just one string
-    Return code is 201(created) if everything is ok
-    Return code is 404 if user not found
-    Return code is 412 if failed validtion of parameter, body will contain errors list
-    Return code is 501 if request method was not POST
+    - `value`: string, parameter value, may be null
+    - `values`: list if dictionaries with keys :
+       - `value`: one of posible values of parameter
+       - `caption`: value description
+      
+    Posible return status:
+
+    - `201`: project parameter was created
+    - `412`: precondition failed, details in response body
+    - `404`: user was not found
+    - `501`: query was not post
+    - `500`: otherwise
     """
     enc, dec = getencdec()
     r = validate({'psid' : _good_string,
@@ -205,17 +260,23 @@ def create_project_parameter_route(params):
 @transaction.commit_on_success
 @json_request_handler
 def create_project_parameter_from_default_route(params):
-    """create project parameter from default parameter given in request
-    get json coded dictionary with keys:
-    - `psid`:
+    """
+    **Create project parameter from default**
+
+    address to query: **/project/parameter/create/fromdefault**
+
+    Fet json coded dictionary with keys:
+    
+    - `psid`: access key
     - `uuid`: default parameter uuid
-    Return parameter id as just one string
-    Return code is 201(created) if everything is ok
-    Return code is 404 if user not found
-    Return code is 412 if failed validtion of parameter, body will contain errors list
-    Return code is 501 if request method was not POST
-    Arguments:
-    - `params`:
+
+    Posible return status:
+
+    - `201`: project parameter was created
+    - `412`: precondition failed, details in response body
+    - `404`: user was not found
+    - `501`: query was not post
+    - `500`: otherwise
     """
     enc, dec = getencdec()
     r = validate({'psid' : _good_string,
@@ -235,29 +296,43 @@ def create_project_parameter_from_default_route(params):
 @json_request_handler
 def list_project_parameters_route(params):
     """
+    **List project parameters**
+
+    address to query: **/project/parameter/list**
+
     Read json coded data as one string with psid
+    
     Return json coded list of dictionaries with keys:
+    
     - `uuid`: parameter uuid
     - `name`: parameter name
     - `descr`: parameter description
     - `tp`: param type
     - `enum`: Boolean, enumerated value
     - `tecnical`: Boolean, True if parameter is tecnical
-    - `values`: posible values of parameter, null if enum is false.
-                List of dictionaries with keys:
-                                          - `value`:
-                                          - `caption`:
+    - `values`: posible values of parameter, null if enum is false. List of dictionaries with keys:
+       - `value`: one of posible values
+       - `caption`: value description
     - `value`: value of parameter, null if there is no one accepted value
-    - `caption`: value description, null if `vote` is null
+    - `caption`: value description, null if `value` is null
     - `votes`: list of dictionaries with keys:
-                                          - `voter`: uuid of voter
-                                          - `value`: value voted by user
-                                          - `caption`: value description
-                                          - `dt`: datetime of vote
-    Return code 200 if everything is ok
-    Return code 404 if no users found with given psid
-    Arguments:
-    - `params`:
+       - `voter`: uuid of voter (participant)
+       - `value`: value voted by user
+       - `caption`: value description
+       - `dt`: dictionary with keys:
+          - `year`: year of date
+          - `month`: month
+          - `day`: day of data
+          - `hour`:
+          - `minute`:
+          - `second`:
+
+    Return status:
+    
+    - `200`: ok
+    - `412`: precondition failed, details in response body
+    - `404`: user was not found with such psid
+    - `500`: otherwise
     """
     enc = json.JSONEncoder()
     r = validate(_good_string, params)
@@ -270,16 +345,23 @@ def list_project_parameters_route(params):
 @json_request_handler
 def change_project_parameter_route(params):
     """
+    **Change project parameter**
+
+    address to query: **/project/parameter/change**
+    
     Get json coded dictionary with keys:
-    - `psid`:
+    
+    - `psid`: access key
     - `uuid`: parameter uuid
     - `value`: parameter value
     - `caption`: value caption, may be null
-    Return status 200 if everything is ok
-    Return status 404 if user with this `psid` not found
-    Return status 412 when incorrect parameters, details with response body
-    Arguments:
-    - `params`:
+    
+    Return status:
+    
+    - `200`: ok
+    - `412`: precondition failed, details in response body
+    - `404`: user was not found with such psid
+    - `500`: otherwise
     """
     enc = json.JSONEncoder()
     r = validate({'psid' : _good_string,
@@ -299,14 +381,21 @@ def change_project_parameter_route(params):
 @json_request_handler
 def conform_project_parameter_route(params):
     """
+    **Conform project**
+
+    address to query: **/project/conform**
+    
     get json encoded dictionary with keys:
+    
     - `psid`:
     - `uuid`: string, parameter uuid
-    Return code 201 if saved
-    Return code 404 if user not found
-    Return code 412 if other mistake
-    Arguments:
-    - `params`:
+
+    Return status:
+    
+    - `201`: ok
+    - `412`: precondition failed, details in response body
+    - `404`: user was not found with such psid
+    - `500`: otherwise
     """
     enc = json.JSONEncoder()
     r = validate({'psid' : _good_string,
@@ -325,8 +414,8 @@ def conform_project_parameter_route(params):
 def delete_project_route(params):
     """
     get string with psid
-    Arguments:
-    - `params`:
+
+    just for testing
     """
     r = validate(_good_string, params)
     if r != None:

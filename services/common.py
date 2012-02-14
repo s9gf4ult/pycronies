@@ -6,6 +6,7 @@ import httplib
 import datetime
 import re
 import json
+from functools import wraps
 
 yearmonthdayhour = ['year', 'month', 'day', 'hour', 'minute', 'second']
 
@@ -187,6 +188,7 @@ def json_request_handler(function):
     Arguments:
     - `function`:
     """
+    @wraps(function)
     def ret(*args, **kargs):
         req = args[0]
         if req.method=='POST':

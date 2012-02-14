@@ -190,7 +190,7 @@ class DefaultParameter(BaseModel):
     descr = SafeTextField(default=u'')
     tp = models.CharField(max_length=40)
     enum = models.BooleanField(default = False)
-    default_value = models.CharField(max_length=40, null=True, default=None)
+    default_value = models.CharField(max_length=40, default=None)
     tecnical = models.BooleanField(default=False)
 
 class DefaultParameterVl(BaseModel):
