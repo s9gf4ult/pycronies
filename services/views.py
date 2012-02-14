@@ -425,3 +425,45 @@ def delete_project_route(params):
     p = Project.objects.filter(participant__psid=params).all()[0]
     p.delete()
     return http.HttpResponse(u'OK', status=httplib.OK)
+
+@transaction.commit_on_success
+@json_request_handler
+def change_participant_route(params):
+    """
+    **Изменить параметры участника проекта**
+    
+    Изменяет участника проекта, если участник меняет сам себя либо
+    другого участника, которого он пригласил, но тот еще не входил в проект
+
+    адрес: **/participant/change**
+
+    Принимает json словарь с ключами:
+
+    - `psid`: (строка) ключ доступа
+    - `uuid`: (строка) ид участника которого будем менять
+    - `name`: (строка) новое имя участника либо null
+    - `descr`: (строка) описание участника либо null
+    - `user_id`: (строка) поле user_id либо null
+
+    Если одно из полей не указано, то не меняет значения этого поля.
+    Должно быть указано хотя бы одно поле для изменения name, descr или user_id
+
+    Данных не возвращает в теле
+
+    Статусы возврата:
+    
+    - `201`: ok
+    - `404`: psid не найден
+    - `412`: не верные данные с описанием в теле ответа
+    - `500`: ошибка сервера
+    """
+    enc, dec = getencdec()
+    r = validate({'psid' : _good_string,
+                  'uuid' : _good_string,
+                  'name' : OrNone(_good_string),
+                  'descr' : OrNone(_good_string),
+                  'user_id' : OrNone(_good_string)},
+                 params)
+    if r != None:
+        
+                  

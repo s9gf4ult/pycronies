@@ -89,6 +89,7 @@ class Participant(BaseModel):
                          (u'denied', u'Участник проекта запрещен'),
                          (u'voted', u'Участник пректа предложен для участия в проекте'))
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
+    dt = models.DateTime(default=datetime.now, null=False) # Дата последнего входа или изменения участника
     is_initiator = models.BooleanField(default=False)
     user = models.CharField(max_length=40, null=True)   # FIXME: Это должна быть ссылка на пользюка, пока заглушка
     psid = models.CharField(max_length=40, unique=True)
