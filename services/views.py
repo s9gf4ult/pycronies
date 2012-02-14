@@ -320,3 +320,19 @@ def conform_project_parameter_route(params):
         transaction.rollback()
     return http.HttpResponse(enc.encode(ret), status=st)
 
+@transaction.commit_on_success
+@json_request_handler
+def delete_project_route(params):
+    """
+    get string with psid
+    Arguments:
+    - `params`:
+    """
+    r = validate(_good_string, params)
+    if r != None:
+        return http.HttpResponse(u'Bad parameter', status=httplib.PRECONDITION_FAILED)
+    if Project.objects.filter(participant__psid=params).count() == 0:
+        return http.HttpResponse(u'No such project', status=httplib.PRECONDITION_FAILED)
+    p = Project.objects.filter(participant__psid=params).all()[0]
+    p.delete()
+    return http.HttpResponse(u'OK', status=httplib.OK)

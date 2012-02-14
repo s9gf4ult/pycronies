@@ -19,6 +19,16 @@ import datetime
 class mytest(TestCase):
     """
     """
+    def _delete_project(self, psid):
+        """
+        Arguments:
+        - `psid`:
+        """
+        c = httplib.HTTPConnection(host, port)
+        c.request('POST', '/project/delete', psid)
+        r = c.getresponse()
+        # print(r.read())
+        self.assertEqual(r.status, httplib.OK)
 
     def test_create_project(self, ):
         """
@@ -41,6 +51,7 @@ class mytest(TestCase):
         c.request('POST', '/project/create', p1)
         r1 = c.getresponse()
         self.assertEqual(r1.status, httplib.CREATED)
+        self._delete_project(enc.encode(dec.decode(r1.read())['psid']))
         p2 = enc.encode({'descr' : 'blah blah, something here',
                          'begin_date' : {'year' : 2012,
                                          'month' : 3,
@@ -81,6 +92,7 @@ class mytest(TestCase):
         """
         enc, dec = getencdec()
         c = httplib.HTTPConnection(host, port)
+        psids=[]
         for x in range(0, 50):
             c.request('POST', '/project/create', enc.encode({'name' : u'test project {0}'.format(x),
                                                             'descr' : u'description blah blah',
@@ -95,12 +107,13 @@ class mytest(TestCase):
                                                             'user_name' : u'Spiderman'}))
             r = c.getresponse()
             self.assertEqual(r.status, httplib.CREATED)
+            psids.append(dec.decode(r.read())['psid'])
         # пробуем посмотреть все проекты
         c.request('POST', '/project/list', enc.encode({}))
         r = c.getresponse()
         self.assertEqual(r.status, httplib.OK)
         resp = dec.decode(r.read())
-        self.assertTrue(len(resp) >= 50) # мы не знаем выполнился ли тест на создание проектов раньше
+        self.assertEqual(len(resp), 50) # мы не знаем выполнился ли тест на создание проектов раньше
 
         # пробуем посмотреть проекты по строке поиска
         c.request('POST', '/project/list', enc.encode({'search' : 'test project'}))
@@ -142,6 +155,8 @@ class mytest(TestCase):
         r = c.getresponse()
         self.assertEqual(r.status, httplib.OK)
         self.assertEqual(0, len(dec.decode(r.read())))
+        for psid in psids:
+            self._delete_project(enc.encode(psid))
 
     def test_list_user_projects_route(self, ):
         """
@@ -155,7 +170,7 @@ class mytest(TestCase):
                                                          'user_id' : 'test_id'}))
         r = c.getresponse()
         self.assertEqual(r.status, httplib.CREATED)
-
+        psid = dec.decode(r.read())['psid']
         c.request('POST', '/project/list/userid', enc.encode('test_id'))
         r = c.getresponse()
         self.assertEqual(r.status, httplib.OK)
@@ -168,6 +183,7 @@ class mytest(TestCase):
         c.request('POST', '/project/list/userid', enc.encode('11111111111')) # такого ид в базе нет
         r = c.getresponse()
         self.assertEqual(r.status, httplib.NOT_FOUND)
+        self._delete_project(enc.encode(psid))
 
     def test_change_project_status(self, ):
         """
@@ -198,6 +214,7 @@ class mytest(TestCase):
                                                          'user_name' : 'someuser'}))
         r = c.getresponse()
         self.assertEqual(r.status, httplib.CREATED)
+        self._delete_project(enc.encode(psid))
         psid = dec.decode(r.read())['psid']
 
         c.request('POST', '/project/status/change', enc.encode({'psid' : psid, # пробуем этот проект изменить
@@ -208,6 +225,7 @@ class mytest(TestCase):
                                                                 'status' : 'planning'}))
         r = c.getresponse()
         self.assertEqual(r.status, httplib.NOT_FOUND)
+        self._delete_project(enc.encode(psid))
 
     def test_create_project_parameter(self, ):
         """
@@ -323,6 +341,7 @@ class mytest(TestCase):
                                                                    'descr' : 'asdf'}))
         r = c.getresponse()
         self.assertEqual(r.status, httplib.CREATED)
+        self._delete_project(enc.encode(psid))
 
     def test_create_project_parameter_from_default_route(self, ):
         """
@@ -365,14 +384,47 @@ class mytest(TestCase):
         ppars = dec.decode(r.read())
         pnames = set([(p['name'], p['value']) for p in ppars]) # новые параметры проекта в множестве
         self.assertEqual(names, pnames)
-                
-                
+        self._delete_project(enc.encode(psid))
+
+    def test_list_and_create_project_parameters(self, ):
+        """
+        """
+        enc, dec = getencdec()
+        c = httplib.HTTPConnection(host, port)
+        c.request('POST', '/project/create', enc.encode({'name' : 'prj11',
+                                                         'descr' : 'asdf',
+                                                         'sharing' : False,
+                                                         'ruleset' : 'despot',
+                                                         'user_name' : 'user'}))
+        r = c.getresponse()
+        self.assertEqual(httplib.CREATED, r.status)
+        psid = dec.decode(r.read())['psid']
+        c.request('POST', '/project/parameter/list', enc.encode(psid))
+        r = c.getresponse()
+        self.assertEqual(httplib.OK, r.status)
+        pps = dec.decode(r.read())
+        c.request('POST', '/project/parameter/create', enc.encode({'psid' : psid,
+                                                                   'name' : 'you parameter',
+                                                                   'descr' : 'test parameter',
+                                                                   'tp' : 'text',
+                                                                   'enum' : False,
+                                                                   'value' : 'blah blah'}))
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.CREATED)
+        c.request('POST', '/project/parameter/list', enc.encode(psid))
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.OK)
+        pps2 = dec.decode(r.read())
+        self.assertEqual(len(pps)+1, len(pps2))
+        for p in pps:
+            self.assertIn(p, pps2)
+
+        self._delete_project(enc.encode(psid))
         
-        
-        
-        
-        
-        
+
+
+
+
 
 
 if __name__ == '__main__':
