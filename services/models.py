@@ -89,7 +89,7 @@ class Participant(BaseModel):
                          (u'denied', u'Участник проекта запрещен'),
                          (u'voted', u'Участник пректа предложен для участия в проекте'))
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
-    dt = models.DateTime(default=datetime.now, null=False) # Дата последнего входа или изменения участника
+    dt = models.DateTimeField(default=None, null=True) # Дата последнего входа или изменения участника
     is_initiator = models.BooleanField(default=False)
     user = models.CharField(max_length=40, null=True)   # FIXME: Это должна быть ссылка на пользюка, пока заглушка
     psid = models.CharField(max_length=40, unique=True)
@@ -317,15 +317,12 @@ class ParticipantContact(BaseModel):
 class ParticipantVote(BaseModel):
     """Предложение об участнике проекта
     """
-    PARTICIPANT_VOTE_STATUS=((u'voted', u'Предложение открыто'),
-                             (u'accepted', u'Предложение принято'),
-                             (u'denied', u'Предложение отклонено'))
     PARTICIPANT_VOTE=((u'include', u'Предложение о добавлении участника в проект'), # FIXME: возможно какие то еще предложения над участником ?
                       (u'exclude', u'Предложение об удалении участника из проекта'))
     participant = models.ForeignKey(Participant, on_delete=models.CASCADE)
     voter = models.ForeignKey(Participant, related_name = 'acceptant_%(class)s_set', on_delete=models.CASCADE)
     vote = models.CharField(max_length=40)
-    status = models.CharField(max_length=40, default=u'voted', choices=PARTICIPANT_VOTE_STATUS)
+    comment = SafeTextField(null=False, default='')
     class Meta:
         unique_together = ((u'participant', u'voter'), )
 

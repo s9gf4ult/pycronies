@@ -7,6 +7,7 @@ import datetime
 import re
 import json
 from functools import wraps
+from svalidate import validate
 
 yearmonthdayhour = ['year', 'month', 'day', 'hour', 'minute', 'second']
 
@@ -72,10 +73,12 @@ def validate_datetime_dict(value):
     return good
 
 def each_map(fnc, values):
-    """return true if `fnc` return True on each value
+    """return True if `fnc` return True on each value
+    
     Arguments:
-    - `fnc`:
-    - `values`:
+    
+    - `fnc`: function returning boolean and getting element from `values`
+    - `values`: list of elements
     """
     return reduce(lambda a, b: a and b, [fnc(a) for a in values])
 
@@ -196,7 +199,7 @@ def json_request_handler(function):
             try:
                 resp = dec.decode(req.read())
             except:
-                return http.HttpResponse(status=httplib.PRECONDITION_FAILED, content=enc.encode([u'Could not parse content']))
+                return http.HttpResponse(status=httplib.PRECONDITION_FAILED, content=enc.encode(u'Could not parse content'))
             else:
                 return function(*tuple([resp] + list(args[1:])), **kargs)
 
@@ -216,3 +219,28 @@ def check_list_or_null(table, name):
         return []
     else:
         return [u'key "{0}" references to {1} which is not list type'.format(name, table[name])]
+
+class validate_params(object):
+    """decrator for validating first paramter of function
+    """
+    
+    def __init__(self, validator):
+        """
+        Arguments:
+        - `validator`:
+        """
+        self._validator = validator
+
+    def __call__(self, func):
+        """
+        """
+        @wraps(func)
+        def ret(*args, **kargs):
+            params = args[0]
+            enc = json.JSONEncoder()
+            r = validate(self._validator,
+                         params)
+            if r != None:
+                return http.HttpResponse(enc.encode(r), status=httplib.PRECONDITION_FAILED)
+            return func(*args, **kargs)
+        return ret

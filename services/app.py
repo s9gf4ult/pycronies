@@ -42,7 +42,7 @@ def execute_create_project(parameters):
     pr.save()
     
     # создаем предложение на добавление участника
-    pv = ParticipantVote(participant=pr, voter=pr, vote='include', status='accepted')
+    pv = ParticipantVote(participant=pr, voter=pr, vote='include')
     pv.save()
 
     # заполняем дефолтные параметры проекта
@@ -293,7 +293,7 @@ def despot_change_project_parameter(proj, params):
             return u'This value can not set for enumerated parameter', httplib.PRECONDITION_FAILED
     # если мы еще не предлагали это значение параметра, то создаем предложение. Иначе меняем старое
     user = Participant.objects.filter(psid=params['psid']).all()[0]
-    if ProjectParameterVal.objects.filter(Q(status='voted') & Q(parameter=par) & Q(projectparametervote__voter=user)).count() == 0: #нет значений предложынных нами
+    if ProjectParameterVal.objects.filter(Q(status='voted') & Q(parameter=par) & Q(projectparametervote__voter=user) & Q(projectparametervote__vote=u'change')).count() == 0: #нет значений предложынных нами
         np = ProjectParameterVal(parameter=par, status='voted', dt=datetime.now(),
                                  value=params['value'])
         if params.get('caption') != None:
@@ -302,7 +302,7 @@ def despot_change_project_parameter(proj, params):
         npvote = ProjectParameterVote(parameter_val=np, voter=user, vote='change')
         npvote.save()
     else:                                 # изменяем значение которое мы уже предложили
-        np = ProjectParameterVal.objects.filter(Q(status='voted') & Q(parameter=par) & Q(projectparametervote__voter=user)).all()[0]
+        np = ProjectParameterVal.objects.filter(Q(status='voted') & Q(parameter=par) & Q(projectparametervote__voter=user) & Q(projectparametervote__vote=u'change')).all()[0]
         np.value = params['value']
         if params.get('caption') != None:
             np.caption = params['caption']
@@ -398,3 +398,61 @@ def execute_list_project_parameters(psid):
         
         ret.append(p)
     return ret, httplib.OK
+
+def execute_change_participant(params):
+    """
+    
+    Arguments:
+    - `params`:
+    """
+    # проверяем наличие пользователя по psid
+    if Participant.objects.filter(psid=params['psid']).count() == 0:
+        return u'There is no such user', httplib.NOT_FOUND
+    par = Participant.objects.filter(psid=params['psid']).all()[0]
+    user = Participant.objects.filter(uuid=params['uuid']).all()[0]
+    def check_user(par, user):
+        # проверка того, что пользователь меняет себя или приглашенного, который еще не входил
+        if par.uuid == user.uuid:
+            return True
+        if par.project != user.project:
+            return False
+        if user.dt == None and ParticipantVote.objects.filter(Q(voter=par) & Q(participant=user) & Q(vote=u'include')).count() > 0:
+            return True
+        return False
+
+    if not check_user(par, user):
+        return u'You can not change this user', httplib.PRECONDITION_FAILED
+    # изменяем параметр пользователя
+    if params.get('name') != None:
+        user.name = params['name']
+    if params.get('descr') != None:
+        user.descr = params['descr']
+    if params.get('user_id') != None:
+        user.user = params['user_id']
+    user.save()
+    return 'OK', httplib.CREATED
+
+def execute_list_participants(psid):
+    if Participant.objects.filter(psid=psid).count() == 0:
+        return u'There is no such psid', httplib.PRECONDITION_FAILED
+    prj = Project.objects.filter(participant__psid=psid).all()[0]
+    ret = []
+    # получаем список участников проекта
+    for par in Participant.objects.filter(project=prj):
+        a = {'uuid' : par.uuid,
+             'descr' : par.descr,
+             'status' : par.status}
+        # смотрим список предложений по участнику
+        if par.status == 'voted':
+            vts = []
+            for vote in ParticipantVote.objects.filter(Q(participant=par) & Q(voter__project=prj)).all():
+                vts.append({'voter' : vote.voter,
+                            'vote' : vote.vote,
+                            'comment' : vote.comment,
+                            'dt' : vote.create_date})
+            a['votes'] = vts
+        ret.append(a)
+    return ret, httplib.OK
+    
+def execute_invite_participant(params):
+    pass
