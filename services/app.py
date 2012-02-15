@@ -455,4 +455,32 @@ def execute_list_participants(psid):
     return ret, httplib.OK
     
 def execute_invite_participant(params):
+    if Participant.objects.filter(psid=params['psid']).count() == 0:
+        return u'There is user with such psid', httplib.PRECONDITION_FAILED
+    # создаем нового участника для приглашения
+    user = Participant.objects.filter(psid=params['psid']).all()[0]
+    pr = Participant(project=user.project, name=params['name'],
+                     token=hex4(), status='voted')
+    if params.get('descr') != None:
+        pr.descr = params['descr']
+    if params.get('user_id') != None:
+        pr.user = params['user_id']
+    try:
+        pr.save()
+    except IntegrityError:
+        return u'User with such name or with such user_id is already exists in this project', httplib.PRECONDITION_FAILED
+    # создаем приглашение участника
+    vt = ParticipantVote(participant=pr, voter=user, vote='include')
+    if params.get('comment') != None:
+        vt.comment = params['comment']
+    vt.save()
+    # согласуем предложение
+    r, st = execute_conform_participant({'psid' : params['psid'],
+                                         'uuid' : pr.uuid})
+    if st == httplib.CREATED:
+        return pr.token, httplib.CREATED
+    else:
+        return r, st
+
+def execute_conform_participant(params):
     pass

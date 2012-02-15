@@ -92,7 +92,7 @@ class Participant(BaseModel):
                          (u'denied', u'Участник проекта запрещен'),
                          (u'voted', u'Участник пректа предложен для участия в проекте'))
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
-    dt = models.DateTimeField(default=None, null=True) # Дата последнего входа или изменения участника
+    dt = models.DateTimeField(default=None, null=True) # Дата последнего входа участника
     is_initiator = models.BooleanField(default=False)
     user = models.CharField(max_length=40, null=True)   # FIXME: Это должна быть ссылка на пользюка, пока заглушка
     psid = models.CharField(max_length=40, unique=True)
@@ -100,7 +100,6 @@ class Participant(BaseModel):
     name = SafeCharField(max_length=100, default=None, null=False)
     descr = SafeTextField(default=u'')
     status = models.CharField(max_length=40, choices=PARTICIPANT_STATUS, default=u'accepted') # FIXME: Заменить на статус с возможными значениями как для ресурсов мероприятия ?
-    last_login = models.DateTimeField(null=True)
 
     class Meta:
         unique_together = (("project", "name"),
