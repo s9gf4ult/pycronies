@@ -287,6 +287,6 @@ class standard_request_handler(object):
             if r != None:
                 enc = json.JSONEncoder()
                 return http.HttpResponse(enc.encode(r), status=httplib.PRECONDITION_FAILED)
-            return func(*([h] + args[1:]), **kargs)
+            return func(*tuple([h] + list(args[1:])), **kargs)
 
         return ret
