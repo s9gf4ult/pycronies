@@ -9,7 +9,7 @@ from services.app import execute_create_project, execute_list_projects, execute_
     execute_change_project_status, execute_list_default_parameters, execute_create_project_parameter, \
     execute_list_project_parameters, execute_create_project_parameter_from_default, execute_change_participant, \
     execute_invite_participant
-from services.common import json_request_handler, getencdec, validate_params
+from services.common import json_request_handler, getencdec, validate_params, standard_request_handler
 from services.models import Project
 from svalidate import validate, OrNone, Any, DateTime, RegexpMatch, Equal
 

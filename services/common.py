@@ -244,3 +244,10 @@ class validate_params(object):
                 return http.HttpResponse(enc.encode(r), status=httplib.PRECONDITION_FAILED)
             return func(*args, **kargs)
         return ret
+
+class standard_request_handler(object):
+    """
+    """
+    
+    def __init__(self, _validator):
+        self.__validator = _validator

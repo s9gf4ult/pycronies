@@ -57,9 +57,12 @@ class Project(BaseModel):
                     (u'budget', u'Формирование бюджета'),
                     (u'control', u'Контроль'),
                     (u'closed', u'Закрыт'))
+    PROJECT_SHARING = ((u'open', u'Проект открытый'),
+                       (u'closed', u'Проект закрытый'),
+                       (u'invitation', u'Проект по приглашению'))
     name = SafeCharField(max_length=100, default=None, db_index=True, verbose_name="nom nom nom")
     descr = SafeTextField(default=u'', db_index=True)
-    sharing = models.BooleanField(default=True)
+    sharing = SafeCharField(max_length=40, choices=PROJECT_SHARING)
     ruleset = models.CharField(max_length=40, default='despot', null=False, choices=PROJECT_RULESET)
     begin_date = models.DateTimeField(null=True)
     end_date = models.DateTimeField(null=True)
