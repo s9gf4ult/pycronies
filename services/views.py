@@ -66,10 +66,7 @@ def create_project_route(prs):
     result, stat = execute_create_project(prs)
     if stat != httplib.CREATED:
         transaction.rollback()
-    r = http.HttpResponse(enc.encode(result))
-    r.status_code = stat
-    r.content_type='application/json'
-    return r
+    return http.HttpResponse(enc.encode(result), status=stat, content_type='application/json')
 
 @transaction.commit_on_success
 @standard_request_handler({'page_number' : OrNone(_good_int),
