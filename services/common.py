@@ -10,7 +10,7 @@ from functools import wraps
 from svalidate import Validate
 
 yearmonthdayhour = ['year', 'month', 'day', 'hour', 'minute', 'second']
-formats = ['%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S']
+formats = ['%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d']
 
 def getencdec():
     """return json encoder and decoder
