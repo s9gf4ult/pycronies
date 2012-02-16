@@ -278,7 +278,7 @@ class standard_request_handler(object):
         def ret(*args, **kargs):
             request = args[0]
             if request.method != 'POST':
-                return http.HttpResponse('You must use POST request, not {0}'.format(request.method), status=httplib.NOT_IMPLEMENTED)
+                return http.HttpResponse('You must use POST request, not {0}'.format(request.method), status=httplib.NOT_IMPLEMENTED, content_type='application/json')
             h = {}
             for key, value in request.POST.iteritems():
                 h[key] = value
@@ -286,7 +286,7 @@ class standard_request_handler(object):
             r = v.validate(self._validator, h)
             if r != None:
                 enc = json.JSONEncoder()
-                return http.HttpResponse(enc.encode(r), status=httplib.PRECONDITION_FAILED)
+                return http.HttpResponse(enc.encode(r), status=httplib.PRECONDITION_FAILED, content_type='application/json')
             return func(*tuple([h] + list(args[1:])), **kargs)
 
         return ret

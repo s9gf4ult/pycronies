@@ -12,6 +12,7 @@ from services.app import execute_create_project, execute_list_projects, execute_
 from services.common import json_request_handler, getencdec, validate_params, standard_request_handler
 from services.models import Project
 from svalidate import OrNone, Any, DateTimeString, RegexpMatch, Equal
+from copy import copy
 
 _good_string = RegexpMatch(r'^[^;:"''|\\/#@&><]*$')
 _good_int = RegexpMatch(r'^\d+$')
@@ -67,15 +68,15 @@ def create_project_route(prs):
         transaction.rollback()
     r = http.HttpResponse(enc.encode(result))
     r.status_code = stat
+    r.content_type='application/json'
     return r
 
 @transaction.commit_on_success
-@json_request_handler
-@validate_params({'page_number' : OrNone(0),
-                  'projects_per_page' : OrNone(0),
-                  'status' : OrNone(Any(*[Equal(a[0]) for a in Project.PROJECT_STATUS])),
-                  'begin_date' : OrNone(DateTimeString()),
-                  'search' : OrNone(_good_string)})
+@standard_request_handler({'page_number' : OrNone(_good_int),
+                           'projects_per_page' : OrNone(_good_int),
+                           'status' : OrNone(Any(*[Equal(a[0]) for a in Project.PROJECT_STATUS])),
+                           'begin_date' : OrNone(DateTimeString()),
+                           'search' : OrNone(_good_string)})
 def list_projects_route(pars):
     """
     **List Projects**
@@ -105,8 +106,13 @@ def list_projects_route(pars):
     - `501`: query was not post
     - `500`: otherwise
     """
-    enc,dec = getencdec()
-    result = execute_list_projects(pars)
+    pp = copy(pars)
+    if pars.get('page_number') != None:
+        pp['page_number'] = int(pars['page_number'])
+    if pars.get('projects_per_page') != None:
+        pp['projects_per_page'] = int(pars['projects_per_page'])
+    enc = json.JSONEncoder()
+    result = execute_list_projects(pp)
     r = http.HttpResponse(enc.encode(result))
     r.status_code=httplib.OK
     return r

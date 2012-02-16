@@ -86,7 +86,7 @@ def execute_list_projects(props):
     if props.get('status') != None:
         qry = none_and(qry, Q(status=props['status']))
     if props.get('begin_date') != None:
-        qry = none_and(qry, Q(begin_date__gte=dict2datetime(props['begin_date'])))
+        qry = none_and(qry, Q(begin_date__gte = string2datetime(props['begin_date'])))
     if props.get('search') != None:
         qry = none_and(qry, (Q(name__contains=props['search']) | Q(descr__contains=props['search'])))
 
