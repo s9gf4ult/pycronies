@@ -11,7 +11,7 @@ from services.app import execute_create_project, execute_list_projects, execute_
     execute_invite_participant
 from services.common import json_request_handler, getencdec, validate_params, standard_request_handler
 from services.models import Project
-from svalidate import OrNone, Any, DateTimeString, RegexpMatch, Equal
+from svalidate import OrNone, Any, DateTimeString, RegexpMatch, Equal, JsonString
 from copy import copy
 
 _good_string = RegexpMatch(r'^[^;:"''|\\/#@&><]*$')
@@ -110,20 +110,19 @@ def list_projects_route(pars):
         pp['projects_per_page'] = int(pars['projects_per_page'])
     enc = json.JSONEncoder()
     result = execute_list_projects(pp)
-    r = http.HttpResponse(enc.encode(result))
-    r.status_code=httplib.OK
-    return r
+    return http.HttpResponse(enc.encode(result), status=httplib.OK, content_type='application/json')
 
 @transaction.commit_on_success
-@json_request_handler
-@validate_params(_good_string)
+@standard_request_handler({'user_id' : _good_string})
 def list_user_projects_route(params):
     """
     **List Projects assigned to user**
 
     address to query: **/project/list/userid**
 
-    Get one string with user_id
+    Get paramters with names:
+    
+    - `user_id`: user_id
 
     Return list of tables with keys:
 
@@ -142,13 +141,12 @@ def list_user_projects_route(params):
     - `500`: otherwise
     """
     enc, dec = getencdec()
-    ret, st = execute_list_user_projects(params)
-    return http.HttpResponse(enc.encode(ret), status=st)
+    ret, st = execute_list_user_projects(params['user_id'])
+    return http.HttpResponse(enc.encode(ret), status=st, content_type='application/json')
 
 @transaction.commit_on_success
-@json_request_handler
-@validate_params({'psid' : '',
-                  'status' : Any(*[Equal(a[0]) for a in Project.PROJECT_STATUS])})
+@standard_request_handler({'psid' : '',
+                           'status' : Any(*[Equal(a[0]) for a in Project.PROJECT_STATUS])})
 def change_project_status_route(params):
     """
     **Change project status**
@@ -174,7 +172,7 @@ def change_project_status_route(params):
     ret, st = execute_change_project_status(params)
     if st != httplib.OK:
         transaction.rollback()
-    return http.HttpResponse(enc.encode(ret), status=st)
+    return http.HttpResponse(enc.encode(ret), status=st, content_type='application/jsno')
 
 @transaction.commit_on_success
 def list_default_parameters_route(request):
@@ -205,18 +203,17 @@ def list_default_parameters_route(request):
 
     ret = execute_list_default_parameters()
     enc = json.JSONEncoder()
-    return http.HttpResponse(enc.encode(ret))
+    return http.HttpResponse(enc.encode(ret), status=httplib.OK, content_type='application/json')
 
 @transaction.commit_on_success
-@json_request_handler
-@validate_params({'psid' : _good_string,
-                  'name' : _good_string,
-                  'descr' : OrNone(_good_string),
-                  'tp' : _good_string,
-                  'enum' : True,
-                  'value' : _good_string,
-                  'values' : OrNone([{'value' : _good_string,
-                                      'caption' : OrNone(_good_string)}])})
+@standard_request_handler({'psid' : _good_string,
+                           'name' : _good_string,
+                           'descr' : OrNone(_good_string),
+                           'tp' : _good_string,
+                           'enum' : JsonString(True),
+                           'value' : _good_string,
+                           'values' : OrNone(JsonString([{'value' : _good_string,
+                                                          'caption' : OrNone(_good_string)}]))})
 def create_project_parameter_route(params):
     """
     **Create project parameter**
@@ -247,16 +244,19 @@ def create_project_parameter_route(params):
     
     if params['enum'] and (params.get('values') == None):
         return http.HttpResponse(u'if "enum" is true then "values" key must exist', status=httplib.PRECONDITION_FAILED)
-
-    ret, stat = execute_create_project_parameter(params)
+    pp = copy(params)
+    if params.get('values') != None:
+        pp['values'] = dec.decode(params['values']) # decode from json
+    pp['enum'] = dec.decode(params['enum'])
+    
+    ret, stat = execute_create_project_parameter(pp)
     if stat != httplib.CREATED:
         transaction.rollback()
-    return http.HttpResponse(enc.encode(ret), status=stat)
+    return http.HttpResponse(enc.encode(ret), status=stat, content_type = 'application/json')
 
 @transaction.commit_on_success
-@json_request_handler
-@validate_params({'psid' : _good_string,
-                  'uuid' : _good_string})
+@standard_request_handler({'psid' : _good_string,
+                           'uuid' : _good_string})
 def create_project_parameter_from_default_route(params):
     """
     **Create project parameter from default**
@@ -280,13 +280,12 @@ def create_project_parameter_from_default_route(params):
     ret, st = execute_create_project_parameter_from_default(params)
     if st != httplib.CREATED:
         transaction.rollback()
-    return http.HttpResponse(enc.encode(ret), status=st)
+    return http.HttpResponse(enc.encode(ret), status=st, content_type='application/json')
 
 
 
 @transaction.commit_on_success
-@json_request_handler
-@validate_params(_good_string)
+@standard_request_handler({'psid' : _good_string})
 def list_project_parameters_route(params):
     """
     **List project parameters**
@@ -328,15 +327,14 @@ def list_project_parameters_route(params):
     - `500`: otherwise
     """
     enc = json.JSONEncoder()
-    ret, st = execute_list_project_parameters(params)
-    return http.HttpResponse(enc.encode(ret), status=st)
+    ret, st = execute_list_project_parameters(params['psid'])
+    return http.HttpResponse(enc.encode(ret), status=st, content_type='application/json')
 
 @transaction.commit_on_success
-@json_request_handler
-@validate_params({'psid' : _good_string,
-                  'uuid' : _good_string,
-                  'value' : _good_string,
-                  'caption' : OrNone(_good_string)})
+@standard_request_handler({'psid' : _good_string,
+                           'uuid' : _good_string,
+                           'value' : _good_string,
+                           'caption' : OrNone(_good_string)})
 def change_project_parameter_route(params):
     """
     **Change project parameter**
@@ -361,12 +359,11 @@ def change_project_parameter_route(params):
     ret, st = execute_change_project_parameter(params)
     if st != httplib.OK:
         transaction.rollback()
-    return http.HttpResponse(enc.encode(ret), status=st)
+    return http.HttpResponse(enc.encode(ret), status=st, content_type='application/json')
 
 @transaction.commit_on_success
-@json_request_handler
-@validate_params({'psid' : _good_string,
-                  'uuid' : _good_string})
+@standard_request_handler({'psid' : _good_string,
+                           'uuid' : _good_string})
 def conform_project_parameter_route(params):
     """
     **Conform project**
@@ -389,30 +386,28 @@ def conform_project_parameter_route(params):
     ret, st = execute_conform_project_parameter(params)
     if st != httplib.CREATED:
         transaction.rollback()
-    return http.HttpResponse(enc.encode(ret), status=st)
+    return http.HttpResponse(enc.encode(ret), status=st, content_type='application/json')
 
 @transaction.commit_on_success
-@json_request_handler
-@validate_params(_good_string)
+@standard_request_handler({'psid' : _good_string})
 def delete_project_route(params):
     """
     get string with psid
 
     just for testing
     """
-    if Project.objects.filter(participant__psid=params).count() == 0:
+    if Project.objects.filter(participant__psid=params['psid']).count() == 0:
         return http.HttpResponse(u'No such project', status=httplib.PRECONDITION_FAILED)
-    p = Project.objects.filter(participant__psid=params).all()[0]
+    p = Project.objects.filter(participant__psid=params['psid']).all()[0]
     p.delete()
-    return http.HttpResponse(u'OK', status=httplib.OK)
+    return http.HttpResponse(u'OK', status=httplib.OK, content_type='application/json')
 
 @transaction.commit_on_success
-@json_request_handler
-@validate_params({'psid' : _good_string,
-                  'uuid' : _good_string,
-                  'name' : OrNone(_good_string),
-                  'descr' : OrNone(_good_string),
-                  'user_id' : OrNone(_good_string)})
+@standard_request_handler({'psid' : _good_string,
+                           'uuid' : _good_string,
+                           'name' : OrNone(_good_string),
+                           'descr' : OrNone(_good_string),
+                           'user_id' : OrNone(_good_string)})
 def change_participant_route(params):
     """
     **Изменить параметры участника проекта**
@@ -449,11 +444,10 @@ def change_participant_route(params):
     ret, stat = execute_change_participant(params)
     if ret != httplib.CREATED:
         transaction.rollback()
-    return http.HttpResponse(enc.encode(ret), status=stat)
+    return http.HttpResponse(enc.encode(ret), status=stat, content_type='application/json')
 
 @transaction.commit_on_success
-@json_request_handler
-@validate_params(_good_string)
+@standard_request_handler({'psid' : _good_string})
 def list_participants_route(params):
     """
     **Список участников проекта**
@@ -492,16 +486,15 @@ def list_participants_route(params):
     - `500`: ошибка сервера
     """
     enc = json.JSONEncoder()
-    ret, stat = execute_list_participants(params)
+    ret, stat = execute_list_participants(params['psid'])
     return http.HttpResponse(enc.encode(ret), status=stat)
 
 @transaction.commit_on_success
-@json_request_handler
-@validate_params({'psid' : _good_string,
-                  'name' : _good_string,
-                  'descr' : OrNone(_good_string),
-                  'user_id' : OrNone(_good_string),
-                  'comment': OrNone(_good_string)})
+@standard_request_handler({'psid' : _good_string,
+                           'name' : _good_string,
+                           'descr' : OrNone(_good_string),
+                           'user_id' : OrNone(_good_string),
+                           'comment': OrNone(_good_string)})
 def invite_participant_route(params):
     """
     **Пригласить участника**
@@ -529,4 +522,4 @@ def invite_participant_route(params):
     ret, stat = execute_invite_participant(params)
     if stat != httplib.CREATED:
         transaction.rollback()
-    return http.HttpResponse(enc.encode(ret), status=stat)
+    return http.HttpResponse(enc.encode(ret), status=stat, content_type='application/json')
