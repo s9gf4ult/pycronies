@@ -3,7 +3,7 @@
 
 from services.common import check_safe_string, check_safe_string_or_null, \
     check_datetime_or_null, check_bool, check_string, check_string_choise, \
-    check_string_or_null, dict2datetime, check_int_or_null, check_string_choise_or_null, \
+    check_string_or_null, string2datetime, check_int_or_null, check_string_choise_or_null, \
     datetime2dict, check_list_or_null
 from services.models import Project, Participant, hex4, ParticipantVote, \
     ProjectParameter, ProjectParameterVl, ProjectParameterVal, DefaultParameter, \
@@ -23,7 +23,7 @@ def execute_create_project(parameters):
     if 'descr' in parameters:
         p.descr = parameters['descr']
     if 'begin_date' in parameters:
-        p.begin_date = dict2datetime(parameters['begin_date'])
+        p.begin_date = string2datetime(parameters['begin_date'])
     else:
         p.begin_date=datetime.now()
     p.status = 'opened'

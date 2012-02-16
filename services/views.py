@@ -11,20 +11,20 @@ from services.app import execute_create_project, execute_list_projects, execute_
     execute_invite_participant
 from services.common import json_request_handler, getencdec, validate_params, standard_request_handler
 from services.models import Project
-from svalidate import OrNone, Any, DateTime, RegexpMatch, Equal
+from svalidate import OrNone, Any, DateTimeString, RegexpMatch, Equal
 
 _good_string = RegexpMatch(r'^[^;:"''|\\/#@&><]*$')
+_good_int = RegexpMatch(r'^\d+$')
 
 @transaction.commit_on_success
-@json_request_handler
-@validate_params({'name' : _good_string,
-                  'descr' : OrNone(_good_string),
-                  'begin_date' : OrNone(DateTime()),
-                  'sharing' : True,
-                  'ruleset' : Any(*[Equal(a[0]) for a in Project.PROJECT_RULESET]), # fucken amazing !
-                  'user_name' : _good_string,
-                  'user_id' : OrNone(''),
-                  'user_descr' : OrNone(_good_string)})
+@standard_request_handler({'name' : _good_string,
+                           'descr' : OrNone(_good_string),
+                           'begin_date' : OrNone(DateTimeString()),
+                           'sharing' : Any(*[Equal(a[0]) for a in Project.PROJECT_SHARING]),
+                           'ruleset' : Any(*[Equal(a[0]) for a in Project.PROJECT_RULESET]), # fucken amazing !
+                           'user_name' : _good_string,
+                           'user_id' : OrNone(_good_string),
+                           'user_descr' : OrNone(_good_string)})
 def create_project_route(prs):
     """
     **Create project**

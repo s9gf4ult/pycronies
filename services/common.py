@@ -10,6 +10,7 @@ from functools import wraps
 from svalidate import Validate
 
 yearmonthdayhour = ['year', 'month', 'day', 'hour', 'minute', 'second']
+formats = ['%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S']
 
 def getencdec():
     """return json encoder and decoder
@@ -22,6 +23,25 @@ def dict2datetime(dct):
     - `dct`:
     """
     return datetime.datetime(*[dct[a] for a in yearmonthdayhour])
+
+def string2datetime(val):
+    """
+    Arguments:
+
+    - `val`:
+    """
+    ret = None
+    for fmt in formats:
+        try:
+            ret = datetime.datetime.strptime(val, fmt)
+        except ValueError:
+            pass
+        else:
+            break
+    if ret != None:
+        return ret
+    else:
+        raise ValueError('Could not parse string as datetme')
 
 def validate_string(val):
     """return true if string is valid for using in content
@@ -74,9 +94,9 @@ def validate_datetime_dict(value):
 
 def each_map(fnc, values):
     """return True if `fnc` return True on each value
-    
+
     Arguments:
-    
+
     - `fnc`: function returning boolean and getting element from `values`
     - `values`: list of elements
     """
@@ -223,7 +243,7 @@ def check_list_or_null(table, name):
 class validate_params(object):
     """decrator for validating first paramter of function
     """
-    
+
     def __init__(self, validator):
         """
         Arguments:
@@ -249,10 +269,10 @@ class validate_params(object):
 class standard_request_handler(object):
     """
     """
-    
+
     def __init__(self, validator):
         self._validator = validator
-        
+
     def __call__(self, func):
         @wraps(func)
         def ret(*args, **kargs):
@@ -266,11 +286,9 @@ class standard_request_handler(object):
                 h[key] = value
             v = Validate()
             r = v.validate(self._validator, h)
-            enc = json.JSONEncoder()
             if r != None:
+                enc = json.JSONEncoder()
                 return http.HttpResponse(enc.encode(r), httplib.PRECONDITION_FAILED)
-            
-
-            
+            return func(*([h] + args[1:]), **kargs)
 
         return ret
