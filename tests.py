@@ -67,7 +67,6 @@ class mytest(TestCase):
         c.request('POST', '/project/create', p2)
         r2 = c.getresponse()
         self.assertEqual(r2.status, httplib.PRECONDITION_FAILED)
-        self.assertIsInstance(dec.decode(r2.read()), basestring)
         p3 = enc.encode({'name' : 'jsij',
                          'descr' : 'blah blah, something here',
                          'begin_date' : {'year' : 2012,

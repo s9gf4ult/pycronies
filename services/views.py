@@ -11,7 +11,7 @@ from services.app import execute_create_project, execute_list_projects, execute_
     execute_invite_participant
 from services.common import json_request_handler, getencdec, validate_params, standard_request_handler
 from services.models import Project
-from svalidate import validate, OrNone, Any, DateTime, RegexpMatch, Equal
+from svalidate import OrNone, Any, DateTime, RegexpMatch, Equal
 
 _good_string = RegexpMatch(r'^[^;:"''|\\/#@&><]*$')
 

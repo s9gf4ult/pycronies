@@ -7,7 +7,7 @@ import datetime
 import re
 import json
 from functools import wraps
-from svalidate import validate
+from svalidate import Validate
 
 yearmonthdayhour = ['year', 'month', 'day', 'hour', 'minute', 'second']
 
@@ -238,8 +238,9 @@ class validate_params(object):
         def ret(*args, **kargs):
             params = args[0]
             enc = json.JSONEncoder()
-            r = validate(self._validator,
-                         params)
+            v = Validate()
+            r = v.validate(self._validator,
+                           params)
             if r != None:
                 return http.HttpResponse(enc.encode(r), status=httplib.PRECONDITION_FAILED)
             return func(*args, **kargs)
@@ -249,5 +250,27 @@ class standard_request_handler(object):
     """
     """
     
-    def __init__(self, _validator):
-        self.__validator = _validator
+    def __init__(self, validator):
+        self._validator = validator
+        
+    def __call__(self, func):
+        @wraps(func)
+        def ret(*args, **kargs):
+            request = args[0]
+            if request.method != 'POST':
+                return http.HttpResponse('You must use POST request, not {0}'.format(request.method), status=httplib.NOT_IMPLEMENTED)
+            if request.META.get('CONTENT_TYPE') != 'application/x-www-form-urlencoded':
+                return http.HttpResponse('Content-type must be application/x-www-form-urlencoded not {0}'.format(request.META.get('CONTENT_TYPE')), status=httplib.NOT_IMPLEMENTED)
+            h = {}
+            for key, value in request.POST.iteritems():
+                h[key] = value
+            v = Validate()
+            r = v.validate(self._validator, h)
+            enc = json.JSONEncoder()
+            if r != None:
+                return http.HttpResponse(enc.encode(r), httplib.PRECONDITION_FAILED)
+            
+
+            
+
+        return ret
