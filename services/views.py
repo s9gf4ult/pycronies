@@ -74,7 +74,7 @@ def create_project_route(prs):
 @validate_params({'page_number' : OrNone(0),
                   'projects_per_page' : OrNone(0),
                   'status' : OrNone(Any(*[Equal(a[0]) for a in Project.PROJECT_STATUS])),
-                  'begin_date' : OrNone(DateTime()),
+                  'begin_date' : OrNone(DateTimeString()),
                   'search' : OrNone(_good_string)})
 def list_projects_route(pars):
     """
