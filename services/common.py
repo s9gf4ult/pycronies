@@ -279,8 +279,6 @@ class standard_request_handler(object):
             request = args[0]
             if request.method != 'POST':
                 return http.HttpResponse('You must use POST request, not {0}'.format(request.method), status=httplib.NOT_IMPLEMENTED)
-            if request.META.get('CONTENT_TYPE') != 'application/x-www-form-urlencoded':
-                return http.HttpResponse('Content-type must be application/x-www-form-urlencoded not {0}'.format(request.META.get('CONTENT_TYPE')), status=httplib.NOT_IMPLEMENTED)
             h = {}
             for key, value in request.POST.iteritems():
                 h[key] = value
