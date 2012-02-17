@@ -455,6 +455,11 @@ class mytest(TestCase):
                 self.assertEqual(vl, 'asdjfasidfkaj')
         self._delete_project(psid)
 
+    def test_enter_project_open_route(self, ):
+        enc, dec = getencdec()
+        c = httplib.HTTPConnection(host, port)
+        request(c, '/project/parameter/list', {'psid' : psid})
+    
 
 if __name__ == '__main__':
     main()
