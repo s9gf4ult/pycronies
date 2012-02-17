@@ -8,7 +8,7 @@ import httplib
 from services.app import execute_create_project, execute_list_projects, execute_list_user_projects, \
     execute_change_project_status, execute_list_default_parameters, execute_create_project_parameter, \
     execute_list_project_parameters, execute_create_project_parameter_from_default, execute_change_participant, \
-    execute_invite_participant
+    execute_invite_participant, execute_change_project_parameter
 from services.common import json_request_handler, getencdec, validate_params, standard_request_handler
 from services.models import Project
 from svalidate import OrNone, Any, DateTimeString, RegexpMatch, Equal, JsonString
@@ -43,7 +43,10 @@ def create_project_route(prs):
        - `hour`:
        - `minute`:
        - `second`:
-    - `sharing`: Boolean
+    - `sharing`: one of posible strings:
+       - `open`: project is open to join everyone
+       - `close`: project is closed
+       - `invitation`: project can be joined by invitation
     - `ruleset`: string with ruleset name, may be 'despot'
     - `user_name`: string, name of user
     - `user_id`: external user id to bind participant with user
@@ -153,7 +156,7 @@ def change_project_status_route(params):
 
     address to query: **/project/status/change**
 
-    Get dictionary with keys:
+    Get urlencoded paramters:
 
     - `psid`: string, access key
     - `status`: status to change to, may be "opened", "planning", "contractor", "budget", "control", "closed"
@@ -162,15 +165,15 @@ def change_project_status_route(params):
 
     Posible return status:
 
-    - `200`: ok
-    - `412`: precondition failed, details in response body
+    - `201`: ok
+    - `412`: precondition failed, details in response body (as json)
     - `404`: user was not found
     - `501`: query was not post
     - `500`: otherwise
     """
     enc, dec = getencdec()
     ret, st = execute_change_project_status(params)
-    if st != httplib.OK:
+    if st != httplib.CREATED:
         transaction.rollback()
     return http.HttpResponse(enc.encode(ret), status=st, content_type='application/jsno')
 
@@ -241,13 +244,13 @@ def create_project_parameter_route(params):
     - `500`: otherwise
     """
     enc, dec = getencdec()
-    
-    if params['enum'] and (params.get('values') == None):
-        return http.HttpResponse(u'if "enum" is true then "values" key must exist', status=httplib.PRECONDITION_FAILED)
     pp = copy(params)
     if params.get('values') != None:
         pp['values'] = dec.decode(params['values']) # decode from json
     pp['enum'] = dec.decode(params['enum'])
+    
+    if pp['enum'] and (pp.get('values') == None):
+        return http.HttpResponse(u'if "enum" is true then "values" key must exist', status=httplib.PRECONDITION_FAILED)
     
     ret, stat = execute_create_project_parameter(pp)
     if stat != httplib.CREATED:
@@ -311,13 +314,7 @@ def list_project_parameters_route(params):
        - `voter`: uuid of voter (participant)
        - `value`: value voted by user
        - `caption`: value description
-       - `dt`: dictionary with keys:
-          - `year`: year of date
-          - `month`: month
-          - `day`: day of data
-          - `hour`:
-          - `minute`:
-          - `second`:
+       - `dt`: datetime string in ISO format
 
     Return status:
 
@@ -350,14 +347,14 @@ def change_project_parameter_route(params):
 
     Return status:
 
-    - `200`: ok
+    - `201`: ok
     - `412`: precondition failed, details in response body
     - `404`: user was not found with such psid
     - `500`: otherwise
     """
     enc = json.JSONEncoder()
     ret, st = execute_change_project_parameter(params)
-    if st != httplib.OK:
+    if st != httplib.CREATED:
         transaction.rollback()
     return http.HttpResponse(enc.encode(ret), status=st, content_type='application/json')
 

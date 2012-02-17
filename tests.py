@@ -2,8 +2,10 @@
 # -*- coding: utf-8 -*-
 
 from unittest import TestCase, main
-import httplib
+import httplib, urllib
 import json
+from services.common import string2datetime
+import datetime
 
 host = '127.0.0.1'
 port = 8000
@@ -13,8 +15,11 @@ def getencdec():
     """
     return (json.JSONEncoder(), json.JSONDecoder())
 
-from services.common import dict2datetime
-import datetime
+def encodeparams(prms):
+    return urllib.urlencode(prms)
+
+def request(conn, route, data):
+    conn.request('POST', route, encodeparams(data), {'Content-Type' : 'application/x-www-form-urlencoded; charset=utf-8'})
 
 class mytest(TestCase):
     """
@@ -25,7 +30,7 @@ class mytest(TestCase):
         - `psid`:
         """
         c = httplib.HTTPConnection(host, port)
-        c.request('POST', '/project/delete', psid)
+        request(c, '/project/delete', {'psid' : psid})
         r = c.getresponse()
         # print(r.read())
         self.assertEqual(r.status, httplib.OK)
@@ -35,56 +40,36 @@ class mytest(TestCase):
         """
         c = httplib.HTTPConnection(host, port)
         enc, dec = getencdec()
-        p1 = enc.encode({'name' : u'Новый проект',
-                         'descr' : 'blah blah, something here',
-                         'begin_date' : {'year' : 2012,
-                                         'month' : 3,
-                                         'day' : 20,
-                                         'hour' : 20,
-                                         'minute' : 40,
-                                         'second' : 22},
-                         'sharing' : True,
-                         'ruleset' : 'despot',
-                         'user_name' : u'Вася',
-                         'user_id' : 'some_id',
-                         'user_descr' : u'местный дурачек'})
-        c.request('POST', '/project/create', p1)
+        request(c, '/project/create', {'name' : u'Новый проект',
+                                       'descr' : 'blah blah, something here',
+                                       'begin_date' : '2012-03-20T20:40:22',
+                                       'sharing' : 'open',
+                                       'ruleset' : 'despot',
+                                       'user_name' : u'Вася',
+                                       'user_id' : 'some_id',
+                                       'user_descr' : u'местный дурачек'})
         r1 = c.getresponse()
         self.assertEqual(r1.status, httplib.CREATED)
-        self._delete_project(enc.encode(dec.decode(r1.read())['psid']))
-        p2 = enc.encode({'descr' : 'blah blah, something here',
-                         'begin_date' : {'year' : 2012,
-                                         'month' : 3,
-                                         'day' : 20,
-                                         'hour' : 20,
-                                         'minute' : 40,
-                                         'second' : 22},
-                         'sharing' : True,
-                         'ruleset' : 'despot',
-                         'user_name' : u'Вася',
-                         'user_id' : 'some_id',
-                         'user_descr' : u'местный дурачек'})
-        c.request('POST', '/project/create', p2)
+        self._delete_project(dec.decode(r1.read())['psid'])
+        request(c, '/project/create', {'descr' : 'blah blah, something here',
+                                       'begin_date' : '2012-03-20T20:40:22',
+                                       'sharing' : 'open',
+                                       'ruleset' : 'despot',
+                                       'user_name' : u'Вася',
+                                       'user_id' : 'some_id',
+                                       'user_descr' : u'местный дурачек'})
         r2 = c.getresponse()
         self.assertEqual(r2.status, httplib.PRECONDITION_FAILED)
-        p3 = enc.encode({'name' : 'jsij',
-                         'descr' : 'blah blah, something here',
-                         'begin_date' : {'year' : 2012,
-                                         'month' : 3,
-                                         'hour' : 20,
-                                         'minute' : 40,
-                                         'second' : 22},
-                         'sharing' : True,
-                         'ruleset' : 'despot',
-                         'user_id' : 'some_id',
-                         'user_descr' : u'местный дурачек'})
-        c.request('POST', '/project/create', p3)
+        request(c, '/project/create', {'name' : 'jsij',
+                                       'descr' : 'blah blah, something here',
+                                       'begin_date' : '2012-03-20T20:22', # wrong date
+                                       'sharing' : 'open',
+                                       'ruleset' : 'despot',
+                                       'user_id' : 'some_id',
+                                       'user_descr' : u'местный дурачек'})
         r3 = c.getresponse()
         self.assertEqual(r3.status, httplib.PRECONDITION_FAILED)
 
-        c.request('GET', '/project/create', p3)
-        r4 = c.getresponse()
-        self.assertEqual(r4.status, httplib.NOT_IMPLEMENTED)
 
     def test_list_projects(self, ):
         """check list projects
@@ -93,54 +78,44 @@ class mytest(TestCase):
         c = httplib.HTTPConnection(host, port)
         psids=[]
         for x in range(0, 50):
-            c.request('POST', '/project/create', enc.encode({'name' : u'test project {0}'.format(x),
-                                                            'descr' : u'description blah blah',
-                                                            'begin_date' : {'year' : 2012,
-                                                                            'month' : 3,
-                                                                            'day' : 13,
-                                                                            'hour' : 12,
-                                                                            'minute' : 12,
-                                                                            'second' : x},
-                                                            'sharing' : True,
-                                                            'ruleset' : 'despot',
-                                                            'user_name' : u'Spiderman'}))
+            request(c, '/project/create', {'name' : u'test project {0}'.format(x),
+                                           'descr' : u'description blah blah',
+                                           'begin_date' : datetime.datetime(2012, 3, 13, 12, 12, x).isoformat(),
+                                           'sharing' : 'open',
+                                           'ruleset' : 'despot',
+                                           'user_name' : u'Spiderman'})
             r = c.getresponse()
             self.assertEqual(r.status, httplib.CREATED)
             psids.append(dec.decode(r.read())['psid'])
         # пробуем посмотреть все проекты
-        c.request('POST', '/project/list', enc.encode({}))
+        request(c, '/project/list', {})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.OK)
         resp = dec.decode(r.read())
         self.assertEqual(len(resp), 50) # мы не знаем выполнился ли тест на создание проектов раньше
 
         # пробуем посмотреть проекты по строке поиска
-        c.request('POST', '/project/list', enc.encode({'search' : 'test project'}))
+        request(c, '/project/list', {'search' : 'test project'})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.OK)
         resp = dec.decode(r.read())
-        self.assertTrue(len(resp) >= 50)
+        self.assertEqual(len(resp), 50)
         for pr in resp:
             self.assertTrue(('test project' in pr['name']) or ('test project' in pr['descr']))
 
         # запрашиваем проекты по дате
-        c.request('POST', '/project/list', enc.encode({'begin_date' : {'year' : 2012,
-                                                                       'month' : 3,
-                                                                       'day' : 13,
-                                                                       'hour' : 12,
-                                                                       'minute' : 12,
-                                                                       'second' : 30}})) # пропускаем первые 30 по дате
+        request(c, '/project/list', {'begin_date' : '2012-03-13T12:12:30'}) # пропускаем первые 30 по дате
         r = c.getresponse()
         self.assertEqual(r.status, httplib.OK)
         resp = dec.decode(r.read())
-        self.assertTrue(len(resp) >= 20)
+        self.assertEqual(len(resp), 20)
         for pr in resp:
-            self.assertTrue(dict2datetime(pr['begin_date']) >= datetime.datetime(2012, 3, 13, 12, 12, 30))
+            self.assertTrue(string2datetime(pr['begin_date']) >= datetime.datetime(2012, 3, 13, 12, 12, 30))
 
         # пробуем пролистать страницами по 5 проектов на страницу
         for pn in range(0, 12): # должно быть 10 страниц +1 если другие тесты выполнились раньше
-            c.request('POST', '/project/list', enc.encode({'page_number' : pn,
-                                                           'projects_per_page' : 5}))
+            request(c, '/project/list', {'page_number' : pn,
+                                         'projects_per_page' : 5})
             r = c.getresponse()
             self.assertEqual(r.status, httplib.OK)
             resp = dec.decode(r.read())
@@ -150,27 +125,27 @@ class mytest(TestCase):
                 self.assertTrue(len(resp) <= 5)
 
         # пробуем искать проекты которых нету
-        c.request('POST', '/project/list', enc.encode({'search' : '11111111111111'})) # таких названий или описаний в базе нет
+        request(c, '/project/list', {'search' : '11111111111111'}) # таких названий или описаний в базе нет
         r = c.getresponse()
         self.assertEqual(r.status, httplib.OK)
         self.assertEqual(0, len(dec.decode(r.read())))
         for psid in psids:
-            self._delete_project(enc.encode(psid))
+            self._delete_project(psid)
 
     def test_list_user_projects_route(self, ):
         """
         """
         enc, dec = getencdec()
         c = httplib.HTTPConnection(host, port)
-        c.request('POST', '/project/create', enc.encode({'name' : 'test',
-                                                         'sharing' : True,
-                                                         'ruleset' : 'despot',
-                                                         'user_name' : 'mega_user',
-                                                         'user_id' : 'test_id'}))
+        request(c, '/project/create', {'name' : 'test',
+                                       'sharing' : 'open',
+                                       'ruleset' : 'despot',
+                                       'user_name' : 'mega_user',
+                                       'user_id' : 'test_id'})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.CREATED)
         psid = dec.decode(r.read())['psid']
-        c.request('POST', '/project/list/userid', enc.encode('test_id'))
+        request(c, '/project/list/userid', {'user_id' : 'test_id'})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.OK)
         resp = dec.decode(r.read())
@@ -179,91 +154,91 @@ class mytest(TestCase):
         self.assertEqual(resp[0]['initiator'], True)
         self.assertEqual(resp[0]['status'], 'opened')
 
-        c.request('POST', '/project/list/userid', enc.encode('11111111111')) # такого ид в базе нет
+        request(c, '/project/list/userid', {'user_id' : '11111111111'}) # такого ид в базе нет
         r = c.getresponse()
         self.assertEqual(r.status, httplib.NOT_FOUND)
-        self._delete_project(enc.encode(psid))
+        self._delete_project(psid)
 
     def test_change_project_status(self, ):
         """
         """
         enc, dec = getencdec()
         c = httplib.HTTPConnection(host, port)
-        c.request('POST', '/project/create', enc.encode({'name' : 'something',
-                                                         'sharing' : True,
-                                                         'ruleset' : 'despot',
-                                                         'user_name' : 'user name'}))
+        request(c, '/project/create', {'name' : 'something',
+                                       'sharing' : 'open',
+                                       'ruleset' : 'despot',
+                                       'user_name' : 'user name'})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.CREATED)
         psid = dec.decode(r.read())['psid']
 
-        c.request('POST', '/project/status/change', enc.encode({'psid' : psid, # все нормально
-                                                                'status' : 'planning'}))
+        request(c, '/project/status/change', {'psid' : psid, # все нормально
+                                              'status' : 'planning'})
         r = c.getresponse()
-        self.assertEqual(r.status, httplib.OK)
+        self.assertEqual(r.status, httplib.CREATED)
 
-        c.request('POST', '/project/status/change', enc.encode({'psid' : psid,
-                                                                'status' : 'blah blah'})) # не верный статус
+        request(c, '/project/status/change', {'psid' : psid,
+                                              'status' : 'blah blah'}) # не верный статус
         r = c.getresponse()
         self.assertEqual(r.status, httplib.PRECONDITION_FAILED) # должны зафейлиться
 
-        c.request('POST', '/project/create', enc.encode({'name' : 'ajsdfasd',
-                                                         'sharing' : True,
-                                                         'ruleset' : 'vote', # создаем не управляемый проект
-                                                         'user_name' : 'someuser'}))
+        request(c, '/project/create', {'name' : 'ajsdfasd',
+                                       'sharing' : 'open',
+                                       'ruleset' : 'vote', # создаем не управляемый проект
+                                       'user_name' : 'someuser'})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.CREATED)
-        self._delete_project(enc.encode(psid))
+        self._delete_project(psid)
         psid = dec.decode(r.read())['psid']
 
-        c.request('POST', '/project/status/change', enc.encode({'psid' : psid, # пробуем этот проект изменить
-                                                                'status' : 'planning'}))
+        request(c, '/project/status/change', {'psid' : psid, # пробуем этот проект изменить
+                                              'status' : 'planning'})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.PRECONDITION_FAILED)
-        c.request('POST', '/project/status/change', enc.encode({'psid' : 'aisjdf', # не верный psid
-                                                                'status' : 'planning'}))
+        request(c, '/project/status/change', {'psid' : 'aisjdf', # не верный psid
+                                              'status' : 'planning'})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.NOT_FOUND)
-        self._delete_project(enc.encode(psid))
+        self._delete_project(psid)
 
     def test_create_project_parameter(self, ):
         """
         """
         enc, dec = getencdec()
         c = httplib.HTTPConnection(host, port)
-        c.request('POST', '/project/create', enc.encode({'name' : 'test project',
-                                                         'sharing' : False,
-                                                         'ruleset' : 'despot',
-                                                         'user_name' : 'name blah blah'}))
+        request(c, '/project/create', {'name' : 'test project',
+                                       'sharing' : 'open',
+                                       'ruleset' : 'despot',
+                                       'user_name' : 'name blah blah'})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.CREATED)
         resp = dec.decode(r.read())
         psid = resp['psid']
 
-        c.request('POST', '/project/parameter/create', enc.encode({'psid' : psid,
-                                                                   'name' : 'parameter test name',
-                                                                   'tp' : 'text',
-                                                                   'enum' : False,
-                                                                   'value' : 'blah blah'}))
+        request(c, '/project/parameter/create', {'psid' : psid,
+                                                 'name' : 'parameter test name',
+                                                 'tp' : 'text',
+                                                 'enum' : enc.encode(False),
+                                                 'value' : 'blah blah'})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.CREATED)
 
-        c.request('POST', '/project/parameter/create', enc.encode({'psid' : psid,
-                                                                   'name' : 'parameter test name 1',
-                                                                   'tp' : 'text',
-                                                                   'enum' : True,
-                                                                   'value' : 'fufuf',
-                                                                   'values' : [{'value' : 'you you you',
-                                                                                'caption' : 'blah blah'},
-                                                                               {'value' : 'fufuf'}]}))
+        request(c, '/project/parameter/create', {'psid' : psid,
+                                                 'name' : 'parameter test name 1',
+                                                 'tp' : 'text',
+                                                 'enum' : enc.encode(True),
+                                                 'value' : 'fufuf',
+                                                 'values' : enc.encode([{'value' : 'you you you',
+                                                                         'caption' : 'blah blah'},
+                                                                        {'value' : 'fufuf'}])})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.CREATED)
 
-        c.request('POST', '/project/parameter/create', enc.encode({'psid' : psid,
-                                                                   'name' : 'parameter test name 2',
-                                                                   'tp' : 'text',
-                                                                   'enum' : True,
-                                                                   'value' : 'blah blah'}))
+        request(c, '/project/parameter/create', {'psid' : psid,
+                                                 'name' : 'parameter test name 2',
+                                                 'tp' : 'text',
+                                                 'enum' : enc.encode(True),
+                                                 'value' : 'blah blah'})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.PRECONDITION_FAILED)
 
@@ -275,142 +250,142 @@ class mytest(TestCase):
         # r = c.getresponse()
         # self.assertEqual(r.status, httplib.PRECONDITION_FAILED)
 
-        c.request('POST', '/project/parameter/create', enc.encode({'psid' : psid,
-                                                                   'name' : 'parameter test name 4',
-                                                                   'tp' : 'text',
-                                                                   'enum' : True,
-                                                                   'value' : 23,
-                                                                   'values' : [{'values' : 23}]}))
+        request(c, '/project/parameter/create', {'psid' : psid,
+                                                 'name' : 'parameter test name 4',
+                                                 'tp' : 'text',
+                                                 'enum' : enc.encode(True),
+                                                 'value' : 23,
+                                                 'values' : enc.encode([{'values' : 23}])})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.PRECONDITION_FAILED)
 
-        c.request('POST', '/project/parameter/create', enc.encode({'psid' : psid,
-                                                                   'name' : 'parameter test name 5',
-                                                                   'tp' : 'text',
-                                                                   'enum' : True,
-                                                                   'value' : 'avasd',
-                                                                   'values' : [{'value' : 'avasd',
-                                                                                'caption' : 'asidf'},
-                                                                               {'value' : 'sijsji',
-                                                                                'caption' : 234}]}))
+        request(c, '/project/parameter/create', {'psid' : psid,
+                                                 'name' : 'parameter test name 5',
+                                                 'tp' : 'text',
+                                                 'enum' : enc.encode(True),
+                                                 'value' : 'avasd',
+                                                 'values' : enc.encode([{'value' : 'avasd',
+                                                                         'caption' : 'asidf'},
+                                                                        {'value' : 'sijsji',
+                                                                         'caption' : 234}])})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.PRECONDITION_FAILED)
 
-        c.request('POST', '/project/parameter/create', enc.encode({'psid' : 'sdf',
-                                                                   'name' : 'parameter test name 6',
-                                                                   'tp' : 'text',
-                                                                   'enum' : True,
-                                                                   'value' : 'fufuf',
-                                                                   'values' : [{'value' : 'you you you',
-                                                                                'caption' : 'blah blah'},
-                                                                               {'value' : 'fufuf'}]}))
+        request(c, '/project/parameter/create', {'psid' : 'sdf',
+                                                 'name' : 'parameter test name 6',
+                                                 'tp' : 'text',
+                                                 'enum' : enc.encode(True),
+                                                 'value' : 'fufuf',
+                                                 'values' : enc.encode([{'value' : 'you you you',
+                                                                         'caption' : 'blah blah'},
+                                                                        {'value' : 'fufuf'}])})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.NOT_FOUND)
 
-        c.request('POST', '/project/parameter/create', enc.encode({'psid' : psid,
-                                                                   'name' : 'parameter test name', # must fail - same name of parameter
-                                                                   'tp' : 'text',
-                                                                   'enum' : True,
-                                                                   'value' : 'fufuf',
-                                                                   'values' : [{'value' : 'you you you',
-                                                                                'caption' : 'blah blah'},
-                                                                               {'value' : 'fufuf'}]}))
+        request(c, '/project/parameter/create', {'psid' : psid,
+                                                 'name' : 'parameter test name', # must fail - same name of parameter
+                                                 'tp' : 'text',
+                                                 'enum' : enc.encode(True),
+                                                 'value' : 'fufuf',
+                                                 'values' : enc.encode([{'value' : 'you you you',
+                                                                         'caption' : 'blah blah'},
+                                                                        {'value' : 'fufuf'}])})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.PRECONDITION_FAILED)
 
-        c.request('POST', '/project/parameter/create', enc.encode({'psid' : psid,
-                                                                   'name' : 'parameter test name 7',
-                                                                   'tp' : 'text',
-                                                                   'enum' : True,
-                                                                   'values' : [{'value' : 'you you you',
-                                                                                'caption' : 'blah blah'},
-                                                                               {'value' : 'fufuf'}],
-                                                                   'value' : 'asdf'})) # value is not from given sequence
+        request(c, '/project/parameter/create', {'psid' : psid,
+                                                 'name' : 'parameter test name 7',
+                                                 'tp' : 'text',
+                                                 'enum' : enc.encode(True),
+                                                 'values' : enc.encode([{'value' : 'you you you',
+                                                                         'caption' : 'blah blah'},
+                                                                        {'value' : 'fufuf'}]),
+                                                 'value' : 'asdf'}) # value is not from given sequence
         r = c.getresponse()
         self.assertEqual(r.status, httplib.PRECONDITION_FAILED)
 
-        c.request('POST', '/project/parameter/create', enc.encode({'psid' : psid,
-                                                                   'name' : 'parameter test name 8',
-                                                                   'tp' : 'text',
-                                                                   'enum' : True,
-                                                                   'values' : [{'value' : 'you you you',
-                                                                                'caption' : 'blah blah'},
-                                                                               {'value' : 'fufuf'}],
-                                                                   'value' : 'fufuf',
-                                                                   'descr' : 'asdf'}))
+        request(c, '/project/parameter/create', {'psid' : psid,
+                                                 'name' : 'parameter test name 8',
+                                                 'tp' : 'text',
+                                                 'enum' : enc.encode(True),
+                                                 'values' : enc.encode([{'value' : 'you you you',
+                                                                         'caption' : 'blah blah'},
+                                                                        {'value' : 'fufuf'}]),
+                                                 'value' : 'fufuf',
+                                                 'descr' : 'asdf'})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.CREATED)
-        self._delete_project(enc.encode(psid))
+        self._delete_project(psid)
 
     def test_create_project_parameter_from_default_route(self, ):
         """
         """
         enc, dec = getencdec()
         c = httplib.HTTPConnection(host, port)
-        c.request("POST", "/parameters/list")
+        request(c, "/parameters/list", {})
         r = c.getresponse()
         self.assertEqual(httplib.OK, r.status)
         defparams = dec.decode(r.read()) # список default параметров
-        c.request('POST', '/project/create', enc.encode({'name' : 'project blah blah',
-                                                         'descr' : 'this is project',
-                                                         'sharing' : True,
-                                                         'ruleset' : 'despot',
-                                                         'user_name' : 'kumare'}))
+        request(c, '/project/create', {'name' : 'project blah blah',
+                                       'descr' : 'this is project',
+                                       'sharing' : 'open',
+                                       'ruleset' : 'despot',
+                                       'user_name' : 'kumare'})
         r = c.getresponse()
         self.assertEqual(httplib.CREATED, r.status)
         resp = dec.decode(r.read())
         psid = resp['psid']
-        c.request('POST', '/project/parameter/list', enc.encode(psid))
+        request(c, '/project/parameter/list', {'psid' : psid})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.OK)
         params = dec.decode(r.read()) # список параметров проекта
         for defpar in defparams:
             if defpar['name'] in [p['name'] for p in params]: # дефолт параметр уже есть в проекте (создан во время создания проекта)
-                c.request('POST', '/project/parameter/create/fromdefault', enc.encode({'psid' : psid,
-                                                                                       'uuid' : defpar['uuid']}))
+                request(c, '/project/parameter/create/fromdefault', {'psid' : psid,
+                                                                     'uuid' : defpar['uuid']})
                 r = c.getresponse()
                 self.assertEqual(httplib.PRECONDITION_FAILED, r.status)
             else:               # дефолт параметра нет в параметрах проекта
-                c.request('POST', '/project/parameter/create/fromdefault', enc.encode({'psid' : psid,
-                                                                                       'uuid' : defpar['uuid']}))
+                request(c, '/project/parameter/create/fromdefault', {'psid' : psid,
+                                                                     'uuid' : defpar['uuid']})
                 r = c.getresponse()
                 self.assertEqual(httplib.CREATED, r.status)
         # создали все параметры из дефолтных, теперь проверим что параметры проекта совпадают со списокм дефолтных параметров
         names = set([(p['name'], p['default']) for p in defparams]) # дефолт параметры в множество
-        c.request('POST', '/project/parameter/list', enc.encode(psid))
+        request(c, '/project/parameter/list', {'psid' : psid})
         r = c.getresponse()
         self.assertEqual(httplib.OK, r.status)
         ppars = dec.decode(r.read())
         pnames = set([(p['name'], p['value']) for p in ppars]) # новые параметры проекта в множестве
         self.assertEqual(names, pnames)
-        self._delete_project(enc.encode(psid))
+        self._delete_project(psid)
 
     def test_list_and_create_project_parameters(self, ):
         """
         """
         enc, dec = getencdec()
         c = httplib.HTTPConnection(host, port)
-        c.request('POST', '/project/create', enc.encode({'name' : 'prj11',
-                                                         'descr' : 'asdf',
-                                                         'sharing' : False,
-                                                         'ruleset' : 'despot',
-                                                         'user_name' : 'user'}))
+        request(c, '/project/create', {'name' : 'prj11',
+                                       'descr' : 'asdf',
+                                       'sharing' : 'open',
+                                       'ruleset' : 'despot',
+                                       'user_name' : 'user'})
         r = c.getresponse()
         self.assertEqual(httplib.CREATED, r.status)
         psid = dec.decode(r.read())['psid']
-        c.request('POST', '/project/parameter/list', enc.encode(psid))
+        request(c, '/project/parameter/list', {'psid' : psid})
         r = c.getresponse()
         self.assertEqual(httplib.OK, r.status)
         pps = dec.decode(r.read())
-        c.request('POST', '/project/parameter/create', enc.encode({'psid' : psid,
-                                                                   'name' : 'you parameter',
-                                                                   'descr' : 'test parameter',
-                                                                   'tp' : 'text',
-                                                                   'enum' : False,
-                                                                   'value' : 'blah blah'}))
+        request(c, '/project/parameter/create', {'psid' : psid,
+                                                 'name' : 'you parameter',
+                                                 'descr' : 'test parameter',
+                                                 'tp' : 'text',
+                                                 'enum' : enc.encode(False),
+                                                 'value' : 'blah blah'})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.CREATED)
-        c.request('POST', '/project/parameter/list', enc.encode(psid))
+        request(c, '/project/parameter/list', {'psid' : psid})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.OK)
         pps2 = dec.decode(r.read())
@@ -418,12 +393,67 @@ class mytest(TestCase):
         for p in pps:
             self.assertIn(p, pps2)
 
-        self._delete_project(enc.encode(psid))
+        self._delete_project(psid)
         
+    def test_change_project_parameter_route(self, ):
+        enc, dec = getencdec()
+        c = httplib.HTTPConnection(host, port)
+        request(c, '/project/create', {'name' : 'adsadsf',
+                                       'sharing' : 'close',
+                                       'ruleset' : 'despot',
+                                       'user_name' : 'asdfadf'})
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.CREATED)
+        psid = dec.decode(r.read())['psid']
 
+        request(c, '/project/parameter/list', {'psid' : psid})
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.OK)
+        params = dec.decode(r.read())
+        
+        for param in params:
+            self.assertIn(param['enum'], [True, False])
+            if param['enum']:
+                posible = [a['value'] for a in param['values']]
+                request(c, '/project/parameter/change', {'psid' : psid,
+                                                        'uuid' : param['uuid'],
+                                                        'value' : '111222333'}) # не верное значение
+                r = c.getresponse()
+                self.assertEqual(r.status, httplib.PRECONDITION_FAILED)
 
+                request(c, '/project/parameter/list', {'psid' : psid})
+                r = c.getresponse()
+                self.assertEqual(r.status, httplib.OK)
+                pps = dec.decode(r.read())
+                vl = [a['value'] for a in pps if a['uuid'] == param['uuid']][0]
+                self.assertNotEqual(vl, '111222333') # данные не поменялись
 
-
+                request(c, '/project/parameter/change', {'psid' : psid,
+                                                         'uuid' : param['uuid'],
+                                                         'value' : posible[0]})
+                r = c.getresponse()
+                self.assertEqual(r.status, httplib.CREATED)
+                
+                request(c, '/project/parameter/list', {'psid' : psid})
+                r = c.getresponse()
+                self.assertEqual(r.status, httplib.OK)
+                pps = dec.decode(r.read())
+                vl = [a['value'] for a in pps if a['uuid'] == param['uuid']][0]
+                self.assertEqual(vl, posible[0]) # значение сменилось
+            else:
+                request(c, '/project/parameter/change', {'psid' : psid,
+                                                         'uuid' : param['uuid'],
+                                                         'value' : 'asdjfasidfkaj'})
+                r = c.getresponse()
+                self.assertEqual(r.status, httplib.CREATED)
+                
+                request(c, '/project/parameter/list', {'psid' : psid})
+                r = c.getresponse()
+                self.assertEqual(r.status, httplib.OK)
+                pps = dec.decode(r.read())
+                vl = [a['value'] for a in pps if a['uuid'] == param['uuid']][0]
+                self.assertEqual(vl, 'asdjfasidfkaj')
+        self._delete_project(psid)
 
 
 if __name__ == '__main__':

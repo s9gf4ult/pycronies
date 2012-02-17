@@ -58,7 +58,7 @@ class Project(BaseModel):
                     (u'control', u'Контроль'),
                     (u'closed', u'Закрыт'))
     PROJECT_SHARING = ((u'open', u'Проект открытый'),
-                       (u'closed', u'Проект закрытый'),
+                       (u'close', u'Проект закрытый'),
                        (u'invitation', u'Проект по приглашению'))
     name = SafeCharField(max_length=100, default=None, db_index=True, verbose_name="nom nom nom")
     descr = SafeTextField(default=u'', db_index=True)

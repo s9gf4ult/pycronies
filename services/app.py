@@ -109,7 +109,7 @@ def execute_list_projects(props):
     return [{'uuid' : a.uuid,
              'name' : a.name,
              'descr' : a.descr,
-             'begin_date' : datetime2dict(a.begin_date)} for a in ret]
+             'begin_date' : a.begin_date.isoformat()} for a in ret]
 
 def execute_list_user_projects(user_id):
     """return tuple of response and status 
@@ -155,7 +155,7 @@ def execute_change_project_status(params):
     # меняем статус проекта
     prj.status = params['status']
     prj.save()
-    return '', httplib.OK
+    return '', httplib.CREATED
 
 def execute_list_default_parameters():
     """return list of dicts with default parameters
@@ -371,7 +371,7 @@ def execute_list_project_parameters(psid):
              'name' : param.name,
              'descr' : param.descr,
              'tp' : param.tp,
-             'enum' : param.tp}
+             'enum' : param.enum}
         if param.default_parameter == None:
             p['tecnical'] = False
         else:
