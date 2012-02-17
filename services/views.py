@@ -122,7 +122,7 @@ def list_user_projects_route(params):
 
     Get paramters with names:
     
-    - `user_id`: user_id
+    - `user_id`: user_id or token of user, if given token then return just one project
 
     Return list of tables with keys:
 

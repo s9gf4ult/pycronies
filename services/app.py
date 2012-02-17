@@ -120,15 +120,15 @@ def execute_list_user_projects(user_id):
     (`response`, `answer`)
     """
     # проверяем есть ли пользователь с указанным user_id
-    cnt = Participant.objects.filter(user=user_id).count()
+    cnt = Participant.objects.filter(Q(user=user_id) | Q(token=user_id)).count()
     if cnt==0:
         return u'There is no one user found', httplib.NOT_FOUND
     # берем список участников с указанным user_id
-    parts = Participant.objects.filter(user=user_id).all() # список участиков
+    parts = Participant.objects.filter(Q(user=user_id) | Q(token=user_id)).all() # список участиков
     ret = []
     # формируем список проектов для соответствующего списка участников
     for part in parts:
-        pr = Project.objects.get(participant=part) # вязанный проект
+        pr = Project.objects.get(participant=part) # связанный проект
         ret.append({'uuid' : pr.uuid,
                     'name' : pr.name,
                     'descr' : pr.descr,
