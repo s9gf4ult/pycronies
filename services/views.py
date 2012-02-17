@@ -3,12 +3,12 @@
 
 import django.http as http
 from django.db import transaction
-import json
+nimport json
 import httplib
 from services.app import execute_create_project, execute_list_projects, execute_list_user_projects, \
     execute_change_project_status, execute_list_default_parameters, execute_create_project_parameter, \
     execute_list_project_parameters, execute_create_project_parameter_from_default, execute_change_participant, \
-    execute_invite_participant, execute_change_project_parameter
+    execute_invite_participant, execute_change_project_parameter, execute_enter_project_open, execute_enter_project_invitation
 from services.common import json_request_handler, getencdec, validate_params, standard_request_handler
 from services.models import Project
 from svalidate import OrNone, Any, DateTimeString, RegexpMatch, Equal, JsonString
@@ -26,37 +26,34 @@ _good_int = RegexpMatch(r'^\d+$')
                            'user_name' : _good_string,
                            'user_id' : OrNone(_good_string),
                            'user_descr' : OrNone(_good_string)})
-def create_project_route(prs):
+def create_project_route(prs):  # ++TESTED
     """
-    **Create project**
+    **Создать проект**
 
-    address to query **/project/create**
+    путь запроса **/project/create**
 
-    The body of query must contain dictionary with keys:
+    параметры запроса:
 
-    - `name`: name of new project
-    - `descr`: description of new project, may be null
-    - `begin_date`: hash table with fields:
-       - `year`: year of date
-       - `month`: month
-       - `day`: day of data
-       - `hour`:
-       - `minute`:
-       - `second`:
-    - `sharing`: one of posible strings:
-       - `open`: project is open to join everyone
-       - `close`: project is closed
-       - `invitation`: project can be joined by invitation
-    - `ruleset`: string with ruleset name, may be 'despot'
-    - `user_name`: string, name of user
-    - `user_id`: external user id to bind participant with user
-    - `user_description`: string, description of user. May be null
+    - `name`: имя проекта
+    - `descr`: описание проекта, не обязательный
+    - `begin_date`: начало проекта. Дата или дата время в ISO формате, не обязательный
+    - `sharing`: одно из возможных значений
+       - `open`: проект открыт для участия
+       - `close`: новых участников добавляет только инициатор
+       - `invitation`: новых участников можно приглашать
+    - `ruleset`: управление проектом, одно из возможных значений:
+       - `despot`: ручное управление
+       - `vote`: управление голосованием
+       - `auto`: автоуправление
+    - `user_name`: имя пользователя
+    - `user_id`: строка не обязательный
+    - `user_description`: описание пользователя, не обязательный
 
-    Return dictionary with keys:
+    возвращает JSON словарь с ключами
 
-    - `project_uuid` : string, universal identificator for project
-    - `psid` : string, access key for new participant
-    - `token` : string, access key for "magic link"
+    - `project_uuid` : uuid созданного проекта
+    - `psid` : строка доступа для инициатора
+    - `token` : токен для волшебной ссылки
 
     Posible return http status:
 
@@ -77,27 +74,36 @@ def create_project_route(prs):
                            'status' : OrNone(Any(*[Equal(a[0]) for a in Project.PROJECT_STATUS])),
                            'begin_date' : OrNone(DateTimeString()),
                            'search' : OrNone(_good_string)})
-def list_projects_route(pars):
+def list_projects_route(pars):  # ++TESTED
     """
-    **List Projects**
+    **Список проектов**
 
-    address to query: **/project/list**
+    путь запроса: **/project/list**
 
-    Return list of projects which parameters suit to query
-    query is json formated dictionary with keys:
+    Возвращает список проектов, в соответствии с параметрами.
+    Все параметры не обязательные:
 
-    - `page_number`: number of page to get, if null return first page
-    - `projects_per_page`: number of projects per one page, if null return all projects
-    - `status`: status of projects to return, if null return projects of any status
-    - `begin_date`: the earliest date for project to return
-    - `search`: string to search projects by name or description
+    - `page_number`: номер страницы, если не указан, возвращает первую
+    - `projects_per_page`: количество проектов на страницу, если не указан возвращает список всех проектов
+    - `status`: возвратить только проекты с указанным статусом
+       - `opened`: Проект открыт
+       - `planning`: Проект на стадии планирования
+       - `contractor`: Выбор контрагента
+       - `budget`: Формирование бюджета
+       - `control`: Контроль
+       - `closed`: Закрыт
 
-    Return list of dictionaries with keys:
+    - `begin_date`: возвратить только проекты позже этой даты, дата - строка в ISO формате
+    - `search`: строка поиска, должна встречаться в имени или описании проекта
+
+    Возвращает JSON список со словарями, в словарях ключи:
 
     - `uuid`: string with uuid of project
     - `name`: name of project
     - `descr`: description of project
     - `begin_date`: datetime table, begin date of project
+
+    Если проектов меньше, чем в запрошенной странице (например 5 страница при 50 проектах на страницу это с 200 по 250 проект а у нас проектов только 190), то возвращает просто пустой список. То есть узнать количество страниц можно проитерировав вызов до тех пор пока не вернется пустой список.
 
     Posible return status:
 
@@ -117,24 +123,30 @@ def list_projects_route(pars):
 
 @transaction.commit_on_success
 @standard_request_handler({'user_id' : _good_string})
-def list_user_projects_route(params):
+def list_user_projects_route(params): # ++TESTED
     """
-    **List Projects assigned to user**
+    **Проекты пользователя**
 
-    address to query: **/project/list/userid**
+    путь запроса: **/project/list/userid**
 
-    Get paramters with names:
-    
+    Параметры запроса
+
     - `user_id`: user_id or token of user, if given token then return just one project
 
-    Return list of tables with keys:
+    возвращает JSON список ловарей с ключами
 
-    - `uuid`: uuid of project
-    - `name`: name of project
-    - `descr` :description of project
-    - `begin_date`: datetime table
-    - `initiator` boolean, if user is initiator
-    - `status`: string, project status
+    - `uuid`: uuid проекта
+    - `name`: имя проекта
+    - `descr`: описание проекта
+    - `begin_date`: строка с датой временем начала действия проекта
+    - `initiator`: boolean является ли пользователь инициатором этого проекта
+    - `status`: статус проекта, строка:
+       - `opened`: Проект открыт
+       - `planning`: Проект на стадии планирования
+       - `contractor`: Выбор контрагента
+       - `budget`: Формирование бюджета
+       - `control`: Контроль
+       - `closed`: Закрыт
 
     Posible return status:
 
@@ -150,18 +162,22 @@ def list_user_projects_route(params):
 @transaction.commit_on_success
 @standard_request_handler({'psid' : '',
                            'status' : Any(*[Equal(a[0]) for a in Project.PROJECT_STATUS])})
-def change_project_status_route(params):
+def change_project_status_route(params): # ++TESTED
     """
-    **Change project status**
+    **Изменить статус проекта**
 
-    address to query: **/project/status/change**
+    путь запроса: **/project/status/change**
 
-    Get urlencoded paramters:
+    Список параметров запроса:
 
-    - `psid`: string, access key
-    - `status`: status to change to, may be "opened", "planning", "contractor", "budget", "control", "closed"
-
-    Return no data
+    - `psid`: ключ доступа
+    - `status`: статус, один из возможных:
+       - `opened`: Проект открыт
+       - `planning`: Проект на стадии планирования
+       - `contractor`: Выбор контрагента
+       - `budget`: Формирование бюджета
+       - `control`: Контроль
+       - `closed`: Закрыт
 
     Posible return status:
 
@@ -178,25 +194,23 @@ def change_project_status_route(params):
     return http.HttpResponse(enc.encode(ret), status=st, content_type='application/jsno')
 
 @transaction.commit_on_success
-def list_default_parameters_route(request):
+def list_default_parameters_route(request): # ++TESTED
     """
-    **List default parameters**
+    **Просмотр типовых параметров**
 
-    address to query: **/parameters/list**
+    путь запроса: **/parameters/list**
 
-    Get no data
+    Возвращает json список словарей с ключами
 
-    Return list of dictionaries with keys:
-
-    - `uuid`: parameter uuid
-    - `name`: parameter name
-    - `descr`: parameter description
-    - `tp`: type of parameter
-    - `enum`: (boolean) parameter is enumerable
-    - `default`: string with default parameter value
-    - `values`: if `enum` list of dictionaries with keys:
-       - `value`: one of posible values
-       - `caption`: value description
+    - `uuid`: uuid параметра
+    - `name`: имя параметра
+    - `descr`: описание параметра
+    - `tp`: тип параметра
+    - `enum`: (boolean) параметр имеет ограниченный набор значений
+    - `default`: значение по умолчанию
+    - `values`: если `enum` == True тогда это список словарей с ключами
+       - `value`: значение
+       - `caption`: подпись
 
     Return status:
 
@@ -217,23 +231,23 @@ def list_default_parameters_route(request):
                            'value' : _good_string,
                            'values' : OrNone(JsonString([{'value' : _good_string,
                                                           'caption' : OrNone(_good_string)}]))})
-def create_project_parameter_route(params):
+def create_project_parameter_route(params): # ++TESTED
     """
-    **Create project parameter**
+    **Создать параметр проекта**
 
-    address to query **/project/parameter/create**
+    путь запроса **/project/parameter/create**
 
-    Get parameters in body of request as json coded dictionary with keys:
+    Параметры зпроса
 
-    - `psid`: access key
-    - `name`: name of parameter
-    - `descr`: string, may be null
-    - `tp`: type of parameter
-    - `enum`: boolean
-    - `value`: string, parameter value, may be null
-    - `values`: list if dictionaries with keys :
-       - `value`: one of posible values of parameter
-       - `caption`: value description
+    - `psid`: ключ доступа
+    - `name`: имя параметра
+    - `descr`: описание параметра
+    - `tp`: тип параметра
+    - `enum`: JSON кодированный boolean (true or false). 'true' если параметр имеет ограниченный набор значений
+    - `value`: значение параметра или None если параметр создается без значения
+    - `values`: JSON кодированный список словарей с ключами
+       - `value`: значение параметра
+       - `caption`: подпись
 
     Posible return status:
 
@@ -248,10 +262,10 @@ def create_project_parameter_route(params):
     if params.get('values') != None:
         pp['values'] = dec.decode(params['values']) # decode from json
     pp['enum'] = dec.decode(params['enum'])
-    
+
     if pp['enum'] and (pp.get('values') == None):
         return http.HttpResponse(u'if "enum" is true then "values" key must exist', status=httplib.PRECONDITION_FAILED)
-    
+
     ret, stat = execute_create_project_parameter(pp)
     if stat != httplib.CREATED:
         transaction.rollback()
@@ -260,16 +274,16 @@ def create_project_parameter_route(params):
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
                            'uuid' : _good_string})
-def create_project_parameter_from_default_route(params):
+def create_project_parameter_from_default_route(params): # ++TESTED
     """
-    **Create project parameter from default**
+    **Создать параметр проекта из типового параметра**
 
-    address to query: **/project/parameter/create/fromdefault**
+    путь запроса: **/project/parameter/create/fromdefault**
 
-    Fet json coded dictionary with keys:
+    параметры запроса
 
-    - `psid`: access key
-    - `uuid`: default parameter uuid
+    - `psid`: ключ доступа
+    - `uuid`: uuid типового параметра
 
     Posible return status:
 
@@ -289,32 +303,34 @@ def create_project_parameter_from_default_route(params):
 
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string})
-def list_project_parameters_route(params):
+def list_project_parameters_route(params): # ++TESTED
     """
-    **List project parameters**
+    **Просмотр списка параметров проекта**
 
-    address to query: **/project/parameter/list**
+    путь запроса: **/project/parameter/list**
 
-    Read json coded data as one string with psid
+    Параметры запроса:
 
-    Return json coded list of dictionaries with keys:
+    - `psid`: ключ доступа
 
-    - `uuid`: parameter uuid
-    - `name`: parameter name
-    - `descr`: parameter description
-    - `tp`: param type
-    - `enum`: Boolean, enumerated value
-    - `tecnical`: Boolean, True if parameter is tecnical
-    - `values`: posible values of parameter, null if enum is false. List of dictionaries with keys:
-       - `value`: one of posible values
-       - `caption`: value description
-    - `value`: value of parameter, null if there is no one accepted value
-    - `caption`: value description, null if `value` is null
-    - `votes`: list of dictionaries with keys:
-       - `voter`: uuid of voter (participant)
-       - `value`: value voted by user
-       - `caption`: value description
-       - `dt`: datetime string in ISO format
+    Возвращает JSON кодированный список словарей с ключами
+
+    - `uuid`: uuid параметра
+    - `name`: имя параметра
+    - `descr`: описание параметра
+    - `tp`: тип параметра
+    - `enum`: Boolean, параметр имеет ограниченный набор значений
+    - `tecnical`: Boolean, параметр технический
+    - `values`: список словарей с ключами. Не указывается если `enum` == false
+       - `value`: значение параметра
+       - `caption`: подпись
+    - `value`: значение параметра
+    - `caption`: пояснение значения
+    - `votes`: открытые предложения по параметру. список словарей с ключами
+       - `voter`: uuid предложившего
+       - `value`: предложенное значение
+       - `caption`: пояснение значения
+       - `dt`: дата время создания предложения, строка в формате ISO
 
     Return status:
 
@@ -332,15 +348,15 @@ def list_project_parameters_route(params):
                            'uuid' : _good_string,
                            'value' : _good_string,
                            'caption' : OrNone(_good_string)})
-def change_project_parameter_route(params):
+def change_project_parameter_route(params): # ++TESTED
     """
-    **Change project parameter**
+    **Изменить параметр проекта**
 
-    address to query: **/project/parameter/change**
+    путь запроса: **/project/parameter/change**
 
-    Get json coded dictionary with keys:
+    Параметры зпроса:
 
-    - `psid`: access key
+    - `psid`: ключ доступа
     - `uuid`: parameter uuid
     - `value`: parameter value
     - `caption`: value caption, may be null
@@ -361,16 +377,24 @@ def change_project_parameter_route(params):
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
                            'uuid' : _good_string})
-def conform_project_parameter_route(params):
+def conform_project_parameter_route(params): # ++TESTED на прямую не вызывался
     """
-    **Conform project**
+    **Согласование проекта**
 
-    address to query: **/project/conform**
+    путь запроса: **/project/conform**
 
-    get json encoded dictionary with keys:
+    Параметры зпроса
 
-    - `psid`:
-    - `uuid`: string, parameter uuid
+    - `psid`: ключ
+    - `uuid`: uuid параметра для согласования
+
+    Для управляемого проекта:
+
+       Если пользователь - инициатор: предложенное значение выставляет как текущее, предыдущее текущее значение выставляет как 'changed' все остальные предложения по проекту закрывает со статусом 'denied'. Если не было предложенных значений, то ничего не делает.
+
+       Если пользователь не инициатор: ничего не делает.
+
+    Для остальных типов проекта возвращает статус 501 (временно)
 
     Return status:
 
@@ -387,7 +411,7 @@ def conform_project_parameter_route(params):
 
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string})
-def delete_project_route(params):
+def delete_project_route(params): #  FIXME: метод для тестов
     """
     get string with psid
 
@@ -468,13 +492,13 @@ def list_participants_route(params):
           - `exclude`: предложение исключить из проекта
        - `comment`: (строка) комментарий предложившего
        - `dt`: (словарь с датой) дата время предложения, клдчи:
-          - `year`: 
+          - `year`:
           - `month`:
           - `day`:
           - `hour`:
           - `minute`:
           - `second`:
-    
+
     Статусы возврата:
 
     - `200`: ok
@@ -484,7 +508,7 @@ def list_participants_route(params):
     """
     enc = json.JSONEncoder()
     ret, stat = execute_list_participants(params['psid'])
-    return http.HttpResponse(enc.encode(ret), status=stat)
+    return http.HttpResponse(enc.encode(ret), status=stat, content_type='application/json')
 
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
@@ -505,7 +529,7 @@ def invite_participant_route(params):
     - `descr`: (строка) описание участника, может быть Null
     - `user_id`: (строка) ид пользователя, может быть Null
     - `comment`: (строка) комментарий по предложению, может быть Null
-    
+
     Возвращает json строку с токеном доступа для приглашенного участника
 
     Статусы возврата:
@@ -520,3 +544,67 @@ def invite_participant_route(params):
     if stat != httplib.CREATED:
         transaction.rollback()
     return http.HttpResponse(enc.encode(ret), status=stat, content_type='application/json')
+
+@transaction.commit_on_success
+@standard_request_handler({'uuid' : _good_string,
+                           'name' : _good_string,
+                           'descr' : OrNone(_good_string),
+                           'user_id' : OrNone(_good_string)})
+def enter_project_open_route(params):
+    """
+    **Вход на открытый проект**
+
+    путь запроса: **/project/enter/open**
+
+    Параметры запроса:
+
+    - `uuid`: ид проекта
+    - `name`: имя участника
+    - `descr`: описание участника
+    - `user_id`: user_id
+
+    возвращает JSON словарь:
+
+    - `psid`: ключ доступа
+    - `token`: токен приглашения
+
+    Статусы возврата:
+
+    - `201`: ok
+    - `412`: не верные данные с описанием в теле ответа
+    - `500`: ошибка сервера
+    """
+    enc = json.JSONEncoder()
+    ret, st = execute_enter_project_open(params)
+    if ret != httplib.CREATED:
+        transaction.rollback()
+    return http.HttpResponse(enc.encode(ret), status=st, content_type='application/json')
+@transaction.commit_on_success
+@standard_request_handler({'uuid' : _good_string,
+                           'token' : _good_string})
+def enter_project_invitation_route(params):
+    """
+    **Вход в проект по приглашению**
+
+    путь запроса: **/project/enter/invitation**
+
+    Параметры запроса:
+
+    - `uuid`: ид проекта
+    - `token`: токен приглашения или user_id поле
+
+    Возвращает словарь с одним ключем
+
+    - `psid`: ключ доступа
+
+    Статусы возврата:
+
+    - `201`: ok
+    - `412`: не верные данные с описанием в теле ответа
+    - `500`: ошибка сервера
+    """
+    enc = json.JSONEncoder()
+    ret, st = execute_enter_project_invitation(params)
+    if st != httplib.CREATED:
+        transaction.rollback()
+    return http.HttpResponse(enc.encode(ret), status=st, content_type='application/json')

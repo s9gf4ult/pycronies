@@ -8,6 +8,7 @@ import re
 import json
 from functools import wraps
 from svalidate import Validate
+from services.statuses import PARAMETERS_BROKEN
 
 yearmonthdayhour = ['year', 'month', 'day', 'hour', 'minute', 'second']
 formats = ['%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d', '%Y-%m-%dT%H:%M:%S.%f', '%Y-%m-%d %H:%M:%S.%f']
@@ -286,7 +287,9 @@ class standard_request_handler(object):
             r = v.validate(self._validator, h)
             if r != None:
                 enc = json.JSONEncoder()
-                return http.HttpResponse(enc.encode(r), status=httplib.PRECONDITION_FAILED, content_type='application/json')
+                return http.HttpResponse(enc.encode({'code' : PARAMETERS_BROKEN,
+                                                     'error' : r,
+                                                     'caption' : 'Parameters of query is broken'}), status=httplib.PRECONDITION_FAILED, content_type='application/json')
             return func(*tuple([h] + list(args[1:])), **kargs)
 
         return ret

@@ -15,6 +15,8 @@ urlpatterns = patterns('',
                        url(r'^project/parameter/create/fromdefault$', 'services.views.create_project_parameter_from_default_route'),
                        url(r'^project/parameter/change$', 'services.views.change_project_parameter_route'),
                        url(r'^project/parameter/list$', 'services.views.list_project_parameters_route'),
+                       url(r'^project/enter/open', 'services.views.enter_project_open_route'),
+                       url(r'^project/enter/initiation', 'services.views.enter_project_invitation_route'),
                        url(r'^parameters/list$', 'services.views.list_default_parameters_route'),
 
                        url(r'^participant/change$', 'services.views.change_participant_route'),
