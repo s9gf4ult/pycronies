@@ -152,7 +152,7 @@ class mytest(TestCase):
         self.assertEqual(1, len(resp))
         self.assertEqual(resp[0]['name'], 'test')
         self.assertEqual(resp[0]['initiator'], True)
-        self.assertEqual(resp[0]['status'], 'opened')
+        self.assertEqual(resp[0]['status'], 'open')
 
         request(c, '/project/list/userid', {'user_id' : '11111111111'}) # такого ид в базе нет
         r = c.getresponse()
@@ -455,11 +455,58 @@ class mytest(TestCase):
                 self.assertEqual(vl, 'asdjfasidfkaj')
         self._delete_project(psid)
 
-    def test_enter_project_open_route(self, ):
+    # def test_enter_project_open_route(self, ):
+    #     enc, dec = getencdec()
+    #     c = httplib.HTTPConnection(host, port)
+    #     request(c, '/project/parameter/list', {'psid' : psid})
+
+
+    def test_list_projects(self, ):
         enc, dec = getencdec()
         c = httplib.HTTPConnection(host, port)
-        request(c, '/project/parameter/list', {'psid' : psid})
-    
+        psid = []
+        request(c, '/project/create', {'name' : 'somename',
+                                       'sharing' : 'open',
+                                       'ruleset' : 'despot',
+                                       'user_name' : 'asdfasdf'})
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.CREATED)
+        psid.append(dec.decode(r.read())['psid'])
+        
+        request(c, '/project/create', {'name' : 'somename2',
+                                       'sharing' : 'open',
+                                       'ruleset' : 'despot',
+                                       'user_name' : 'asdfasdf'})
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.CREATED)
+        psid.append(dec.decode(r.read())['psid'])
+        
+        request(c, '/project/create', {'name' : 'somename3',
+                                       'sharing' : 'open',
+                                       'ruleset' : 'despot',
+                                       'user_name' : 'asdfasdf'})
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.CREATED)
+        psid.append(dec.decode(r.read())['psid'])
+
+        request(c, '/project/create', {'name' : 'somename3',
+                                       'sharing' : 'opened',
+                                       'ruleset' : 'despot',
+                                       'user_name' : 'asdfasdf'})
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.PRECONDITION_FAILED)
+
+
+        request(c, '/project/list', {})
+        r = c.getresponse()
+        prs = dec.decode(r.read())
+        self.assertEqual(set(['somename', 'somename2', 'somename3']),
+                         set([a['name'] for a in prs]))
+        for pr in psid:
+            self._delete_project(pr)
+        
+        
+        
 
 if __name__ == '__main__':
     main()
