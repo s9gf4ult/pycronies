@@ -105,13 +105,13 @@ def execute_list_projects(props):
         pn = props.get('page_number') if props.get('page_number') != None else 0 # номер страницы
         ppp = props['projects_per_page'] # количество проектов на страницу
         if count < pn*ppp:
-            return {'pages' : int(ceil(count/ppp)),
+            return {'pages' : int(ceil(float(count) / ppp)),
                     'projects' : []} # количество проектов меньше чем начало куска который был запрошел
         ret = qr[ppp*pn:ppp*(pn+1)]
     else:                       # количество проектов на страницу не указано
         ret = qr
 
-    return {'pages' : int(ceil(count / props.get('projects_per_page'))) if props.get('projects_per_page') != None else count,
+    return {'pages' : int(ceil(float(count) / props.get('projects_per_page'))) if props.get('projects_per_page') != None else count,
             'projects' : [{'uuid' : a.uuid,
                            'name' : a.name,
                            'descr' : a.descr,
