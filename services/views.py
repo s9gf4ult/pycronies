@@ -8,7 +8,8 @@ import httplib
 from services.app import execute_create_project, execute_list_projects, execute_list_user_projects, \
     execute_change_project_status, execute_list_default_parameters, execute_create_project_parameter, \
     execute_list_project_parameters, execute_create_project_parameter_from_default, execute_change_participant, \
-    execute_invite_participant, execute_change_project_parameter, execute_enter_project_open, execute_enter_project_invitation
+    execute_invite_participant, execute_change_project_parameter, execute_enter_project_open, execute_enter_project_invitation,\
+    execute_conform_participant
 from services.common import json_request_handler, getencdec, validate_params, standard_request_handler
 from services.models import Project
 from svalidate import OrNone, Any, DateTimeString, RegexpMatch, Equal, JsonString
@@ -474,7 +475,9 @@ def list_participants_route(params):
 
     адрес для запроса **/participant/list**
 
-    Принимает json строку с psid
+    Параметры запроса:
+
+    - `psid`: ключ доступа
 
     Возвращает json словарь с ключами:
 
@@ -490,13 +493,7 @@ def list_participants_route(params):
           - `include`: предложение включить в проект
           - `exclude`: предложение исключить из проекта
        - `comment`: (строка) комментарий предложившего
-       - `dt`: (словарь с датой) дата время предложения, клдчи:
-          - `year`:
-          - `month`:
-          - `day`:
-          - `hour`:
-          - `minute`:
-          - `second`:
+       - `db`: Дата и время предложения, строка в ISO формате
 
     Статусы возврата:
 
@@ -551,7 +548,7 @@ def invite_participant_route(params):
                            'name' : _good_string,
                            'descr' : OrNone(_good_string),
                            'user_id' : OrNone(_good_string)})
-def enter_project_open_route(params):
+def enter_project_open_route(params): # ++TESTED
     """
     **Вход на открытый проект**
 
@@ -611,3 +608,33 @@ def enter_project_invitation_route(params):
     if st != httplib.CREATED:
         transaction.rollback()
     return http.HttpResponse(enc.encode(ret), status=st, content_type='application/json')
+
+@transaction.commit_on_success
+@standard_request_handler({'psid' : _good_string,
+                           'uuid' : _good_string})
+def conform_participant_route(params):
+    """
+    **Согласование участника**
+
+    путь запроса **/participant/conform**
+
+    Параметры запроса:
+
+    - `psid`: (строка) ключ доступа
+    - `uuid`: (строка) uuid участника проекта
+
+    Возвращает ничиго
+
+    Статусы возврата:
+
+    - `201`: ok
+    - `412`: не верные данные с описанием в теле ответа
+    - `501`: если тип проекта != управляемый, временно
+    - `500`: ошибка сервера
+    """
+    enc = json.JSONEncoder()
+    r, st = execute_conform_participant(params)
+    if st != httplib.CREATED:
+        transaction.rollback()
+    return http.HttpResponse(enc.encode(r), status=st, content_type='application/json')
+    

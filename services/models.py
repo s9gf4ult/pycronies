@@ -88,9 +88,6 @@ class Activity(BaseModel):
 class Participant(BaseModel):
     """Участрник проекта
     """
-    PARTICIPANT_STATUS= ((u'accepted', u'Участник проекта активен'),
-                         (u'denied', u'Участник проекта запрещен'),
-                         (u'voted', u'Участник пректа предложен для участия в проекте'))
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
     dt = models.DateTimeField(default=None, null=True) # Дата последнего входа участника
     is_initiator = models.BooleanField(default=False)
@@ -99,12 +96,23 @@ class Participant(BaseModel):
     token = models.CharField(max_length=40, null=True, unique=True)
     name = SafeCharField(max_length=100, default=None, null=False)
     descr = SafeTextField(default=u'')
-    status = models.CharField(max_length=40, choices=PARTICIPANT_STATUS, default=u'accepted') # FIXME: Заменить на статус с возможными значениями как для ресурсов мероприятия ?
 
     class Meta:
         unique_together = (("project", "name"),
                            ("project", "user"))
-        
+
+class ParticipantStatus(BaseModel):
+    """Статус участника проекта
+    """
+    PARTICIPANT_STATUS = ((u'accepted', u'Участник проекта активен'),
+                          (u'denied', u'Участник проекта запрещен'))
+    PARTICIPANT_STATUS_STATUS = ((u'accepted', u'Активный статус участника проекта'),
+                                 (u'voted', u'Предложенный статус участника'),
+                                 (u'changed', u'Предыдущий статус участника'),
+                                 (u'denied', u'Отклоненный статус участника'))
+    participant = models.ForeignKey(Participant, on_delete=models.CASCADE)
+    value = models.CharField(max_length=40, choices=PARTICIPANT_STATUS)
+    status = models.CharField(max_length=40, choices=PARTICIPANT_STATUS_STATUS)
 
 class MeasureUnits(BaseModel):
     """Еденицы измерения количества ресурса
@@ -319,14 +327,9 @@ class ParticipantContact(BaseModel):
 class ParticipantVote(BaseModel):
     """Предложение об участнике проекта
     """
-    PARTICIPANT_VOTE=((u'include', u'Предложение о добавлении участника в проект'), # FIXME: возможно какие то еще предложения над участником ?
-                      (u'exclude', u'Предложение об удалении участника из проекта'))
-    participant = models.ForeignKey(Participant, on_delete=models.CASCADE)
+    participant_status = models.ForeignKey(ParticipantStatus)
     voter = models.ForeignKey(Participant, related_name = 'acceptant_%(class)s_set', on_delete=models.CASCADE)
-    vote = models.CharField(max_length=40)
     comment = SafeTextField(null=False, default='')
-    class Meta:
-        unique_together = ((u'participant', u'voter'), )
 
 # class Vote(BaseModel):
 #     """Голос участника

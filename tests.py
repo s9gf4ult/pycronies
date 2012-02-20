@@ -479,8 +479,8 @@ class mytest(TestCase):
                                            'name' : 'blah blah',
                                            'user_id' : 'something'})
         r = c.getresponse()
-        d = dec.decode(r.read())
         self.assertEqual(r.status, httplib.CREATED)
+        d = dec.decode(r.read())
         self.assertIn('psid', d)
         self.assertIn('token', d)
 

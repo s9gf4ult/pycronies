@@ -7,7 +7,7 @@ from services.common import check_safe_string, check_safe_string_or_null, \
     datetime2dict, check_list_or_null
 from services.models import Project, Participant, hex4, ParticipantVote, \
     ProjectParameter, ProjectParameterVl, ProjectParameterVal, DefaultParameter, \
-    DefaultParameterVl, ProjectRulesetDefaults, ProjectParameterVote
+    DefaultParameterVl, ProjectRulesetDefaults, ProjectParameterVote, ParticipantStatus
 from services.statuses import *
 from django.db import transaction, IntegrityError
 from django.db.models import Q
@@ -42,9 +42,13 @@ def execute_create_project(parameters):
         pr.descr = parameters['user_descr']
     pr.status = u'accepted'
     pr.save()
+
+    # создаем его активный статус
+    ps = ParticipantStatus(participant=pr, value='accepted', status='accepted')
+    ps.save()
     
     # создаем предложение на добавление участника
-    pv = ParticipantVote(participant=pr, voter=pr, vote='include')
+    pv = ParticipantVote(participant_status=ps, voter=pr, comment=u'Инициатор проекта')
     pv.save()
 
     # заполняем дефолтные параметры проекта
@@ -477,10 +481,24 @@ def execute_list_participants(psid):
 def execute_invite_participant(params):
     if Participant.objects.filter(psid=params['psid']).count() == 0:
         return u'There is user with such psid', httplib.NOT_FOUND
-    # создаем нового участника для приглашения
     user = Participant.objects.filter(psid=params['psid']).all()[0]
+    prj = user.project
+    if prj.sharing == 'close':  # проект закрытый
+        if not user.is_initiator:
+            return {'code' : MUST_BE_INITIATOR,
+                    'caption' : 'You must be initiator to invite users in the close project'}, httplib.PRECONDITION_FAILED
+    else:                       # проект открытый или по приглашению
+        if  prj.status != 'planning':
+            return {'code' : PROJECT_STATUS_MUST_BE_PLANNING,
+                    'caption' : 'Project is not in the planning status'}, httplib.PRECONDITION_FAILED
+        if user.status != 'accepted':
+            return {'code' : ACCESS_DENIED,
+                    'caption' : 'You are not accepted user to invite users in this project'}, httplib.PRECONDITION_FAILED
+    
     pr = Participant(project=user.project, name=params['name'],
                      token=hex4(), status='voted')
+    
+    # создаем нового участника для приглашения
     if params.get('descr') != None:
         pr.descr = params['descr']
     if params.get('user_id') != None:
@@ -504,7 +522,40 @@ def execute_invite_participant(params):
         return r, st
 
 def execute_conform_participant(params):
-    pass
+    """
+    Параметры запроса:
+
+    - `psid`: (строка) ключ доступа
+    - `uuid`: (строка) uuid участника проекта
+    """
+    if Participant.objects.filter(psid=params['psid']).count() == 0:
+        return 'There is no such user', httplib.NOT_FOUND
+    user = Participant.objects.filter(psid=params['psid']).all()[0]
+    if Participant.objects.filter(uuid=params['uuid']).count() == 0:
+        return {'code' : PARTICIPANT_NOT_FOUND,
+                'caption' : 'There is no participant with uuid {0}'.format(params['uuid'])}, httplib.PRECONDITION_FAILED
+    partic = Participant.objects.filter(uuid=params['uuid']).all()[0]
+    if partic.project != user.project:
+        return {'code' : ACCESS_DENIED,
+                'caption' : 'This participant is not in your project'}, httplib.PRECONDITION_FAILED
+    prj = partic.project
+    if prj.ruleset == 'despot':
+        return despot_conform_participant(prj, params)
+    else:
+        return u'project with ruleset {0} is not supported in conform_participant'.format(prj.ruleset), httplib.NOT_IMPLEMENTED
+
+def despot_conform_participant(prj, params):
+    voter = Participant.objects.filter(psid=params['psid']).all()[0]
+    prt = Participant.objects.filter(uuid=params['uuid']).all()[0]
+    if not voter.is_initiator:  # управляемый проект - только инициатор может менять
+        return {'code' : MUST_BE_INITIATOR,
+                'caption' : 'You are not an initiator'}, httplib.PRECONDITION_FAILED
+    if ptr.status == 'voted':   # участник не активен - ищем предложения на приглашения
+        if ParticipantVote.filter(Q(voter=voter) & Q(participant=prt) & Q(vote='include')).count() == 0:
+            return 'There is no one vote for you so doing nothing', httplib.CREATED
+        pv = ParticipantVote.filter(Q(voter=voter) & Q(participant=prt) & Q(vote='include')).all()[0]
+        # закрываем все предложения 
+        # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 def execute_enter_project_open(params):
     if Project.objects.filter(uuid=params['uuid']).count() == 0:
@@ -519,8 +570,8 @@ def execute_enter_project_open(params):
         return {'code' : PROJECT_STATUS_MUST_BE_PLANNING,
                 'caption' : 'Project status is not "planning"'}, httplib.PRECONDITION_FAILED
     prt = Participant(project=prj, dt=datetime.now(),
-                      is_initiator=False, psid=hex4(), token=hex4(), name=params['name'],
-                      status='accepted')
+                      is_initiator=False, psid=hex4(), token=hex4(), name=params['name'])
+    
     if params.get('descr') != None:
         prt.descr = params['descr']
     if params.get('user_id') != None:
@@ -530,7 +581,10 @@ def execute_enter_project_open(params):
     except IntegrityError:
         return {'code' : PARTICIPANT_ALREADY_EXISTS,
                 'caption' : 'There is one participant with such name or user_id in this project'}, httplib.PRECONDITION_FAILED
-    pvt = ParticipantVote(voter=prt, participant=prt, vote='include',
+
+    ps = ParticipantStatus(participant=prt, value='accepted', status='accepted')
+    ps.save() 
+    pvt = ParticipantVote(participant_status=ps, voter=prt, 
                           comment=u'Участник самостоятельно подключился к проекту')
     pvt.save()
     return {'psid' : prt.psid,
