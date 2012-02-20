@@ -3,7 +3,7 @@
 
 import django.http as http
 from django.db import transaction
-nimport json
+import json
 import httplib
 from services.app import execute_create_project, execute_list_projects, execute_list_user_projects, \
     execute_change_project_status, execute_list_default_parameters, execute_create_project_parameter, \
