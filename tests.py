@@ -457,11 +457,79 @@ class mytest(TestCase):
                 self.assertEqual(vl, 'asdjfasidfkaj')
         self._delete_project(psid)
 
-    # def test_enter_project_open_route(self, ):
-    #     enc, dec = getencdec()
-    #     c = httplib.HTTPConnection(host, port)
-    #     request(c, '/project/parameter/list', {'psid' : psid})
+    def test_enter_project_open_route(self, ):
+        enc, dec = getencdec()
+        c = httplib.HTTPConnection(host, port)
+        psds = []
+        request(c, '/project/create', {'name' : 'blahblah',
+                                       'sharing' : 'open',
+                                       'ruleset' : 'despot',
+                                       'user_name' : 'user'})
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.CREATED)
+        resp = dec.decode(r.read())
+        psds.append(resp['psid'])
 
+        request(c, '/project/status/change', {'psid' : resp['psid'],
+                                              'status' : 'planning'})
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.CREATED)
+
+        request(c, '/project/enter/open', {'uuid' : resp['project_uuid'],
+                                           'name' : 'blah blah',
+                                           'user_id' : 'something'})
+        r = c.getresponse()
+        d = dec.decode(r.read())
+        self.assertEqual(r.status, httplib.CREATED)
+        self.assertIn('psid', d)
+        self.assertIn('token', d)
+
+        request(c, '/project/enter/open', {'uuid' : resp['project_uuid'],
+                                           'name' : 'blah blah',
+                                           'user_id' : 'sdfasdf'})
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.PRECONDITION_FAILED)
+        
+        request(c, '/project/enter/open', {'uuid' : resp['project_uuid'],
+                                           'name' : 'blahsdf blah',
+                                           'user_id' : 'something'})
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.PRECONDITION_FAILED)
+
+        request(c, '/project/status/change', {'psid' : resp['psid'],
+                                              'status' : 'contractor'})
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.CREATED)
+
+        request(c, '/project/enter/open', {'uuid' : resp['project_uuid'],
+                                           'name' : 'fjfj',
+                                           'user_id' : 'jajaja'})
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.PRECONDITION_FAILED)
+
+        request(c, '/project/create', {'name' : 'pojer',
+                                       'sharing' : 'close',
+                                       'ruleset' : 'despot',
+                                       'user_name' : 'sdf'})
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.CREATED)
+        resp = dec.decode(r.read())
+        psds.append(resp['psid'])
+
+        request(c, '/project/status/change', {'psid' : resp['psid'],
+                                              'status' : 'planning'})
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.CREATED)
+
+        request(c, '/project/enter/open', {'uuid' : resp['project_uuid'],
+                                           'name' : 'some',
+                                           'user_id' : 'asdfasd'})
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.PRECONDITION_FAILED)
+        
+        for p in psds:
+            self._delete_project(p)
+        
 
     def test_list_projects2(self, ):
         enc, dec = getencdec()

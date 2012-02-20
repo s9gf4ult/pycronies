@@ -488,7 +488,8 @@ def execute_invite_participant(params):
     try:
         pr.save()
     except IntegrityError:
-        return u'User with such name or with such user_id is already exists in this project', httplib.PRECONDITION_FAILED
+        return {'code' : PARTICIPANT_ALREADY_EXISTS,
+                'caption' : u'User with such name or with such user_id is already exists in this project'}, httplib.PRECONDITION_FAILED
     # создаем приглашение участника
     vt = ParticipantVote(participant=pr, voter=user, vote='include')
     if params.get('comment') != None:
@@ -498,7 +499,7 @@ def execute_invite_participant(params):
     r, st = execute_conform_participant({'psid' : params['psid'],
                                          'uuid' : pr.uuid})
     if st == httplib.CREATED:
-        return pr.token, httplib.CREATED
+        return {'token' : pr.token}, httplib.CREATED
     else:
         return r, st
 
@@ -509,15 +510,15 @@ def execute_enter_project_open(params):
     if Project.objects.filter(uuid=params['uuid']).count() == 0:
         return {'code' : PROJECT_NOT_FOUND,
                 'caption' : 'No such project'}, httplib.PRECONDITION_FAILED
-    prj = Project.object.filter(uuid=params['uuid']).all()[0]
+    prj = Project.objects.filter(uuid=params['uuid']).all()[0]
     
-    if prj.ruleset != 'open':
+    if prj.sharing != 'open':
         return {'code' : PROJECT_MUST_BE_OPEN,
                 'caption' : 'You can join just to open projects'}, httplib.PRECONDITION_FAILED
     if prj.status != 'planning':
         return {'code' : PROJECT_STATUS_MUST_BE_PLANNING,
                 'caption' : 'Project status is not "planning"'}, httplib.PRECONDITION_FAILED
-    prt = Participant(project=prj, dt=datetime.datetime.now(),
+    prt = Participant(project=prj, dt=datetime.now(),
                       is_initiator=False, psid=hex4(), token=hex4(), name=params['name'],
                       status='accepted')
     if params.get('descr') != None:
@@ -528,7 +529,7 @@ def execute_enter_project_open(params):
         prt.save()
     except IntegrityError:
         return {'code' : PARTICIPANT_ALREADY_EXISTS,
-                'caption' : 'There is one participant with such name or user_id in this project'}
+                'caption' : 'There is one participant with such name or user_id in this project'}, httplib.PRECONDITION_FAILED
     pvt = ParticipantVote(voter=prt, participant=prt, vote='include',
                           comment=u'Участник самостоятельно подключился к проекту')
     pvt.save()

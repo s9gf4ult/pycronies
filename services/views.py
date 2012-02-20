@@ -529,7 +529,9 @@ def invite_participant_route(params):
     - `user_id`: (строка) ид пользователя, может быть Null
     - `comment`: (строка) комментарий по предложению, может быть Null
 
-    Возвращает json строку с токеном доступа для приглашенного участника
+    Возвращает json словарь с ключами:
+
+    - `token`: (строка) ключ приглашения
 
     Статусы возврата:
 
@@ -559,7 +561,7 @@ def enter_project_open_route(params):
 
     - `uuid`: ид проекта
     - `name`: имя участника
-    - `descr`: описание участника
+    - `descr`: описание участника может быть None
     - `user_id`: user_id
 
     возвращает JSON словарь:
@@ -575,9 +577,11 @@ def enter_project_open_route(params):
     """
     enc = json.JSONEncoder()
     ret, st = execute_enter_project_open(params)
-    if ret != httplib.CREATED:
+    if st != httplib.CREATED:
         transaction.rollback()
     return http.HttpResponse(enc.encode(ret), status=st, content_type='application/json')
+
+
 @transaction.commit_on_success
 @standard_request_handler({'uuid' : _good_string,
                            'token' : _good_string})
