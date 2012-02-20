@@ -12,6 +12,7 @@ from services.statuses import *
 from django.db import transaction, IntegrityError
 from django.db.models import Q
 from datetime import datetime
+from math import ceil
 import httplib
 
 def execute_create_project(parameters):
@@ -98,20 +99,22 @@ def execute_list_projects(props):
     else:
         qr = Project.objects.filter(qry).all()
 
+    count = qr.count()
     ret = None                                 # запрос с ограниченным количеством проектов
     if props.get('projects_per_page') != None: # указано количество пректов на страницу
         pn = props.get('page_number') if props.get('page_number') != None else 0 # номер страницы
         ppp = props['projects_per_page'] # количество проектов на страницу
-        if qr.count() < pn*ppp:
+        if count < pn*ppp:
             return []           # количество проектов меньше чем начало куска который был запрошел
         ret = qr[ppp*pn:ppp*(pn+1)]
     else:                       # количество проектов на страницу не указано
         ret = qr
 
-    return [{'uuid' : a.uuid,
-             'name' : a.name,
-             'descr' : a.descr,
-             'begin_date' : a.begin_date.isoformat()} for a in ret]
+    return {'pages' : int(ceil(count / props.get('projects_per_page'))) if props.get('projects_per_page') != None else count,
+            'projects' : [{'uuid' : a.uuid,
+                           'name' : a.name,
+                           'descr' : a.descr,
+                           'begin_date' : a.begin_date.isoformat()} for a in ret]}
 
 def execute_list_user_projects(user_id):
     """return tuple of response and status 

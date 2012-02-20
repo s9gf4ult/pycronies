@@ -92,15 +92,16 @@ class mytest(TestCase):
         r = c.getresponse()
         self.assertEqual(r.status, httplib.OK)
         resp = dec.decode(r.read())
-        self.assertEqual(len(resp), 50) # мы не знаем выполнился ли тест на создание проектов раньше
+        self.assertEqual(len(resp['projects']), 50) # мы не знаем выполнился ли тест на создание проектов раньше
 
         # пробуем посмотреть проекты по строке поиска
         request(c, '/project/list', {'search' : 'test project'})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.OK)
         resp = dec.decode(r.read())
-        self.assertEqual(len(resp), 50)
-        for pr in resp:
+        self.assertEqual(len(resp['projects']), 50)
+        self.assertEqual(resp['pages'], 50)
+        for pr in resp['projects']:
             self.assertTrue(('test project' in pr['name']) or ('test project' in pr['descr']))
 
         # запрашиваем проекты по дате
@@ -108,27 +109,28 @@ class mytest(TestCase):
         r = c.getresponse()
         self.assertEqual(r.status, httplib.OK)
         resp = dec.decode(r.read())
-        self.assertEqual(len(resp), 20)
-        for pr in resp:
+        self.assertEqual(len(resp['projects']), 20)
+        for pr in resp['projects']:
             self.assertTrue(string2datetime(pr['begin_date']) >= datetime.datetime(2012, 3, 13, 12, 12, 30))
 
         # пробуем пролистать страницами по 5 проектов на страницу
-        for pn in range(0, 12): # должно быть 10 страниц +1 если другие тесты выполнились раньше
+        for pn in range(0, 11): # должно быть 10 страниц
             request(c, '/project/list', {'page_number' : pn,
                                          'projects_per_page' : 5})
             r = c.getresponse()
             self.assertEqual(r.status, httplib.OK)
             resp = dec.decode(r.read())
-            if pn == 11:        # последняя страница пустая
-                self.assertEqual(0, len(resp))
+            self.assertEqual(resp['pages'], 10)
+            if pn == 10:        # последняя страница пустая
+                self.assertEqual(0, len(resp['projects']))
             else:
-                self.assertTrue(len(resp) <= 5)
+                self.assertTrue(len(resp['projects']) <= 5)
 
         # пробуем искать проекты которых нету
         request(c, '/project/list', {'search' : '11111111111111'}) # таких названий или описаний в базе нет
         r = c.getresponse()
         self.assertEqual(r.status, httplib.OK)
-        self.assertEqual(0, len(dec.decode(r.read())))
+        self.assertEqual(0, len(dec.decode(r.read())['projects']))
         for psid in psids:
             self._delete_project(psid)
 
@@ -461,7 +463,7 @@ class mytest(TestCase):
     #     request(c, '/project/parameter/list', {'psid' : psid})
 
 
-    def test_list_projects(self, ):
+    def test_list_projects2(self, ):
         enc, dec = getencdec()
         c = httplib.HTTPConnection(host, port)
         psid = []
@@ -499,7 +501,7 @@ class mytest(TestCase):
 
         request(c, '/project/list', {})
         r = c.getresponse()
-        prs = dec.decode(r.read())
+        prs = dec.decode(r.read())['projects']
         self.assertEqual(set(['somename', 'somename2', 'somename3']),
                          set([a['name'] for a in prs]))
         for pr in psid:
