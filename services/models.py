@@ -92,7 +92,7 @@ class Participant(BaseModel):
     dt = models.DateTimeField(default=None, null=True) # Дата последнего входа участника
     is_initiator = models.BooleanField(default=False)
     user = models.CharField(max_length=40, null=True)   # FIXME: Это должна быть ссылка на пользюка, пока заглушка
-    psid = models.CharField(max_length=40, unique=True)
+    psid = models.CharField(max_length=40, unique=True, null=True, default=None)
     token = models.CharField(max_length=40, null=True, unique=True)
     name = SafeCharField(max_length=100, default=None, null=False)
     descr = SafeTextField(default=u'')

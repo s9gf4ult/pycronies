@@ -9,7 +9,7 @@ from services.app import execute_create_project, execute_list_projects, execute_
     execute_change_project_status, execute_list_default_parameters, execute_create_project_parameter, \
     execute_list_project_parameters, execute_create_project_parameter_from_default, execute_change_participant, \
     execute_invite_participant, execute_change_project_parameter, execute_enter_project_open, execute_enter_project_invitation,\
-    execute_conform_participant
+    execute_conform_participant, execute_list_participants
 from services.common import json_request_handler, getencdec, validate_params, standard_request_handler
 from services.models import Project
 from svalidate import OrNone, Any, DateTimeString, RegexpMatch, Equal, JsonString
@@ -463,7 +463,7 @@ def change_participant_route(params):
         return http.HttpResponse(enc.encode(u'At least one of keys "name", "descr", "user_id" must exist'), status=httplib.PRECONDITION_FAILED)
 
     ret, stat = execute_change_participant(params)
-    if ret != httplib.CREATED:
+    if stat != httplib.CREATED:
         transaction.rollback()
     return http.HttpResponse(enc.encode(ret), status=stat, content_type='application/json')
 
@@ -479,21 +479,22 @@ def list_participants_route(params):
 
     - `psid`: ключ доступа
 
-    Возвращает json словарь с ключами:
+    Возвращает список json словарей с ключами:
 
     - `uuid`: (строка) ид участника
+    - `name`: (строка) имя участника
     - `descr`: (строка) описание участника
     - `status`: (строка) один из возможных статусов участника:
        - `accepted`: участник согласован и учавствует в проекте
        - `denied`: участник заерещен для участия в проекте
-       - `voted`: участник в процессе согласования
+       - `voted`: статус участника в процессе согласования
     - `votes`: предложения по участнику, null если `status` != "voted"
-       - `voter`: (строка) ид предлагающего
+       - `voter`: (строка) uuid предлагающего
        - `vote`: (строка) одно из возможных предложений
           - `include`: предложение включить в проект
           - `exclude`: предложение исключить из проекта
        - `comment`: (строка) комментарий предложившего
-       - `db`: Дата и время предложения, строка в ISO формате
+       - `dt`: Дата и время предложения, строка в ISO формате
 
     Статусы возврата:
 

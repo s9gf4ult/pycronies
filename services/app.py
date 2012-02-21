@@ -30,7 +30,7 @@ def execute_create_project(parameters):
         p.begin_date=datetime.now()
     p.status = 'open'
     p.save()
-    
+
     # создаем участника - владельца
     pr = Participant(project=p, name=parameters['user_name'])
     pr.psid=hex4()
@@ -40,13 +40,12 @@ def execute_create_project(parameters):
         pr.user = parameters['user_id']
     if 'user_descr' in parameters:
         pr.descr = parameters['user_descr']
-    pr.status = u'accepted'
     pr.save()
 
     # создаем его активный статус
     ps = ParticipantStatus(participant=pr, value='accepted', status='accepted')
     ps.save()
-    
+
     # создаем предложение на добавление участника
     pv = ParticipantVote(participant_status=ps, voter=pr, comment=u'Инициатор проекта')
     pv.save()
@@ -62,7 +61,7 @@ def execute_create_project(parameters):
             for enums in DefaultParameterVl.objects.filter(parameter=dpr).all():
                 penum = ProjectParameterVl(parameter=projpar, value=enums.value, caption=enums.caption)
                 penum.save()
-                
+
         pval=ProjectParameterVal(parameter=projpar,
                                  value=dpr.default_value,
                                  dt=datetime.now(),
@@ -72,7 +71,7 @@ def execute_create_project(parameters):
             return {'code' : PROJECT_PARAMETER_ERROR,
                     'caption' : 'Error in default parameters of project, default value not in posible values "{0}"'.format(dpr.uuid)}, httplib.INTERNAL_SERVER_ERROR
         pval.save()
-    
+
     return {'project_uuid' : p.uuid,
             'psid' : pr.psid,
             'token' : pr.token}, httplib.CREATED
@@ -88,7 +87,7 @@ def execute_list_projects(props):
             return snd
         else:
             return (fst & snd)
-        
+
     qry = None                  # сформированное условие для отбора
     if props.get('status') != None:
         qry = none_and(qry, Q(status=props['status']))
@@ -122,7 +121,7 @@ def execute_list_projects(props):
                            'begin_date' : a.begin_date.isoformat()} for a in ret]}
 
 def execute_list_user_projects(user_id):
-    """return tuple of response and status 
+    """return tuple of response and status
     response is json encodable answer, list of projects assigned to given user_id
     Arguments:
     - `user_id`:
@@ -233,7 +232,7 @@ def execute_create_project_parameter(params):
         return despot_create_project_parameter(proj, params)
     else:
         return u'Create project parameter is not implemented for ruleset "{0}"'.format(proj.ruleset), httplib.NOT_IMPLEMENTED
-    
+
 def despot_create_project_parameter(proj, params):
     """
     create parameter for despot ruleset project
@@ -375,13 +374,13 @@ def despot_conform_project_parameter(proj, params):
         return u'Accepted new value', httplib.CREATED
     else:                                 #пользователь не инициатор - согласование ничего неделает
         return u'User is not initiator, conform doing nothing', httplib.CREATED
-    
+
 def execute_list_project_parameters(psid):
     """
     Arguments:
     - `psid`: psid as string
     """
-    # проверяем есть ли пользователь 
+    # проверяем есть ли пользователь
     if Participant.objects.filter(psid=psid).count() == 0:
         return u'There is no user with such psid', httplib.NOT_FOUND
     proj = Project.objects.filter(participant__psid=psid).all()[0]
@@ -415,20 +414,24 @@ def execute_list_project_parameters(psid):
                  'dt', vts.dt}
             votes.append(v)
 
-        
+
         ret.append(p)
     return ret, httplib.OK
 
 def execute_change_participant(params):
     """
-    
+
     Arguments:
     - `params`:
     """
     # проверяем наличие пользователя по psid
     if Participant.objects.filter(psid=params['psid']).count() == 0:
         return u'There is no such user', httplib.NOT_FOUND
+    
     user = Participant.objects.filter(psid=params['psid']).all()[0]
+    if user.participantstatus_set.filter(Q(status='accepted') & Q(value='accepted')).count() == 0:
+        return {'code' : ACCESS_DENIED,
+                'caption' : 'Your status is not "accepted"'}, httplib.PRECONDITION_FAILED
     if Participant.objects.filter(uuid=params['uuid']).count() == 0:
         return {'code' : PARTICIPANT_NOT_FOUND,
                 'caption' : 'There is no participants found'}, httplib.PRECONDITION_FAILED
@@ -439,7 +442,7 @@ def execute_change_participant(params):
             return True
         if par.project != user.project:
             return False
-        if user.dt == None and ParticipantVote.objects.filter(Q(voter=par) & Q(participant=user) & Q(vote=u'include')).count() > 0:
+        if par.dt == None:
             return True
         return False
 
@@ -448,12 +451,17 @@ def execute_change_participant(params):
                 'caption' : u'You can not change this user'}, httplib.PRECONDITION_FAILED
     # изменяем параметр пользователя
     if params.get('name') != None:
-        user.name = params['name']
+        par.name = params['name']
     if params.get('descr') != None:
-        user.descr = params['descr']
+        par.descr = params['descr']
     if params.get('user_id') != None:
-        user.user = params['user_id']
-    user.save()
+        par.user = params['user_id']
+    try:
+        par.save()
+    except IntegrityError:
+        return {'code' : PARTICIPANT_ALREADY_EXISTS,
+                'caption' : 'Participant with such name already exists'}, httplib.PRECONDITION_FAILED
+            
     return 'OK', httplib.CREATED
 
 def execute_list_participants(psid):
@@ -464,20 +472,26 @@ def execute_list_participants(psid):
     # получаем список участников проекта
     for par in Participant.objects.filter(project=prj):
         a = {'uuid' : par.uuid,
-             'descr' : par.descr,
-             'status' : par.status}
+             'name' : par.name,
+             'descr' : par.descr}
+        # текущий статус
+        if ParticipantStatus.objects.filter(Q(participant=par) & Q(status='accepted')).count() > 0:
+            a['status'] = (ParticipantStatus.objects.filter(Q(participant=par) & Q(status='accepted')).all()[0]).value
+        else:
+            a['status'] = 'voted'
+
         # смотрим список предложений по участнику
-        if par.status == 'voted':
-            vts = []
-            for vote in ParticipantVote.objects.filter(Q(participant=par) & Q(voter__project=prj)).all():
-                vts.append({'voter' : vote.voter,
-                            'vote' : vote.vote,
-                            'comment' : vote.comment,
-                            'dt' : vote.create_date})
-            a['votes'] = vts
+        vts = []
+        for ps in ParticipantStatus.objects.filter(Q(participant=par) & Q(status='voted')).all(): #все предложенные статусы участника
+            for pvt in ps.participantvote_set.all():   #все предложения по каждому статусу
+                vts.append({'voter' : pvt.voter.uuid,
+                            'vote' : 'include' if ps.value == 'accepted' else 'exclude',
+                            'comment' : pvt.comment})
+        a['votes'] = vts
         ret.append(a)
+
     return ret, httplib.OK
-    
+
 def execute_invite_participant(params):
     if Participant.objects.filter(psid=params['psid']).count() == 0:
         return u'There is user with such psid', httplib.NOT_FOUND
@@ -486,19 +500,18 @@ def execute_invite_participant(params):
     if prj.sharing == 'close':  # проект закрытый
         if not user.is_initiator:
             return {'code' : MUST_BE_INITIATOR,
-                    'caption' : 'You must be initiator to invite users in the close project'}, httplib.PRECONDITION_FAILED
+                    'caption' : 'You must be initiator to invite users to the close project'}, httplib.PRECONDITION_FAILED
     else:                       # проект открытый или по приглашению
         if  prj.status != 'planning':
             return {'code' : PROJECT_STATUS_MUST_BE_PLANNING,
                     'caption' : 'Project is not in the planning status'}, httplib.PRECONDITION_FAILED
-        if user.status != 'accepted':
+        if user.participantstatus_set.filter(Q(status='accepted') & Q(value='accepted')).count() == 0:
             return {'code' : ACCESS_DENIED,
                     'caption' : 'You are not accepted user to invite users in this project'}, httplib.PRECONDITION_FAILED
-    
-    pr = Participant(project=user.project, name=params['name'],
-                     token=hex4(), status='voted')
-    
+
     # создаем нового участника для приглашения
+    pr = Participant(project=prj, name=params['name'],
+                     token=hex4())
     if params.get('descr') != None:
         pr.descr = params['descr']
     if params.get('user_id') != None:
@@ -509,7 +522,12 @@ def execute_invite_participant(params):
         return {'code' : PARTICIPANT_ALREADY_EXISTS,
                 'caption' : u'User with such name or with such user_id is already exists in this project'}, httplib.PRECONDITION_FAILED
     # создаем приглашение участника
-    vt = ParticipantVote(participant=pr, voter=user, vote='include')
+    st = ParticipantStatus(participant=pr,
+                           value='accepted',
+                           status='voted')
+    st.save()
+
+    vt = ParticipantVote(participant_status=st, voter=user)
     if params.get('comment') != None:
         vt.comment = params['comment']
     vt.save()
@@ -540,29 +558,38 @@ def execute_conform_participant(params):
                 'caption' : 'This participant is not in your project'}, httplib.PRECONDITION_FAILED
     prj = partic.project
     if prj.ruleset == 'despot':
-        return despot_conform_participant(prj, params)
+        return despot_conform_participant(user, partic, params)
     else:
         return u'project with ruleset {0} is not supported in conform_participant'.format(prj.ruleset), httplib.NOT_IMPLEMENTED
 
-def despot_conform_participant(prj, params):
-    voter = Participant.objects.filter(psid=params['psid']).all()[0]
-    prt = Participant.objects.filter(uuid=params['uuid']).all()[0]
+def despot_conform_participant(voter, prt, params):
     if not voter.is_initiator:  # управляемый проект - только инициатор может менять
-        return {'code' : MUST_BE_INITIATOR,
-                'caption' : 'You are not an initiator'}, httplib.PRECONDITION_FAILED
-    if ptr.status == 'voted':   # участник не активен - ищем предложения на приглашения
-        if ParticipantVote.filter(Q(voter=voter) & Q(participant=prt) & Q(vote='include')).count() == 0:
-            return 'There is no one vote for you so doing nothing', httplib.CREATED
-        pv = ParticipantVote.filter(Q(voter=voter) & Q(participant=prt) & Q(vote='include')).all()[0]
-        # закрываем все предложения 
-        # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+        return 'You are not participant, so doing nothing', httplib.CREATED
+    # если мы не имеем предложений по участнику, то выходим
+    if ParticipantVote.objects.filter(Q(voter=voter) & Q(participant_status__participant=prt) & Q(participant_status__status='voted')).count() == 0:
+        return u'There is no one active vote for participant', httplib.CREATED
+    # берем наше предложение
+    pv = ParticipantVote.objects.filter(Q(voter=voter) & Q(participant_status__participant=prt) & Q(participant_status__status='voted')).all()[0]
 
-def execute_enter_project_open(params):
+    # остальные активные предложения по этому участнику закрываем
+    ParticipantStatus.objects.filter(Q(participant=prt) & Q(status='voted')).update(status='denied')
+
+    # если есть активный статус участника - закрываем
+    if ParticipantStatus.objects.filter(Q(participant=prt) & Q(status='accepted')).count() > 0:
+        ParticipantStatus.objects.filter(Q(participant=prt) & Q(status='accepted')).update(status='changed')
+
+    # делаем статус по активному предложению активным
+    ps = pv.participant_status
+    ps.status='accepted'
+    ps.save()
+    return '', httplib.CREATED
+
+def execute_enter_project_open(params):   #++TESTED
     if Project.objects.filter(uuid=params['uuid']).count() == 0:
         return {'code' : PROJECT_NOT_FOUND,
                 'caption' : 'No such project'}, httplib.PRECONDITION_FAILED
     prj = Project.objects.filter(uuid=params['uuid']).all()[0]
-    
+
     if prj.sharing != 'open':
         return {'code' : PROJECT_MUST_BE_OPEN,
                 'caption' : 'You can join just to open projects'}, httplib.PRECONDITION_FAILED
@@ -571,7 +598,7 @@ def execute_enter_project_open(params):
                 'caption' : 'Project status is not "planning"'}, httplib.PRECONDITION_FAILED
     prt = Participant(project=prj, dt=datetime.now(),
                       is_initiator=False, psid=hex4(), token=hex4(), name=params['name'])
-    
+
     if params.get('descr') != None:
         prt.descr = params['descr']
     if params.get('user_id') != None:
@@ -583,8 +610,8 @@ def execute_enter_project_open(params):
                 'caption' : 'There is one participant with such name or user_id in this project'}, httplib.PRECONDITION_FAILED
 
     ps = ParticipantStatus(participant=prt, value='accepted', status='accepted')
-    ps.save() 
-    pvt = ParticipantVote(participant_status=ps, voter=prt, 
+    ps.save()
+    pvt = ParticipantVote(participant_status=ps, voter=prt,
                           comment=u'Участник самостоятельно подключился к проекту')
     pvt.save()
     return {'psid' : prt.psid,
@@ -599,7 +626,10 @@ def execute_enter_project_invitation(params):
         return {'code' : PARTICIPANT_NOT_FOUND,
                 'caption' : 'There is no participants with such token or user_id'}, httplib.PRECONDITION_FAILED
     prt = Participant.objects.filter(Q(project=prj) & (Q(token=params['token']) | Q(user=params['token']))).all()[0]
-    prt.dt = datetime.datetime.now()
+    if prt.participantstatus_set.filter(Q(status='accepted') & Q(value='accepted')).count() == 0:
+        return {'code' : ACCESS_DENIED,
+                'caption' : 'You are not allowerd user (not accepted status) to do enter to the project'}, httplib.PRECONDITION_FAILED
+    prt.dt = datetime.now()
     prt.psid = hex4()
     prt.save()
     return {'psid' : prt.psid}, httplib.CREATED

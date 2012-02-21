@@ -5,6 +5,7 @@ from unittest import TestCase, main
 import httplib, urllib
 import json
 from services.common import string2datetime
+from services.statuses import *
 import datetime
 
 host = '127.0.0.1'
@@ -574,7 +575,153 @@ class mytest(TestCase):
                          set([a['name'] for a in prs]))
         for pr in psid:
             self._delete_project(pr)
+
+    def test_invite_and_enter_participant(self, ):
+        enc, dec = getencdec()
+        c = httplib.HTTPConnection(host, port)
+        psids = []
+        request(c, '/project/create', {'name' : 'project1',
+                                       'sharing' : 'invitation',
+                                       'ruleset' : 'despot',
+                                       'user_name' : 'blah blah'})
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.CREATED)
+        resp = dec.decode(r.read())
+        psid = resp['psid']
+        puuid = resp['project_uuid']
+        psids.append(psid)
+
+
+        # приглашаем участника в свой проект
+        request(c, '/participant/invite', {'psid' : psid,
+                                           'name' : 'ololosh',
+                                           'comment' : 'This is the test'})
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.PRECONDITION_FAILED)
+        resp = dec.decode(r.read())
+        self.assertEqual(resp['code'], PROJECT_STATUS_MUST_BE_PLANNING)
         
+        request(c, '/project/status/change', {'psid' : psid,
+                                              'status' : 'planning'})
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.CREATED)
+        
+        request(c, '/participant/invite', {'psid' : psid,
+                                           'name' : 'ololosh',
+                                           'comment' : 'This is the test'})
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.CREATED)
+        resp = dec.decode(r.read())
+        self.assertIn('token', resp)
+        token = resp['token']
+
+        # повторно фейлимся
+        request(c, '/participant/invite', {'psid' : psid,
+                                           'name' : 'ololosh',
+                                           'descr' : 'asdfasd'})
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.PRECONDITION_FAILED)
+        resp = dec.decode(r.read())
+        self.assertEqual(resp['code'], PARTICIPANT_ALREADY_EXISTS)
+
+        # приглашенный участник входит на проект
+        request(c, '/project/enter/invitation', {'uuid' : puuid,
+                                                 'token' : token})
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.CREATED)
+        resp = dec.decode(r.read())
+        psid2 = resp['psid']
+
+        # import pudb
+        # pudb.set_trace()
+        
+        # зашедший участник меняет сам себя
+        request(c, '/participant/list', {'psid' : psid2})
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.OK)
+        resp = dec.decode(r.read())
+        self.assertIn('ololosh', [a['name'] for a in resp])
+        uuid2 = [a['uuid'] for a in resp if a['name'] == 'ololosh'][0] #взяли свой uuid
+        request(c, '/participant/change', {'psid' : psid2,
+                                           'uuid' : uuid2,
+                                           'name' : 'vasek',
+                                           'user_id' : 'blah blah'})
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.CREATED)
+        
+        # зашедщий участник приглашает друга
+        request(c, '/participant/invite', {'psid' : psid2,
+                                           'name' : 'second',
+                                           'descr' : 'just some stranger',
+                                           'user_id' : 'you you'}) 
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.CREATED)
+        resp = dec.decode(r.read())
+        token3 = resp['token']
+        
+        # зашедший участник правит дурга
+        request(c, '/participant/list', {'psid' : psid2})
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.OK)
+        resp = dec.decode(r.read())
+        self.assertIn('second', [a['name'] for a in resp])
+        uuid3 = [a['uuid'] for a in resp if a['name'] == 'second'][0] #взяли uuid второго друга
+        
+        request(c, '/participant/change', {'psid' : psid2,
+                                           'uuid' : uuid3,
+                                           'name' : 'mister guy',
+                                           'descr' : 'the best fried of vasek'})
+        r = c.getresponse()
+        print(dec.decode(r.read()))
+        self.assertEqual(r.status, httplib.CREATED)
+        
+        request(c, '/participant/change', {'psid' : psid2,
+                                           'uuid' : uuid3,
+                                           'name' : 'vasek'})
+        r = c.getresponse()
+        resp = dec.decode(r.read())
+        print(resp)
+        self.assertEqual(r.status, httplib.PRECONDITION_FAILED)
+        self.assertEqual(resp['code'], PARTICIPANT_ALREADY_EXISTS)
+
+        # инициатор согласует добавление второго друга
+        request(c, '/participant/conform', {'psid' : psid,
+                                            'uuid' : uuid3})
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.CREATED)
+        
+        # зашедщий друг пытается править друга и фейлится
+        request(c, '/project/enter/invitation', {'uuid' : puuid,
+                                                 'token' : token3})
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.CREATED)
+        resp = dec.decode(r.read())
+        psid3 = resp['psid']
+
+        request(c, '/participant/change', {'psid' : psid3,
+                                           'uuid' : uuid2,
+                                           'name' : 'loh'})
+        r = c.getresponse()
+        self.assertEqual(r.status, httplib.PRECONDITION_FAILED)
+        resp = dec.decode(r.read())
+        self.assertEqual(resp['code'], ACCESS_DENIED)
+                
+        # каждый участник смотрит список участников
+        lss = []
+        for psd in [psid, psid3, psid3]:
+            request(c, '/participant/list', {'psid' : psd})
+            r = c.getresponse()
+            self.assertEqual(r.status, httplib.OK)
+            resp = dec.decode(r.read())
+            lss.append(resp)
+
+        sets = [set([(a['uuid'], a['name'], a['descr'], a['status']) for a in b]) for b in lss]
+        for tails in sets[1:]:
+            self.assertEqual(sets[0], tails)   # все списки одинаковые
+        
+        
+        for p in psids:
+            self._delete_project(p)
         
         
 
