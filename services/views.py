@@ -12,11 +12,10 @@ from services.app import execute_create_project, execute_list_projects, execute_
     execute_conform_participant, execute_list_participants
 from services.common import json_request_handler, getencdec, validate_params, standard_request_handler
 from services.models import Project
-from svalidate import OrNone, Any, DateTimeString, RegexpMatch, Equal, JsonString
+from svalidate import OrNone, Any, DateTimeString, RegexpMatch, Equal, JsonString, Able
 from copy import copy
 
 _good_string = RegexpMatch(r'^[^;:"''|\\/#&><]*$')
-_good_int = RegexpMatch(r'^\d+$')
 
 @transaction.commit_on_success
 @standard_request_handler({'name' : _good_string,
@@ -70,8 +69,8 @@ def create_project_route(prs):  # ++TESTED
     return http.HttpResponse(enc.encode(result), status=stat, content_type='application/json')
 
 @transaction.commit_on_success
-@standard_request_handler({'page_number' : OrNone(_good_int),
-                           'projects_per_page' : OrNone(_good_int),
+@standard_request_handler({'page_number' : OrNone(Able(int)),
+                           'projects_per_page' : OrNone(Able(int)),
                            'status' : OrNone(Any(*[Equal(a[0]) for a in Project.PROJECT_STATUS])),
                            'begin_date' : OrNone(DateTimeString()),
                            'search' : OrNone(_good_string)})
@@ -533,11 +532,21 @@ def invite_participant_route(params):
 
     Особое поведение:
        Управляемый проект:
-          1. Допустим пользователь - не инициатор, тогда, чтобы добавить нового пользователя в проект по
-          приглашениям, ему надо вызывать invite_participant_route. Последняя, в свою очередь, вызывает conform_participant_route
-          для согласования пользователя, но согласования не происходит, ибо приглашающий пользователь - не инициатор. Чтобы
-          согласовать пользователя инициатор должен его повторно пригласить, так как согласовать можно только приглашенного
-          пользователя.
+          1. Допустим пользователь - не инициатор захотел пригласить другого человека в проект, чтобы добавить
+          нового пользователя в проект по приглашениям, ему надо вызывать invite_participant_route. Последняя, в
+          свою очередь, вызывает conform_participant_route для согласования пользователя, но согласования не
+          происходит, ибо приглашающий пользователь - не инициатор. Чтобы согласовать пользователя инициатор должен
+          его повторно пригласить, так как согласовать можно только приглашенного пользователя, но, так как,
+          пользователь в базе уже создан первым пользователем, инициатор не сможет его пригласить (тобиш сначала
+          добавить).  В этом случае надо, чтобы в управляемых проектах инициатор имел право не создавать новго
+          пользователя, а повторно, от своего имени, пригласить пользователя для согласования.
+
+          Итак: если проект управляемый и мы - инициатор, при этом, пользователь, которого мы приглашаем, уже
+          существует, то, мы приглашаем этого пользователя от совего имени повторно, меняя параметры пользователя,
+          если они отличаются. Одинаковыми считаются пользователи, у которых совпадают имя и user_id, либо только
+          имя, если user_id не указан при приглашении инициатором. Если имя, указанное инициатором совпдатает с
+          существующим пользователем, а user_id - нет, то возвращается 412, так же, в случае, если указанный
+          инициатором user_id совпадат с существующим пользователем, а имя - не совпадает, тоже возвращается 412
 
     Статусы возврата:
 

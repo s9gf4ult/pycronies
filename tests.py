@@ -22,9 +22,25 @@ def encodeparams(prms):
 def request(conn, route, data):
     conn.request('POST', route, encodeparams(data), {'Content-Type' : 'application/x-www-form-urlencoded; charset=utf-8'})
 
+        
+
 class mytest(TestCase):
     """
     """
+    def srequest(self, conn, route, data, status=None, print_result=False):
+        dec = json.JSONDecoder()
+        request(conn, route, data)
+        r = conn.getresponse()
+        if status != None:
+            self.assertEqual(r.status, status)
+        ret = r.read()
+        if print_result:
+            try:
+                print('>>>>>>>>> response to {0}:\n{1}'.format(route, dec.decode(ret)))
+            except:
+                print('>>>>>>>>> failed to parse response to {0}'.format(route))
+        return ret
+    
     def _delete_project(self, psid):
         """
         Arguments:
@@ -33,7 +49,6 @@ class mytest(TestCase):
         c = httplib.HTTPConnection(host, port)
         request(c, '/project/delete', {'psid' : psid})
         r = c.getresponse()
-        # print(r.read())
         self.assertEqual(r.status, httplib.OK)
 
     def test_create_project(self, ):
@@ -616,13 +631,13 @@ class mytest(TestCase):
         token = resp['token']
 
         # повторно фейлимся
-        request(c, '/participant/invite', {'psid' : psid,
-                                           'name' : 'ololosh',
-                                           'descr' : 'asdfasd'})
-        r = c.getresponse()
-        self.assertEqual(r.status, httplib.PRECONDITION_FAILED)
-        resp = dec.decode(r.read())
-        self.assertEqual(resp['code'], PARTICIPANT_ALREADY_EXISTS)
+        # request(c, '/participant/invite', {'psid' : psid,
+        #                                    'name' : 'ololosh',
+        #                                    'descr' : 'asdfasd'})
+        # r = c.getresponse()
+        # self.assertEqual(r.status, httplib.PRECONDITION_FAILED)
+        # resp = dec.decode(r.read())
+        # self.assertEqual(resp['code'], PARTICIPANT_ALREADY_EXISTS)
 
         # приглашенный участник входит на проект
         request(c, '/project/enter/invitation', {'uuid' : puuid,
@@ -672,38 +687,35 @@ class mytest(TestCase):
                                            'name' : 'mister guy',
                                            'descr' : 'the best fried of vasek'})
         r = c.getresponse()
-        print(dec.decode(r.read()))
         self.assertEqual(r.status, httplib.CREATED)
         
         request(c, '/participant/change', {'psid' : psid2,
                                            'uuid' : uuid3,
                                            'name' : 'vasek'})
         r = c.getresponse()
-        resp = dec.decode(r.read())
-        print(resp)
         self.assertEqual(r.status, httplib.PRECONDITION_FAILED)
+        resp = dec.decode(r.read())
         self.assertEqual(resp['code'], PARTICIPANT_ALREADY_EXISTS)
 
         # инициатор согласует добавление второго друга
-        request(c, '/participant/conform', {'psid' : psid,
-                                            'uuid' : uuid3})
-        r = c.getresponse()
-        self.assertEqual(r.status, httplib.CREATED)
+        r = self.srequest(c, '/participant/list', {'psid' : psid}, httplib.OK)
+        resp = dec.decode(r)
+
+        name = [a['name'] for a in resp if a['uuid'] == uuid3][0]
+        self.srequest(c, '/participant/invite', {'psid' : psid,
+                                                 'name' : name,
+                                                 'comment' : u'conform'}, httplib.CREATED)
         
         # зашедщий друг пытается править друга и фейлится
-        request(c, '/project/enter/invitation', {'uuid' : puuid,
-                                                 'token' : token3})
-        r = c.getresponse()
-        self.assertEqual(r.status, httplib.CREATED)
-        resp = dec.decode(r.read())
+        r = self.srequest(c, '/project/enter/invitation', {'uuid' : puuid,
+                                                           'token' : token3}, httplib.CREATED)
+        resp = dec.decode(r)
         psid3 = resp['psid']
 
-        request(c, '/participant/change', {'psid' : psid3,
-                                           'uuid' : uuid2,
-                                           'name' : 'loh'})
-        r = c.getresponse()
-        self.assertEqual(r.status, httplib.PRECONDITION_FAILED)
-        resp = dec.decode(r.read())
+        r = self.srequest(c, '/participant/change', {'psid' : psid3,
+                                                     'uuid' : uuid2,
+                                                     'name' : 'loh'}, httplib.PRECONDITION_FAILED)
+        resp = dec.decode(r)
         self.assertEqual(resp['code'], ACCESS_DENIED)
                 
         # каждый участник смотрит список участников

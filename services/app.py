@@ -510,8 +510,12 @@ def execute_invite_participant(params):
                     'caption' : 'You are not accepted user to invite users in this project'}, httplib.PRECONDITION_FAILED
 
     # создаем нового участника для приглашения
-    pr = Participant(project=prj, name=params['name'],
-                     token=hex4())
+    op = try_get_despot_participant(user, prj, params)
+    if op != None:
+        pr = op
+    else:
+        pr = Participant(project=prj, name=params['name'],
+                         token=hex4())
     if params.get('descr') != None:
         pr.descr = params['descr']
     if params.get('user_id') != None:
@@ -538,6 +542,25 @@ def execute_invite_participant(params):
         return {'token' : pr.token}, httplib.CREATED
     else:
         return r, st
+
+def try_get_despot_participant(user, proj, params):
+    """
+    Return existing participant if there is one, and ruleset is 'despot' and user is initiator
+    
+    Arguments:
+    
+    - `user`:
+    - `proj`:
+    - `params`:
+    """
+    if proj.ruleset == 'despot' and user.is_initiator:
+        qs = Q(project=proj) & Q(name=params['name'])
+        if params.get('user_id') != None:
+            qs &= Q(user=params['user_id'])
+        if Participant.objects.filter(qs).count() > 0:
+            return Participant.objects.get(qs)
+    return None
+        
 
 def execute_conform_participant(params):
     """
