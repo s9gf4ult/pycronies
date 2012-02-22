@@ -15,9 +15,30 @@ from datetime import datetime
 from math import ceil
 import httplib
 
+def get_authorized_user(p):
+    """
+    Return None if there is no user
+    
+    Return False if user has no 'accepted' status
+
+    Otherwise return user itself
+    
+    Arguments:
+    
+    - `p`: string with user `psid`
+    """
+    if Participant.objects.filter(psid=p).count() == 0:
+        return None
+    user = Participant.objects.filter(psid=p).all()[0]
+    if user.participantstatus_set.filter(Q(status='accepted') & Q(value='accepted')).count() > 0:
+        return user
+    return False
+
 def execute_create_project(parameters):
     """create project and related objects based on parameters
+    
     Arguments:
+    
     - `parameters`: dict with parametes
     """
     p = Project(name = parameters['name'], sharing=parameters['sharing'],
@@ -132,6 +153,7 @@ def execute_list_user_projects(user_id):
     cnt = Participant.objects.filter(Q(user=user_id) | Q(token=user_id)).count()
     if cnt==0:
         return u'There is no one user found', httplib.NOT_FOUND
+    
     # берем список участников с указанным user_id
     parts = Participant.objects.filter(Q(user=user_id) | Q(token=user_id)).all() # список участиков
     ret = []
@@ -151,14 +173,18 @@ def execute_change_project_status(params):
     - `params`:
     """
     # проверяем наличие пользователя с указанным psid
-    if Participant.objects.filter(psid=params['psid']).count() == 0:
+    part = get_authorized_user(params['psid'])
+    if part == None:
         return u'There is no participants with that psid', httplib.NOT_FOUND
-    part = Participant.objects.filter(psid=params['psid']).all()
+    elif part == False:
+        return {'code' : ACCESS_DENIED,
+                'caption' : 'You can not change this project'}, httplib.PRECONDITION_FAILED
+    
     # если участник не инициатор - выходим
-    if part[0].is_initiator == False:
+    if part.is_initiator == False:
         return {'code' : MUST_BE_INITIATOR,
                 'caption' : u'this user is not initiator'}, httplib.PRECONDITION_FAILED
-    prj = Project.objects.get(participant=part[0])
+    prj = Project.objects.get(participant=part)
     # если проект не управляемый - выходим
     if prj.ruleset != 'despot':
         return {'code' : WRONG_PROJECT_RULESET,
@@ -166,7 +192,7 @@ def execute_change_project_status(params):
     # меняем статус проекта
     prj.status = params['status']
     prj.save()
-    return '', httplib.CREATED
+    return 'OK', httplib.CREATED
 
 def execute_list_default_parameters():
     """return list of dicts with default parameters
@@ -191,11 +217,16 @@ def execute_list_default_parameters():
 def execute_create_project_parameter_from_default(params):
     """
     Arguments:
+    
     - `params`:
     """
     # проверяем наличие пользователя
-    if Participant.objects.filter(psid=params['psid']).count() == 0:
-        return u'There is no such user', httplib.NOT_FOUND
+    part = get_authorized_user(params['psid'])
+    if part == None:
+        return u'There is no participants with that psid', httplib.NOT_FOUND
+    elif part == False:
+        return {'code' : ACCESS_DENIED,
+                'caption' : 'You can not change this project'}, httplib.PRECONDITION_FAILED
     # проверяем наличие дефолт параметра пректа
     dpr = DefaultParameter.objects.get(uuid=params['uuid'])
     if dpr == None:
@@ -223,10 +254,14 @@ def execute_create_project_parameter(params):
     - `params`:
     """
     # проверяем наличие пользователя с указанным psid
-    if Participant.objects.filter(psid=params['psid']).count() == 0:
+    part = get_authorized_user(params['psid'])
+    if part == None:
         return u'There is no participants with that psid', httplib.NOT_FOUND
+    elif part == False:
+        return {'code' : ACCESS_DENIED,
+                'caption' : 'You can not change this project'}, httplib.PRECONDITION_FAILED
     # выбираем проект для соответствующего пользователя
-    proj = Project.objects.filter(participant__psid=params['psid']).all()[0]
+    proj = Project.objects.filter(participant__uuid=part.uuid).all()[0]
     # проверяем тип проекта и вызываем соответствующий обработчик
     if proj.ruleset == 'despot':
         return despot_create_project_parameter(proj, params)
@@ -279,10 +314,14 @@ def execute_change_project_parameter(params):
     - `params`:
     """
     # проверяем есть ли пользователь с указанным psid
-    if Participant.objects.filter(psid=params['psid']).count() == 0:
-        return u'There is no user with this psid', httplib.NOT_FOUND
+    user = get_authorized_user(params['psid'])
+    if user == None:
+        return u'There is no participants with that psid', httplib.NOT_FOUND
+    elif user == False:
+        return {'code' : ACCESS_DENIED,
+                'caption' : 'You can not change this project'}, httplib.PRECONDITION_FAILED
     # проверяем отностися ли параметр к проекту указанного пользователя
-    proj = Project.objects.filter(participant__psid=params['psid']).all()[0]
+    proj = Project.objects.filter(participant=user).all()[0]
     par = ProjectParameter.objects.get(uuid=params['uuid'])
     if par == None:
         return {'code' : PROJECT_PARAMETER_NOT_FOUND,
@@ -334,14 +373,18 @@ def execute_conform_project_parameter(params):
     - `params`:
     """
     # проверяем наличие пользователя с указанным psid
-    if Participant.objects.filter(psid=params['psid']).count() == 0:
-        return u'There is no users with specified psid', httplib.NOT_FOUND
+    part = get_authorized_user(params['psid'])
+    if part == None:
+        return u'There is no participants with that psid', httplib.NOT_FOUND
+    elif part == False:
+        return {'code' : ACCESS_DENIED,
+                'caption' : 'You can not change this project'}, httplib.PRECONDITION_FAILED
     # проверяем есть ли такой параметр и находиться ли он в том же проекте что и пользователь
     pr = ProjectParameter.objects.get(uuid=params['uuid'])
     if pr == None:
         return {'code' : PROJECT_PARAMETER_NOT_FOUND,
                 'caption' : u'There is no such parameters'}, httplib.PRECONDITION_FAILED
-    proj = Project.objects.filter(participant__psid=params['psid']).all()[0]
+    proj = Project.objects.filter(participant=part).all()[0]
     if pr.project != proj:
         return {'code' : ACCESS_DENIED,
                 'caption' : u'Parameter is not assigned to specified project'}, httplib.PRECONDITION_FAILED
@@ -381,9 +424,14 @@ def execute_list_project_parameters(psid):
     - `psid`: psid as string
     """
     # проверяем есть ли пользователь
-    if Participant.objects.filter(psid=psid).count() == 0:
-        return u'There is no user with such psid', httplib.NOT_FOUND
-    proj = Project.objects.filter(participant__psid=psid).all()[0]
+    part = get_authorized_user(psid)
+    if part == None:
+        return u'There is no participants with that psid', httplib.NOT_FOUND
+    elif part == False:
+        return {'code' : ACCESS_DENIED,
+                'caption' : 'You can not change this project'}, httplib.PRECONDITION_FAILED
+    
+    proj = Project.objects.filter(participant=part).all()[0]
     ret = []
     for param in ProjectParameter.objects.filter(project=proj).all():
         p = {'uuid' : param.uuid,
@@ -425,13 +473,13 @@ def execute_change_participant(params):
     - `params`:
     """
     # проверяем наличие пользователя по psid
-    if Participant.objects.filter(psid=params['psid']).count() == 0:
-        return u'There is no such user', httplib.NOT_FOUND
-    
-    user = Participant.objects.filter(psid=params['psid']).all()[0]
-    if user.participantstatus_set.filter(Q(status='accepted') & Q(value='accepted')).count() == 0:
+    user = get_authorized_user(params['psid'])
+    if user == None:
+        return u'There is no participants with that psid', httplib.NOT_FOUND
+    elif user == False:
         return {'code' : ACCESS_DENIED,
-                'caption' : 'Your status is not "accepted"'}, httplib.PRECONDITION_FAILED
+                'caption' : 'You can not change this project'}, httplib.PRECONDITION_FAILED
+    
     if Participant.objects.filter(uuid=params['uuid']).count() == 0:
         return {'code' : PARTICIPANT_NOT_FOUND,
                 'caption' : 'There is no participants found'}, httplib.PRECONDITION_FAILED
@@ -465,9 +513,13 @@ def execute_change_participant(params):
     return 'OK', httplib.CREATED
 
 def execute_list_participants(psid):
-    if Participant.objects.filter(psid=psid).count() == 0:
-        return u'There is no such psid', httplib.NOT_FOUND
-    prj = Project.objects.filter(participant__psid=psid).all()[0]
+    part = get_authorized_user(psid)
+    if part == None:
+        return u'There is no participants with that psid', httplib.NOT_FOUND
+    elif part == False:
+        return {'code' : ACCESS_DENIED,
+                'caption' : 'You can not change this project'}, httplib.PRECONDITION_FAILED
+    prj = Project.objects.filter(participant=part).all()[0]
     ret = []
     # получаем список участников проекта
     for par in Participant.objects.filter(project=prj):
@@ -493,9 +545,12 @@ def execute_list_participants(psid):
     return ret, httplib.OK
 
 def execute_invite_participant(params):
-    if Participant.objects.filter(psid=params['psid']).count() == 0:
-        return u'There is user with such psid', httplib.NOT_FOUND
-    user = Participant.objects.filter(psid=params['psid']).all()[0]
+    user = get_authorized_user(params['psid'])
+    if user == None:
+        return u'There is no participants with that psid', httplib.NOT_FOUND
+    elif user == False:
+        return {'code' : ACCESS_DENIED,
+                'caption' : 'You can not change this project'}, httplib.PRECONDITION_FAILED
     prj = user.project
     if prj.sharing == 'close':  # проект закрытый
         if not user.is_initiator:
@@ -569,9 +624,12 @@ def execute_conform_participant(params):
     - `psid`: (строка) ключ доступа
     - `uuid`: (строка) uuid участника проекта
     """
-    if Participant.objects.filter(psid=params['psid']).count() == 0:
-        return 'There is no such user', httplib.NOT_FOUND
-    user = Participant.objects.filter(psid=params['psid']).all()[0]
+    user = get_authorized_user(params['psid'])
+    if user == None:
+        return u'There is no participants with that psid', httplib.NOT_FOUND
+    elif user == False:
+        return {'code' : ACCESS_DENIED,
+                'caption' : 'You can not change this project'}, httplib.PRECONDITION_FAILED
     if Participant.objects.filter(uuid=params['uuid']).count() == 0:
         return {'code' : PARTICIPANT_NOT_FOUND,
                 'caption' : 'There is no participant with uuid {0}'.format(params['uuid'])}, httplib.PRECONDITION_FAILED
@@ -656,3 +714,6 @@ def execute_enter_project_invitation(params):
     prt.psid = hex4()
     prt.save()
     return {'psid' : prt.psid}, httplib.CREATED
+
+def execute_exclude_participant(params):
+    pass

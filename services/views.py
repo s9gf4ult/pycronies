@@ -9,7 +9,7 @@ from services.app import execute_create_project, execute_list_projects, execute_
     execute_change_project_status, execute_list_default_parameters, execute_create_project_parameter, \
     execute_list_project_parameters, execute_create_project_parameter_from_default, execute_change_participant, \
     execute_invite_participant, execute_change_project_parameter, execute_enter_project_open, execute_enter_project_invitation,\
-    execute_conform_participant, execute_list_participants
+    execute_conform_participant, execute_list_participants, execute_exclude_participant
 from services.common import json_request_handler, getencdec, validate_params, standard_request_handler
 from services.models import Project
 from svalidate import OrNone, Any, DateTimeString, RegexpMatch, Equal, JsonString, Able
@@ -429,7 +429,7 @@ def delete_project_route(params): #  FIXME: метод для тестов
                            'name' : OrNone(_good_string),
                            'descr' : OrNone(_good_string),
                            'user_id' : OrNone(_good_string)})
-def change_participant_route(params):
+def change_participant_route(params): # ++TESTED
     """
     **Изменить параметры участника проекта**
 
@@ -469,7 +469,7 @@ def change_participant_route(params):
 
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string})
-def list_participants_route(params):
+def list_participants_route(params): # ++TESTED
     """
     **Список участников проекта**
 
@@ -513,7 +513,7 @@ def list_participants_route(params):
                            'descr' : OrNone(_good_string),
                            'user_id' : OrNone(_good_string),
                            'comment': OrNone(_good_string)})
-def invite_participant_route(params):
+def invite_participant_route(params): # ++TESTED
     """
     **Пригласить участника**
 
@@ -554,6 +554,7 @@ def invite_participant_route(params):
     - `201`: ok
     - `404`: psid не найден
     - `412`: не верные данные с описанием в теле ответа
+    - `501`: если тип проекта != управляемый, временно
     - `500`: ошибка сервера
     """
     enc = json.JSONEncoder()
@@ -601,7 +602,7 @@ def enter_project_open_route(params): # ++TESTED
 @transaction.commit_on_success
 @standard_request_handler({'uuid' : _good_string,
                            'token' : _good_string})
-def enter_project_invitation_route(params):
+def enter_project_invitation_route(params): # ++TESTED
     """
     **Вход в проект по приглашению**
 
@@ -631,7 +632,7 @@ def enter_project_invitation_route(params):
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
                            'uuid' : _good_string})
-def conform_participant_route(params):
+def conform_participant_route(params): # ++TESTED на прямую не вызывается
     """
     **Согласование участника**
 
@@ -657,3 +658,33 @@ def conform_participant_route(params):
         transaction.rollback()
     return http.HttpResponse(enc.encode(r), status=st, content_type='application/json')
     
+@transaction.commit_on_success
+@standard_request_handler({'psid' : _good_string,
+                           'uuid' : _good_string,
+                           'comment' : _good_string})
+def exclude_participant_route(params):
+    """
+    **Исключить участника**
+
+    путь запроса: **/participant/exclude**
+
+    Параметры запроса:
+
+    - `psid`: (строка) ключ доступа
+    - `uuid`: (строка) идентификатор участника
+    - `comment`: (строка) комментарий
+
+    В теле ответа ниче нету
+
+    Статусы возврата:
+
+    - `201`: ok
+    - `412`: не верные данные с описанием в теле ответа
+    - `501`: если тип проекта != управляемый, временно
+    - `500`: ошибка сервера
+    """
+    enc = json.JSONEncoder()
+    ret, st = execute_exclude_participant(params)
+    if st != httplib.CREATED:
+        transaction.rollback()
+    return http.HttpResponse(enc.encode(ret), status=st, content_type='application/json')
