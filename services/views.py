@@ -14,7 +14,7 @@ from services.models import Project
 from svalidate import OrNone, Any, DateTimeString, RegexpMatch, Equal, JsonString
 from copy import copy
 
-_good_string = RegexpMatch(r'^[^;:"''|\\/#@&><]*$')
+_good_string = RegexpMatch(r'^[^;:"''|\\/#&><]*$')
 _good_int = RegexpMatch(r'^\d+$')
 
 @transaction.commit_on_success
