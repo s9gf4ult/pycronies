@@ -583,9 +583,8 @@ class mytest(TestCase):
         self.assertEqual(r.status, httplib.PRECONDITION_FAILED)
 
 
-        request(c, '/project/list', {})
-        r = c.getresponse()
-        prs = dec.decode(r.read())['projects']
+        r = self.srequest(c, '/project/list', {}, httplib.OK)
+        prs = dec.decode(r)['projects']
         self.assertEqual(set(['somename', 'somename2', 'somename3']),
                          set([a['name'] for a in prs]))
         for pr in psid:

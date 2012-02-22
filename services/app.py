@@ -88,7 +88,7 @@ def execute_list_projects(props):
         else:
             return (fst & snd)
 
-    qry = None                  # сформированное условие для отбора
+    qry = Q(sharing='open')                  # сформированное условие для отбора
     if props.get('status') != None:
         qry = none_and(qry, Q(status=props['status']))
     if props.get('begin_date') != None:
