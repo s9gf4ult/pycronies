@@ -491,7 +491,7 @@ class mytest(TestCase):
         r = c.getresponse()
         self.assertEqual(r.status, httplib.CREATED)
 
-        request(c, '/project/enter/open', {'uuid' : resp['project_uuid'],
+        request(c, '/project/enter/open', {'uuid' : resp['uuid'],
                                            'name' : 'blah blah',
                                            'user_id' : 'something'})
         r = c.getresponse()
@@ -500,13 +500,13 @@ class mytest(TestCase):
         self.assertIn('psid', d)
         self.assertIn('token', d)
 
-        request(c, '/project/enter/open', {'uuid' : resp['project_uuid'],
+        request(c, '/project/enter/open', {'uuid' : resp['uuid'],
                                            'name' : 'blah blah',
                                            'user_id' : 'sdfasdf'})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.PRECONDITION_FAILED)
         
-        request(c, '/project/enter/open', {'uuid' : resp['project_uuid'],
+        request(c, '/project/enter/open', {'uuid' : resp['uuid'],
                                            'name' : 'blahsdf blah',
                                            'user_id' : 'something'})
         r = c.getresponse()
@@ -517,7 +517,7 @@ class mytest(TestCase):
         r = c.getresponse()
         self.assertEqual(r.status, httplib.CREATED)
 
-        request(c, '/project/enter/open', {'uuid' : resp['project_uuid'],
+        request(c, '/project/enter/open', {'uuid' : resp['uuid'],
                                            'name' : 'fjfj',
                                            'user_id' : 'jajaja'})
         r = c.getresponse()
@@ -537,7 +537,7 @@ class mytest(TestCase):
         r = c.getresponse()
         self.assertEqual(r.status, httplib.CREATED)
 
-        request(c, '/project/enter/open', {'uuid' : resp['project_uuid'],
+        request(c, '/project/enter/open', {'uuid' : resp['uuid'],
                                            'name' : 'some',
                                            'user_id' : 'asdfasd'})
         r = c.getresponse()
@@ -603,7 +603,7 @@ class mytest(TestCase):
         self.assertEqual(r.status, httplib.CREATED)
         resp = dec.decode(r.read())
         psid = resp['psid']
-        puuid = resp['project_uuid']
+        puuid = resp['uuid']
         psids.append(psid)
 
 

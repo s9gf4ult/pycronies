@@ -51,7 +51,7 @@ def create_project_route(prs):  # ++TESTED
 
     возвращает JSON словарь с ключами
 
-    - `project_uuid` : uuid созданного проекта
+    - `uuid` : uuid созданного проекта
     - `psid` : строка доступа для инициатора
     - `token` : токен для волшебной ссылки
 

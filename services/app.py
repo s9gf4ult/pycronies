@@ -72,7 +72,7 @@ def execute_create_project(parameters):
                     'caption' : 'Error in default parameters of project, default value not in posible values "{0}"'.format(dpr.uuid)}, httplib.INTERNAL_SERVER_ERROR
         pval.save()
 
-    return {'project_uuid' : p.uuid,
+    return {'uuid' : p.uuid,
             'psid' : pr.psid,
             'token' : pr.token}, httplib.CREATED
 
