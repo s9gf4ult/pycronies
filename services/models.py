@@ -73,17 +73,30 @@ class Project(BaseModel):
 class Activity(BaseModel):
     """Мероприятие
     """
-    ACTIVITY_STATUS=((u'voted', u'Мероприятие предложено для добавления'), # FIXME: Еще статусы ?
-                     (u'accepted', u'Мероприятие используется в проекте'))
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
     name = SafeTextField(default=None, null=False)
     descr = SafeTextField(default=u'')
     begin_date = models.DateTimeField(null=True)
     end_date = models.DateTimeField(null=True)
-    status = models.CharField(max_length=40, default=u'voted', choices=ACTIVITY_STATUS)
 
     class Meta:
         unique_together = (("project", "name"), )
+
+class ActivityStatus(BaseModel):
+    """Статус мероприятия"""
+    ACTIVITY_STATUS=((u'created', u'Мероприятие создано'),
+                     (u'voted', u'Мероприятие предложено для добавления'),
+                     (u'accepted', u'Мероприятие используется в проекте'),
+                     (u'denied', u'Мероприятие исключено'))
+    ACTIVITY_STATUS_STATUS = ((u'voted', u'Статус мероприятия предложен'),
+                              (u'accepted', u'Статус мероприятия активен'),
+                              (u'denied', u'Статус мероприятия отклонен'),
+                              (u'changed', u'Статус мероприятия изменен'))
+
+    activity = models.ForeignKey(Activity, on_delete=models.CASCADE)
+    value = models.CharField(max_length=40, choices=ACTIVITY_STATUS)
+    status = models.CharField(max_length=40, choices=ACTIVITY_STATUS_STATUS)
+
 
 class Participant(BaseModel):
     """Участрник проекта
@@ -100,6 +113,13 @@ class Participant(BaseModel):
     class Meta:
         unique_together = (("project", "name"),
                            ("project", "user"))
+
+class ActivityVote(BaseModel):
+    """Предложение по мероприятию"""
+    activity_status = models.ForeignKey(ActivityStatus, on_delete=models.CASCADE)
+    voter = models.ForeignKey(Participant, on_delete=models.CASCADE)
+    comment = SafeTextField(null=False, default=u'')
+
 
 class ParticipantStatus(BaseModel):
     """Статус участника проекта
@@ -140,21 +160,27 @@ class Resource(BaseModel):
 class ActivityParticipant(BaseModel):
     """Участник мероприятия
     """
-    ACTIVITY_PARTICIPANT_STATUS=((u'voted', u'Участник мероприятия предложен к участию'),
-                                 (u'accepted', u'Участник мероприятия допущен к участию'),
-                                 (u'denied', u'Участник мероприятия не допущен к участию'))
     activity = models.ForeignKey(Activity, on_delete = models.CASCADE)
     participant = models.ForeignKey(Participant, on_delete = models.CASCADE)
-    status = models.CharField(max_length=40, default=u'voted', choices=ACTIVITY_PARTICIPANT_STATUS)
     class Meta:
         unique_together = (("activity", "participant"), )
 
+class ActivityParticipantStatus(BaseModel):
+    ACTIVITY_PARTICIPANT_STATUS=((u'accepted', u'Участник мероприятия допущен к участию'),
+                                 (u'denied', u'Участник мероприятия не допущен к участию'))
+    ACTIVITY_PARTICIPANT_STATUS_STATUS = ((u'accepted', u'Статус участника активен'),
+                                          (u'voted', u'Предложение статуса'),
+                                          (u'denied', u'Статус отклонен'),
+                                          (u'changed', u'Статус изменен'))
+    activity_participant = models.ForeignKey(ActivityParticipant, on_delete=models.CASCADE)
+    status = models.CharField(max_length=40, choices = ACTIVITY_PARTICIPANT_STATUS_STATUS)
+    value = models.CharField(max_length=40, choices = ACTIVITY_PARTICIPANT_STATUS)
+        
+
 class ActivityParticipantVote(BaseModel):
-    ACTIVITY_PARTICIPANT_VOTE=((u'include', u'Предложение о принятии в мероприятие участника'),
-                               (u'exclude', u'Предложение об исключении участника из мероприятия'))
     voter = models.ForeignKey(Participant, on_delete=models.CASCADE)
-    activity_particapnt = models.ForeignKey(ActivityParticipant)
-    vote = models.CharField(max_length=40, choices=ACTIVITY_PARTICIPANT_VOTE, default=u'include')
+    activity_particapnt_status = models.ForeignKey(ActivityParticipantStatus)
+    comment = SafeTextField(null=False, default=u'')
 
 class ActivityResource(BaseModel):
     """Ресурс мероприятия
@@ -218,7 +244,7 @@ class ProjectRulesetDefaults(BaseModel): # соответствия свойст
     ruleset = models.CharField(max_length=40, null=True, choices=Project.PROJECT_RULESET) # Если null значит для проектов с любым ruleset
     class Meta:
         unique_together = (('parameter', 'ruleset'))
-                           
+
 
 # class DefaultProjectParameter(BaseModel):
 #     """Предлагаемый параметр

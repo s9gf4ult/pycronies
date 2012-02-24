@@ -9,7 +9,8 @@ from services.app import execute_create_project, execute_list_projects, execute_
     execute_change_project_status, execute_list_default_parameters, execute_create_project_parameter, \
     execute_list_project_parameters, execute_create_project_parameter_from_default, execute_change_participant, \
     execute_invite_participant, execute_change_project_parameter, execute_enter_project_open, execute_enter_project_invitation,\
-    execute_conform_participant, execute_list_participants, execute_exclude_participant, execute_conform_participant_vote
+    execute_conform_participant, execute_list_participants, execute_exclude_participant, execute_conform_participant_vote,\
+    execute_list_activities
 from services.common import json_request_handler, getencdec, validate_params, standard_request_handler
 from services.models import Project
 from svalidate import OrNone, Any, DateTimeString, RegexpMatch, Equal, JsonString, Able
@@ -688,7 +689,7 @@ def conform_participant_route(params): # ++TESTED на прямую не выз�
     if st != httplib.CREATED:
         transaction.rollback()
     return http.HttpResponse(enc.encode(r), status=st, content_type='application/json')
-    
+
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
                            'uuid' : _good_string,
@@ -717,5 +718,57 @@ def exclude_participant_route(params):
     enc = json.JSONEncoder()
     ret, st = execute_exclude_participant(params)
     if st != httplib.CREATED:
+        transaction.rollback()
+    return http.HttpResponse(enc.encode(ret), status=st, content_type='application/json')
+
+@transaction.commit_on_success
+@standard_request_handler({'psid' : _good_string})
+def list_activities_route(params):
+    """
+    **Просмотр мероприятий проекта**
+
+    путь запроса: **/activity/list**
+
+    Параметры запроса:
+
+    - `psid`: (строка) код доступа
+
+    Возвращает JSON список словарей с ключами:
+
+    - `uuid`: uuid мероприятия
+    - `name`: имя мероприятия
+    - `descr`: описание мероприятия
+    - `begin`: строка с датой временем в ISO формате - дата время начала мероприятия, может быть пустым
+    - `end`: строка с датой временем в ISO формате - дата время окончания мероприятия, может быть пустым
+    - `status`: стрка со статусом мероприятия, может быть одно из:
+       - `created`: Мероприятие создано
+       - `voted`: Мероприятие предложено для добавления
+       - `accepted`: Мероприятие используется в проекте
+       - `denied`: Мероприятие исключено
+    - `votes`: предложения по мероприятию, список словарей с ключами:
+       - `uuid`: uuid участника проекта
+       - `vote`: предложение, одно из возможных значений:
+          - `include`: голос за то чтобы мероприятие было включено в проект
+          - `exclude`: голос за исключение мероприятия из проекта
+       - `comment`: комментарий голосовавшего
+       - `dt`: дата время в ISO формате, время голосования участника
+    - `participant`: (bool) является ли участник (по psid) участником данного мероприятия
+
+    Поведение:
+
+       Если статус мероприятия "accepted", "denied" или "voted" то мероприятие
+       показывается всем участникам. Если статус == "created" то мероприятие
+       будет показано только тому пользователю, который его создал.
+
+    Статусы возврата:
+
+    - `200`: ok
+    - `404`: не верный psid, нет такого пользователя
+    - `412`: не верные данные с описанием в теле ответа
+    - `500`: ошибка сервера
+    """
+    enc = json.JSONEncoder()
+    ret, st = execute_list_activities(params['psid'])
+    if st != httplib.OK:
         transaction.rollback()
     return http.HttpResponse(enc.encode(ret), status=st, content_type='application/json')

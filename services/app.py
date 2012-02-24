@@ -7,7 +7,8 @@ from services.common import check_safe_string, check_safe_string_or_null, \
     datetime2dict, check_list_or_null, get_or_create_object
 from services.models import Project, Participant, hex4, ParticipantVote, \
     ProjectParameter, ProjectParameterVl, ProjectParameterVal, DefaultParameter, \
-    DefaultParameterVl, ProjectRulesetDefaults, ProjectParameterVote, ParticipantStatus
+    DefaultParameterVl, ProjectRulesetDefaults, ProjectParameterVote, ParticipantStatus, \
+    ActivityParticipant
 from services.statuses import *
 from django.db import transaction, IntegrityError
 from django.db.models import Q
@@ -840,3 +841,42 @@ def execute_conform_participant_vote(params):
     # согласуем участника
     return execute_conform_participant({'psid' : params['psid'],
                                         'uuid' : part.uuid})
+
+
+def execute_list_activities(psid):
+    user = get_authorized_user(psid)
+    if user == None:
+        return u'There is no user with that psid', httplib.NOT_FOUND
+    if user == False:
+        return {'code' : ACCESS_DENIED,
+                'caption' : 'You are not authorized user to do that'}, httplib.PRECONDITION_FAILED
+    prj = user.project
+    ret = []
+    for act in prj.activity_set.filter(Q(activitystatus__status='accepted') &
+                                       (Q(activitystatus__value__in=['voted', 'accepted', 'denied']) |
+                                        (Q(activitystatus__value='created') &
+                                         Q(activitystatus__activityvote__voter=user)))).all():
+        
+        a = {'uuid' : act.uuid,
+             'name' : act.name,
+             'descr' : act.descr}
+        if act.begin_date != None:
+            a['begin'] = act.begin_date
+        if act.end_date != None:
+            a['end'] = act.end_date
+        st = act.activitystatus_set.filter(status='accepted').all()[0]
+        a['status'] = st.value
+        
+        vts = []
+        for sts in act.activitystatus_set.filter(Q(status='voted') & Q(value__in=['accepted', 'denied'])).all():
+            for vtss in sts.activityvote_set.all():
+                vts.append({'uuid' : vtss.voter.uuid,
+                            'vote' : 'include' if sts.value == 'accepted' else 'exclude',
+                            'comment' : vtss.comment,
+                            'dt' : vtss.create_date.isoformat()})
+        a['votes'] = vts
+        a['participant'] = ActivityParticipant.objects.filter(Q(participant=user) & Q(activity=act) & Q(activityparticipantstatus__status='accepted') & Q(activityparticipantstatus__value='accepted')).count() > 0
+
+        ret.append(a)
+
+    return ret
