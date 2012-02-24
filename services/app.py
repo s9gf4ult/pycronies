@@ -28,7 +28,7 @@ def execute_create_project(parameters):
         p.begin_date = string2datetime(parameters['begin_date'])
     else:
         p.begin_date=datetime.now()
-    p.status = 'open'
+    p.status = 'opened'
     p.save()
 
     # создаем участника - владельца
