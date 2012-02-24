@@ -170,7 +170,7 @@ class mytest(TestCase):
         self.assertEqual(1, len(resp))
         self.assertEqual(resp[0]['name'], 'test')
         self.assertEqual(resp[0]['initiator'], True)
-        self.assertEqual(resp[0]['status'], 'open')
+        self.assertEqual(resp[0]['status'], 'opened')
 
         request(c, '/project/list/userid', {'user_id' : '11111111111'}) # такого ид в базе нет
         r = c.getresponse()
@@ -677,12 +677,23 @@ class mytest(TestCase):
                                                      'descr' : 'the best fried of vasek'},
                           httplib.CREATED)
 
-        # участник повторно добавляет того же друга и фейлится
+        # участник повторно добавляет того же друга и ничего не происходит
         r = self.srequest(c, '/participant/invite', {'psid' : psid2,
                                                      'name' : 'mister guy'},
-                          httplib.PRECONDITION_FAILED)
-        resp = dec.decode(r)
-        self.assertEqual(resp['code'], PARTICIPANT_ALREADY_EXISTS)
+                          httplib.CREATED)
+
+        # участник повторно добавляет того же друго но указывает не верные данные
+        self.srequest(c, '/participant/invite', {'psid' : psid2,
+                                                 'name' : 'mister guy',
+                                                 'descr' : 'blah blah another description'}, httplib.PRECONDITION_FAILED)
+
+        # участни повторно дабавляет того же участника и указывает теже данные
+        self.srequest(c, '/participant/invite', {'psid' : psid2,
+                                                 'name' : 'mister guy',
+                                                 'user_id' : 'you you',
+                                                 'descr' : 'the best fried of vasek'},
+                      httplib.CREATED)
+        
 
         # участник меняет друга так что он совпадает с существующим пользователем
         r = self.srequest(c, '/participant/change', {'psid' : psid2,
@@ -733,7 +744,55 @@ class mytest(TestCase):
         sets = [set([(a['uuid'], a['name'], a['descr'], a['status']) for a in b]) for b in lss]
         for tails in sets[1:]:
             self.assertEqual(sets[0], tails)   # все списки одинаковые
+
+        # первый друг удаляет второго друга
+        self.srequest(c, '/participant/exclude', {'psid' : psid2,
+                                                  'uuid' : uuid3,
+                                                  'comment' : 'dont like'},
+                      httplib.CREATED)
         
+        # инициатор это согласует
+        self.srequest(c, '/participant/exclude', {'psid' : psid,
+                                                  'uuid' : uuid3,
+                                                  'comment' : 'i dont like him too'},
+                      httplib.CREATED)
+        
+        # просматривается список участников - активный должно быть два
+        r = self.srequest(c, '/participant/list', {'psid' : psid},
+                          httplib.OK)
+        resp = dec.decode(r)
+        self.assertEqual(2, len([a for a in resp if a['status'] == 'accepted']))
+        self.assertEqual(1, len([a for a in resp if a['status'] == 'denied']))
+        
+        # второй друг пытается удалить первого, но он уже удален так что фейлится
+        r = self.srequest(c, '/participant/exclude', {'psid' : psid3,
+                                                      'uuid' : uuid2,
+                                                      'comment' : 'He deleted me !'},
+                          httplib.PRECONDITION_FAILED)
+        resp = dec.decode(r)
+        self.assertEqual(resp['code'], ACCESS_DENIED)
+        
+        # инициатор удаляет первого друга
+        self.srequest(c, '/participant/exclude', {'psid' : psid,
+                                                  'uuid' : uuid2},
+                      httplib.CREATED, True)
+        
+        # инициатор смотрит список участников - он один
+        r = self.srequest(c, '/participant/list', {'psid' : psid},
+                          httplib.OK)
+        resp = dec.decode(r)
+        self.assertEqual(1, len([a for a in resp if a['status'] == 'accepted']))
+        self.assertEqual(2, len([a for a in resp if a['status'] == 'denied']))
+
+        # инициатор пытается добавить друга 1 еще раз и фейлится (повторно добавлять нельзя)
+        self.srequest(c, '/participant/invite', {'psid' : psid,
+                                                 'name' : 'vasek'},
+                      httplib.PRECONDITION_FAILED)
+
+        # 2 друг пытается повторно войти по приглашению и фейлится
+        self.srequest(c, '/project/enter/invitation', {'uuid' : puuid,
+                                                       'token' : token3},
+                      httplib.PRECONDITION_FAILED)
         
         for p in psids:
             self._delete_project(p)

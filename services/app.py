@@ -18,13 +18,13 @@ import httplib
 def get_authorized_user(p):
     """
     Return None if there is no user
-    
+
     Return False if user has no 'accepted' status
 
     Otherwise return user itself
-    
+
     Arguments:
-    
+
     - `p`: string with user `psid`
     """
     if Participant.objects.filter(psid=p).count() == 0:
@@ -36,9 +36,9 @@ def get_authorized_user(p):
 
 def execute_create_project(parameters):
     """create project and related objects based on parameters
-    
+
     Arguments:
-    
+
     - `parameters`: dict with parametes
     """
     p = Project(name = parameters['name'], sharing=parameters['sharing'],
@@ -153,7 +153,7 @@ def execute_list_user_projects(user_id):
     cnt = Participant.objects.filter(Q(user=user_id) | Q(token=user_id)).count()
     if cnt==0:
         return u'There is no one user found', httplib.NOT_FOUND
-    
+
     # берем список участников с указанным user_id
     parts = Participant.objects.filter(Q(user=user_id) | Q(token=user_id)).all() # список участиков
     ret = []
@@ -179,7 +179,7 @@ def execute_change_project_status(params):
     elif part == False:
         return {'code' : ACCESS_DENIED,
                 'caption' : 'You can not change this project'}, httplib.PRECONDITION_FAILED
-    
+
     # если участник не инициатор - выходим
     if part.is_initiator == False:
         return {'code' : MUST_BE_INITIATOR,
@@ -217,7 +217,7 @@ def execute_list_default_parameters():
 def execute_create_project_parameter_from_default(params):
     """
     Arguments:
-    
+
     - `params`:
     """
     # проверяем наличие пользователя
@@ -430,7 +430,7 @@ def execute_list_project_parameters(psid):
     elif part == False:
         return {'code' : ACCESS_DENIED,
                 'caption' : 'You can not change this project'}, httplib.PRECONDITION_FAILED
-    
+
     proj = Project.objects.filter(participant=part).all()[0]
     ret = []
     for param in ProjectParameter.objects.filter(project=proj).all():
@@ -479,7 +479,7 @@ def execute_change_participant(params):
     elif user == False:
         return {'code' : ACCESS_DENIED,
                 'caption' : 'You can not change this project'}, httplib.PRECONDITION_FAILED
-    
+
     if Participant.objects.filter(uuid=params['uuid']).count() == 0:
         return {'code' : PARTICIPANT_NOT_FOUND,
                 'caption' : 'There is no participants found'}, httplib.PRECONDITION_FAILED
@@ -509,7 +509,7 @@ def execute_change_participant(params):
     except IntegrityError:
         return {'code' : PARTICIPANT_ALREADY_EXISTS,
                 'caption' : 'Participant with such name already exists'}, httplib.PRECONDITION_FAILED
-            
+
     return 'OK', httplib.CREATED
 
 def execute_list_participants(psid):
@@ -568,6 +568,10 @@ def execute_invite_participant(params):
     part = None
     if Participant.objects.filter(q).count() > 0:
         part = Participant.objects.filter(q).all()[0]
+        if part.participantstatus_set.filter(Q(status='accepted') & Q(value='denied')).count() > 0:
+            return {'code' : ACCESS_DENIED,
+                    'caption' : 'This participant has already been denied, you can not invite him/her again'}, httplib.PRECONDITION_FAILED
+        
         def try_change_participant(paramname, value):
             if value != None and getattr(part, paramname) != value:
                 if prj.ruleset == 'despot':
@@ -580,60 +584,60 @@ def execute_invite_participant(params):
                     return False
             else:
                 return True
+
         if not try_change_participant('descr', params.get('descr')):
             return {'code' : PARTICIPANT_ALREADY_EXISTS,
                     'caption' : 'You are trying invite existing participant, but you give other "descr" than i have in database'}, httplib.PRECONDITION_FAILED
         if not try_change_participant('user', params.get('user_id')):
             return {'code' : PARTICIPANT_ALREADY_EXISTS,
-                    
-                
+                    'caption' : 'You are trying invite existing participant, but you give other "user_id" field than i have in database'}, httplib.PRECONDITION_FAILED
+        part.save()
     else:
-        part = Participant(project=prj, name=params['name'])
+        part = Participant(project=prj, name=params['name'], token=hex4())
         if params.get('descr') != None:
             part.descr = params['descr']
         if params.get('user_id') != None:
-            part.user = prams['user_id']
-        part.save()
-        
-    op = try_get_despot_participant(user, prj, params)
-    if op != None:
-        pr = op
-    else:
-        pr = Participant(project=prj, name=params['name'],
-                         token=hex4())
-    if params.get('descr') != None:
-        pr.descr = params['descr']
-    if params.get('user_id') != None:
-        pr.user = params['user_id']
-    try:
-        pr.save()
-    except IntegrityError:
-        return {'code' : PARTICIPANT_ALREADY_EXISTS,
-                'caption' : u'User with such name or with such user_id is already exists in this project'}, httplib.PRECONDITION_FAILED
-    # создаем приглашение участника
-    st = ParticipantStatus(participant=pr,
-                           value='accepted',
-                           status='voted')
-    st.save()
+            part.user = params['user_id']
+        try:
+            part.save()
+        except IntegrityError:
+            return {'code' : PARTICIPANT_ALREADY_EXISTS,
+                    'caption' : 'This participant already exists, try repeat this query but do not specify "user_id" field or specify the same value'}, httplib.PRECONDITION_FAILED
 
-    vt = ParticipantVote(participant_status=st, voter=user)
-    if params.get('comment') != None:
-        vt.comment = params['comment']
-    vt.save()
+    # создаем приглашение участника
+    st = None
+    if part.participantstatus_set.filter(Q(status='voted') & Q(value='accepted')).count() > 0: # некто уже предложил статус участника
+        st = part.participantstatus_set.filter(Q(status='voted') & Q(value='accepted')).all()[0]
+    else:                       # создаем статус для предложения
+        st = ParticipantStatus(participant=part, value='accepted', status='voted')
+        st.save()
+
+    vt = None
+    if st.participantvote_set.filter(voter=user).count() > 0: # мы уже предлагали этот статус
+        vt = st.participantvote_set.filter(voter=user).all()[0]
+        if params.get('comment') != None and vt.comment != params['comment']:
+            vt.comment = params['comment']
+            vt.save()
+    else:                       # создаем предложение для участника
+        vt = ParticipantVote(participant_status=st, voter=user)
+        if params.get('comment') != None:
+            vt.comment = params['comment']
+        vt.save()
+        
     # согласуем предложение
     r, st = execute_conform_participant({'psid' : params['psid'],
-                                         'uuid' : pr.uuid})
+                                         'uuid' : part.uuid})
     if st == httplib.CREATED:
-        return {'token' : pr.token}, httplib.CREATED
+        return {'token' : part.token}, httplib.CREATED
     else:
         return r, st
 
 # def try_get_despot_participant(user, proj, params):
 #     """
 #     Return existing participant if there is one, and ruleset is 'despot' and user is initiator
-    
+
 #     Arguments:
-    
+
 #     - `user`:
 #     - `proj`:
 #     - `params`:
@@ -645,7 +649,7 @@ def execute_invite_participant(params):
 #         if Participant.objects.filter(qs).count() > 0:
 #             return Participant.objects.get(qs)
 #     return None
-        
+
 
 def execute_conform_participant(params):
     """
@@ -757,7 +761,7 @@ def execute_exclude_participant(params):
         return {'code' : PARTICIPANT_NOT_FOUND,
                 'caption' : 'There is no participant with such uuid'}, httplib.PRECONDITION_FAILED
     part = Participant.objects.filter(uuid=params['uuid']).all()[0]
-    
+
     if part.participantstatus_set.filter(Q(status='accepted') & Q(value='denied')).count() > 0:
         return 'This participant is denied already', httplib.CREATED
 

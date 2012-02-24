@@ -23,6 +23,7 @@ urlpatterns = patterns('',
                        url(r'^participant/list$', 'services.views.list_participants_route'),
                        url(r'^participant/invite$', 'services.views.invite_participant_route'),
                        url(r'^participant/conform$', 'services.views.conform_participant_route'),
+                       url(r'^participant/exclude$', 'services.views.exclude_participant_route'),
     # url(r'^pycronies/', include('pycronies.foo.urls')),
 
     # Uncomment the admin/doc line below to enable admin documentation:
