@@ -553,18 +553,48 @@ def execute_invite_participant(params):
                 'caption' : 'You can not change this project'}, httplib.PRECONDITION_FAILED
     prj = user.project
     if prj.sharing == 'close':  # проект закрытый
-        if not user.is_initiator:
+        if prj.ruleset == 'despot' and (not user.is_initiator):
             return {'code' : MUST_BE_INITIATOR,
                     'caption' : 'You must be initiator to invite users to the close project'}, httplib.PRECONDITION_FAILED
     else:                       # проект открытый или по приглашению
         if  prj.status != 'planning':
             return {'code' : PROJECT_STATUS_MUST_BE_PLANNING,
                     'caption' : 'Project is not in the planning status'}, httplib.PRECONDITION_FAILED
-        if user.participantstatus_set.filter(Q(status='accepted') & Q(value='accepted')).count() == 0:
-            return {'code' : ACCESS_DENIED,
-                    'caption' : 'You are not accepted user to invite users in this project'}, httplib.PRECONDITION_FAILED
 
-    # создаем нового участника для приглашения
+    # создаем нового или берем существующего участника
+    q = Q(name=params['name']) & Q(project=prj)
+    if params.get('user_id') != None:
+        q &= Q(user=params['user_id'])
+    part = None
+    if Participant.objects.filter(q).count() > 0:
+        part = Participant.objects.filter(q).all()[0]
+        def try_change_participant(paramname, value):
+            if value != None and getattr(part, paramname) != value:
+                if prj.ruleset == 'despot':
+                    if user.is_initiator:
+                        setattr(part, paramname, value)
+                        return True
+                    else:
+                        return False
+                else:
+                    return False
+            else:
+                return True
+        if not try_change_participant('descr', params.get('descr')):
+            return {'code' : PARTICIPANT_ALREADY_EXISTS,
+                    'caption' : 'You are trying invite existing participant, but you give other "descr" than i have in database'}, httplib.PRECONDITION_FAILED
+        if not try_change_participant('user', params.get('user_id')):
+            return {'code' : PARTICIPANT_ALREADY_EXISTS,
+                    
+                
+    else:
+        part = Participant(project=prj, name=params['name'])
+        if params.get('descr') != None:
+            part.descr = params['descr']
+        if params.get('user_id') != None:
+            part.user = prams['user_id']
+        part.save()
+        
     op = try_get_despot_participant(user, prj, params)
     if op != None:
         pr = op
@@ -598,23 +628,23 @@ def execute_invite_participant(params):
     else:
         return r, st
 
-def try_get_despot_participant(user, proj, params):
-    """
-    Return existing participant if there is one, and ruleset is 'despot' and user is initiator
+# def try_get_despot_participant(user, proj, params):
+#     """
+#     Return existing participant if there is one, and ruleset is 'despot' and user is initiator
     
-    Arguments:
+#     Arguments:
     
-    - `user`:
-    - `proj`:
-    - `params`:
-    """
-    if proj.ruleset == 'despot' and user.is_initiator:
-        qs = Q(project=proj) & Q(name=params['name'])
-        if params.get('user_id') != None:
-            qs &= Q(user=params['user_id'])
-        if Participant.objects.filter(qs).count() > 0:
-            return Participant.objects.get(qs)
-    return None
+#     - `user`:
+#     - `proj`:
+#     - `params`:
+#     """
+#     if proj.ruleset == 'despot' and user.is_initiator:
+#         qs = Q(project=proj) & Q(name=params['name'])
+#         if params.get('user_id') != None:
+#             qs &= Q(user=params['user_id'])
+#         if Participant.objects.filter(qs).count() > 0:
+#             return Participant.objects.get(qs)
+#     return None
         
 
 def execute_conform_participant(params):
@@ -716,4 +746,42 @@ def execute_enter_project_invitation(params):
     return {'psid' : prt.psid}, httplib.CREATED
 
 def execute_exclude_participant(params):
-    pass
+    user = get_authorized_user(params['psid'])
+    if user == None:
+        return u'There is no user with that psid', httplib.NOT_FOUND
+    if user == False:
+        return {'code' : ACCESS_DENIED,
+                'caption' : 'You are not authorized user to do that'}, httplib.PRECONDITION_FAILED
+
+    if Participant.objects.filter(uuid=params['uuid']).count() == 0:
+        return {'code' : PARTICIPANT_NOT_FOUND,
+                'caption' : 'There is no participant with such uuid'}, httplib.PRECONDITION_FAILED
+    part = Participant.objects.filter(uuid=params['uuid']).all()[0]
+    
+    if part.participantstatus_set.filter(Q(status='accepted') & Q(value='denied')).count() > 0:
+        return 'This participant is denied already', httplib.CREATED
+
+    # Берем или создаем статус
+    st = None
+    if part.participantstatus_set.filter(Q(status='voted') & Q(value='denied')).count() > 0:
+        st = part.participantstatus_set.filter(Q(status='voted') & Q(value='denied')).all()[0]
+    else:
+        st = ParticipantStatus(participant=part, value='denied', status='voted')
+        st.save()
+
+    # Берем или создаем предложение
+    vt = None
+    if st.participantvote_set.filter(Q(participant_status=st) & Q(voter=user)).count() > 0:
+        vt = st.participantvote_set.filter(Q(participant_status=st) & Q(voter=user)).all()[0]
+        if params.get('comment') != None and vt.comment != params['comment']:
+            vt.comment = params['comment']
+            vt.save()
+    else:
+        vt = ParticipantVote(participant_status=st, voter=user)
+        if params.get('comment') != None:
+            vt.comment = params['comment']
+        vt.save()
+
+    # согласуем участника
+    return execute_conform_participant({'psid' : params['psid'],
+                                        'uuid' : params['uuid']})
