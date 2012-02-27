@@ -772,3 +772,195 @@ def list_activities_route(params):
     if st != httplib.OK:
         transaction.rollback()
     return http.HttpResponse(enc.encode(ret), status=st, content_type='application/json')
+
+@transaction.commit_on_success
+@standard_request_handler({'psid' : _good_string,
+                           'action' : Any(Equal('include'), Equal('exclude')),
+                           'uuid' : _good_string})
+def activity_participation_route(params):
+    """
+    **Участие в мероприятии**
+
+    путь запроса: **/activity/participation**
+
+    Параметры запроса:
+
+    - `psid`: (строка) ключ запроса
+    - `action`: "include" or "exclude", действие: включить участника в мероприятие или исключить
+    - `uuid`: ид мероприятия
+
+    Статусы возврата:
+
+    - `201`: ok
+    - `412`: не верные данные с описанием в теле ответа
+    - `500`: ошибка сервера
+    """
+    pass
+
+@transaction.commit_on_success
+@standard_request_handler({'psid' : _good_string,
+                           'name' : _good_string,
+                           'descr' : OrNone(_good_string),
+                           'begin' : DateTimeString(),
+                           'end' : DateTimeString()})
+def create_activity_route(params):
+    """
+    **Создание мероприятия**
+
+    путь запроса: **/activity/create**
+
+    Параметры запроса:
+
+    - `psid`: ключ доступа
+    - `name`: имя мероприятия
+    - `descr`: описание мероприятия
+    - `begin`: дата время в ISO формате - строка
+    - `end`: дата время в ISO формате - строка
+
+    Возвращает JSON словарь:
+
+    - `uuid`: ид нового мероприятия
+    
+    Статусы возврата:
+
+    - `201`: ok
+    - `412`: не верные данные с описанием в теле ответа
+    - `501`: если тип управления проектом не "despot" (временно)
+    - `500`: ошибка сервера
+    """
+    pass
+
+@transaction.commit_on_success
+@standard_request_handler({'psid' : _good_string,
+                           'uuid' : _good_string,
+                           'comment' : OrNone(_good_string)})
+def public_activity_route(params):
+    """
+    **Публикация мероприятия**
+
+    путь запроса: **/activity/public**
+
+    Параметры запроса:
+
+    - `psid`: ключ доступа
+    - `uuid`: ид мероприятия
+    - `comment`: комментарий, не обязательный параметр
+
+    Поведение:
+
+       Если мероприятие имеет статус "created" и создано оно участником, то
+       меняем статус на "voted", далее предлагаем мероприятие на добавление и
+       вызываем согласование мероприятия
+    
+    Статусы возврата:
+
+    - `201`: ok
+    - `412`: не верные данные с описанием в теле ответа
+    - `501`: если управление проектом != "despot"
+    - `500`: ошибка сервера
+    """
+    pass
+
+@transaction.commit_on_success
+@standard_request_handler({'psid' : _good_string,
+                           'uuid' : _good_string})
+def activity_delete_route(params):
+    """
+    **Удаление мероприятия**
+
+    путь запроса: **/activity/delete**
+
+    Параметры запроса:
+
+    - `psid`: ключ доступа
+    - `uuid`: ид мероприятия
+
+    Поведение:
+
+       Если пользователь - создатель мероприятия и статус мероприятия ==
+       "created" то удаляем мероприятие
+
+    Статусы возврата:
+
+    - `201`: ok
+    - `412`: не верные данные с описанием в теле ответа
+    - `500`: ошибка сервера
+    """
+    pass
+
+
+@transaction.commit_on_success
+@standard_request_handler({'psid' : _good_string,
+                           'uuid' : _good_string,
+                           'comment' : OrNone(_good_string)})
+def activity_deny_route(params):
+    """
+    **Исключение мероприятия**
+
+    путь запроса: **/activity/deny**
+
+    Параметры запроса:
+
+    - `psid`: строка доступа
+    - `uuid`: ид мероприятия
+    - `comment`: коментарий участника
+
+    Поведение:
+
+       Создаем предложение на удаление мероприятия (если такого еще нет) и
+       вызываем согласование мероприятия
+    
+    Статусы возврата:
+
+    - `201`: ok
+    - `412`: не верные данные с описанием в теле ответа
+    - `501`: если управление проектом != "despot"
+    - `500`: ошибка сервера
+    """
+    pass
+
+@transaction.commit_on_success
+@standard_request_handler({'uuid' : _good_string})
+def activity_list_participants_route(params):
+    """
+    **Просмотр списка участников**
+
+    путь запроса: **/activity/participant/list**
+
+    Параметры запроса:
+
+    - `uuid`: uuid мероприятия
+
+    Возвращает JSON список строк с UUID участников проекта, учавствующих в
+    данном мероприятии
+
+    Статусы возврата:
+
+    - `200`: ok
+    - `412`: не верные данные с описанием в теле ответа
+    - `500`: ошибка сервера
+    """
+    pass
+
+@transaction.commit_on_success
+@standard_request_handler({'psid' : _good_string,
+                           'uuid' : _good_string})
+def conform_activity_route(params):
+    """
+    **Согласование мероприятия**
+
+    путь запроса: **/activity/conform**
+
+    Параметры запроса:
+
+    - `psid`: ключ доступа
+    - `uuid`: ид мероприятия
+
+    Статусы возврата:
+
+    - `201`: ok
+    - `412`: не верные данные с описанием в теле ответа
+    - `501`: если управление проектом != "despot"
+    - `500`: ошибка сервера
+    """
+    pass
