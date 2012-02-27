@@ -270,6 +270,7 @@ class validate_params(object):
 class standard_request_handler(object):
     """
     """
+    white = re.compile(r'^\s*$')
 
     def __init__(self, validator):
         self._validator = validator
@@ -282,7 +283,8 @@ class standard_request_handler(object):
                 return http.HttpResponse('You must use POST request, not {0}'.format(request.method), status=httplib.NOT_IMPLEMENTED, content_type='application/json')
             h = {}
             for key, value in request.POST.iteritems():
-                h[key] = value
+                if self.white.match(value) == None:
+                    h[key] = value
             v = Validate()
             r = v.validate(self._validator, h)
             if r != None:

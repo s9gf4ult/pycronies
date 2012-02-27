@@ -775,7 +775,7 @@ class mytest(TestCase):
         # инициатор удаляет первого друга
         self.srequest(c, '/participant/exclude', {'psid' : psid,
                                                   'uuid' : uuid2},
-                      httplib.CREATED, True)
+                      httplib.CREATED)
         
         # инициатор смотрит список участников - он один
         r = self.srequest(c, '/participant/list', {'psid' : psid},
@@ -796,7 +796,20 @@ class mytest(TestCase):
         
         for p in psids:
             self._delete_project(p)
-        
+
+    def test_null_blank(self, ):
+        enc, dec = getencdec()
+        c = httplib.HTTPConnection(host, port)
+        r = self.srequest(c, '/project/create', {'name' : '  ',
+                                                 'sharing' : 'open',
+                                                 'ruleset' : 'despot',
+                                                 'user_name' : 'asdf'},
+                          httplib.PRECONDITION_FAILED)
+        self.srequest(c, '/project/create', {'name' : 'asdf',
+                                             'sharing' : 'open',
+                                             'ruleset' : 'despot',
+                                             'user_name' : ''},
+                      httplib.PRECONDITION_FAILED)
         
 
 if __name__ == '__main__':
