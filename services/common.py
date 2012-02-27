@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import django.http as http
+from django.db.models import Q
 import httplib
 import datetime
 import re
@@ -295,3 +296,45 @@ class standard_request_handler(object):
             return func(*tuple([h] + list(args[1:])), **kargs)
 
         return ret
+
+
+def get_or_create_object(objclass, findparams, setparams = {}, can_change = True):
+    """
+    Try to find object by findparams dictionary applying AND policy to find
+    object with all fields (as keys) equal to values of this dictionary. If
+    object has been found, then ensure values in `setparams` to be equal to the
+    fields of that object. If object has not been found it is created and all
+    fields set to values from `findparams` and `setparams`
+    
+    Arguments:
+    
+    - `objclass`: model class
+    - `findparams`: fields to find with, dict
+    - `setparams`: fields to set after found or creation, dict
+    - `can_change`: if True, then change object with `setparams`, else
+      return None emmediately
+    """
+    if len(findparams) == len([a for a in findparams.itervalues() if a != None]): # все параметры запроса установлены
+        q = reduce(lambda a, b: a & b, [Q(**{key: val}) for (key, val) in findparams.iteritems()])
+        if objclass.objects.filter(q).count() > 0: # есть объект который ищем
+            obj = objclass.objects.filter(q).all()[0]
+            k = False
+            for key, val in [(key, val) for (key, val) in setparams.iteritems() if val != None]: # выставляем значения если они не None
+                if getattr(obj, key) != val:
+                    if can_change:
+                        setattr(obj, key, val)
+                        k = True
+                    else:
+                        return None
+            if k:
+                obj.save()
+            return obj
+    # если мы тут значит надо создать новый объект
+    h = {}
+    for dct in [findparams, setparams]:
+        for key, val in dct.iteritems():
+            if val != None:
+                h[key] = val
+    obj = objclass(**h)
+    obj.save()
+    return obj

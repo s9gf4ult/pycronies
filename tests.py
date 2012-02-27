@@ -4,7 +4,6 @@
 from unittest import TestCase, main
 import httplib, urllib
 import json
-from services.common import string2datetime
 from services.statuses import *
 import datetime
 
@@ -22,6 +21,28 @@ def encodeparams(prms):
 def request(conn, route, data):
     conn.request('POST', route, encodeparams(data), {'Content-Type' : 'application/x-www-form-urlencoded; charset=utf-8'})
 
+def string2datetime(val):
+    """
+    Arguments:
+
+    - `val`:
+    """
+    formats = ['%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d', '%Y-%m-%dT%H:%M:%S.%f', '%Y-%m-%d %H:%M:%S.%f']
+
+    ret = None
+    for fmt in formats:
+        try:
+            ret = datetime.datetime.strptime(val, fmt)
+        except ValueError:
+            pass
+        else:
+            break
+    if ret != None:
+        return ret
+    else:
+        raise ValueError('Could not parse string as datetme')
+
+    
         
 
 class mytest(TestCase):
@@ -627,6 +648,15 @@ class mytest(TestCase):
         self.assertIn('token', resp)
         token = resp['token']
 
+        # подтверждаем приглашение
+        r = self.srequest(c, '/participant/list', {'psid' : psid}, httplib.OK)
+        pts = dec.decode(r)
+        uuid2 = [a['uuid'] for a in pts if a['name'] == 'ololosh'][0]
+
+        self.srequest(c, '/participant/invitation/conform', {'psid' : psid,
+                                                             'uuid' : uuid2,
+                                                             'vote' : 'include'})
+
         # повторно фейлимся
         # request(c, '/participant/invite', {'psid' : psid,
         #                                    'name' : 'ololosh',
@@ -639,7 +669,7 @@ class mytest(TestCase):
         # приглашенный участник входит на проект
         r = self.srequest(c, '/project/enter/invitation', {'uuid' : puuid,
                                                            'token' : token},
-                          httplib.CREATED)
+                          httplib.CREATED, True)
         resp = dec.decode(r)
         psid2 = resp['psid']
 

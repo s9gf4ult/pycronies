@@ -9,7 +9,7 @@ from services.app import execute_create_project, execute_list_projects, execute_
     execute_change_project_status, execute_list_default_parameters, execute_create_project_parameter, \
     execute_list_project_parameters, execute_create_project_parameter_from_default, execute_change_participant, \
     execute_invite_participant, execute_change_project_parameter, execute_enter_project_open, execute_enter_project_invitation,\
-    execute_conform_participant, execute_list_participants, execute_exclude_participant
+    execute_conform_participant, execute_list_participants, execute_exclude_participant, execute_conform_participant_vote
 from services.common import json_request_handler, getencdec, validate_params, standard_request_handler
 from services.models import Project
 from svalidate import OrNone, Any, DateTimeString, RegexpMatch, Equal, JsonString, Able
@@ -536,8 +536,8 @@ def invite_participant_route(params): # ++TESTED
        Если указанный пользователь совпадает с существующим (совпадает имя и
        user_id если последний указан, либо просто имя если не указан user_id),
        то добваляет приглашение на существующего пользователя, иначе создает
-       нового пользователя со статусом "voted". В обоих случаях вызывается
-       согласование пользователя.
+       нового пользователя со статусом "voted". Согласование пользователя не
+       вызывается.
 
     Статусы возврата:
 
@@ -552,6 +552,47 @@ def invite_participant_route(params): # ++TESTED
     if stat != httplib.CREATED:
         transaction.rollback()
     return http.HttpResponse(enc.encode(ret), status=stat, content_type='application/json')
+
+@transaction.commit_on_success
+@standard_request_handler({'psid' : _good_string,
+                           'uuid' : _good_string,
+                           'vote' : Any(Equal('include'), Equal('exclude')),
+                           'comment' : OrNone(_good_string)})
+def conform_participant_vote_route(params):
+    """
+    **Подтвердить действие над участником**
+
+    путь запроса: **/participant/invitation/conform**
+
+    Параметры запроса:
+
+    - `psid`: ключ доступа
+    - `uuid`: uuid участника
+    - `vote`: "include" или "exclude", подтверждаем приглашение или
+      исключение участника соответственно
+    - `comment`: комментарий по приглашению, не обязательный
+    
+
+    Поведение:
+
+       Если предложение на удаление или включение участника от имени вызывавшего
+       сервис уже есть, то согласуем это предложение. Иначе создаем предложение
+       и согласуем его.
+      
+    Статусы возврата:
+
+    - `201`: ok
+    - `404`: psid не найден
+    - `412`: не верные данные с описанием в теле ответа
+    - `501`: если тип проекта != управляемый, временно
+    - `500`: ошибка сервера
+    """
+    enc = json.JSONEncoder()
+    ret, st = execute_conform_participant_vote(params)
+    if st != httplib.CREATED:
+        transaction.rollback()
+    return http.HttpResponse(enc.encode(ret), status=st, content_type='application/json')
+    
 
 @transaction.commit_on_success
 @standard_request_handler({'uuid' : _good_string,
