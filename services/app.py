@@ -8,7 +8,7 @@ from services.common import check_safe_string, check_safe_string_or_null, \
 from services.models import Project, Participant, hex4, ParticipantVote, \
     ProjectParameter, ProjectParameterVl, ProjectParameterVal, DefaultParameter, \
     DefaultParameterVl, ProjectRulesetDefaults, ProjectParameterVote, ParticipantStatus, \
-    ActivityParticipant
+    ActivityParticipant, Activity
 from services.statuses import *
 from django.db import transaction, IntegrityError
 from django.db.models import Q
@@ -861,3 +861,22 @@ def execute_list_activities(psid):
         ret.append(a)
 
     return ret
+
+def execute_activity_participation(params):
+    user = get_authorized_user(params['psid'])
+    if user == None:
+        return u'There is no user with that psid', httplib.NOT_FOUND
+    if user == False:
+        return {'code' : ACCESS_DENIED,
+                'caption' : 'You are not authorized user to do that'}, httplib.PRECONDITION_FAILED
+
+    prj = user.project
+    if Activity.objects.filter(Q(project=prj) & Q(uuid=params['uuid'])).count() == 0:
+        return {'code' : ACTIVITY_NOT_FOUND,
+                'caption' : 'There is no activity with such uuid in this project'}, httplib.PRECONDITION_FAILED
+    act = Activity.objects.filter(uuid=params['uuid']).all()[0]
+    ap = get_or_create_object(ActivityParticipant,
+                              {'activity' : act,
+                               'participant' : user})
+                              
+                              

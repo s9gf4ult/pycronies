@@ -297,7 +297,6 @@ class standard_request_handler(object):
 
         return ret
 
-
 def get_or_create_object(objclass, findparams, setparams = {},
                          can_change = (lambda p: True),
                          can_use = (lambda p: True)):
