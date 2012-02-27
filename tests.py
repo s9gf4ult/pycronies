@@ -965,6 +965,12 @@ class mytest(TestCase):
                                               'uuid' : auuid2},
                       httplib.CREATED)
 
+        # второй участник пытается удалить мероприятие и фейлится потому что
+        # мероприятие уже согласовано
+        self.srequest(c, '/activity/delete', {'psid' : psid2,
+                                              'uuid' : auuid2},
+                      httplib.PRECONDITION_FAILED)
+        
         # теперь инициатор видит мероприятие как активное
         r = self.srequest(c, '/activity/list', {'psid' : psid},
                           httplib.OK)
@@ -978,20 +984,46 @@ class mytest(TestCase):
                                                   'begin' : '2010-10-10T10:10:10',
                                                   'end' : '2010-10-11T10:10:10'},
                           httplib.CREATED)
-
-
-
-
+        auuid3 = dec.decode(r)['uuid']
 
         # удаляет мероприяте
+        self.srequest(c, '/activity/delete', {'psid' : psid2,
+                                              'uuid' : auuid3},
+                      httplib.CREATED)
+        
         # просматривает список - мероприятия нет
+        r = self.srequest(c, '/activity/list', {'psid' : psid2},
+                          httplib.OK)
+        self.assertEqual(2, len(dec.decode(r)))
+        
         # второй участник предлагает удалить второе мероприятие
+        self.srequest(c, '/activity/deny', {'psid' : psid2,
+                                            'uuid' : auuid2},
+                      httplib.CREATED)
+        
         # в списке мероприятий появляется предложение на удаление мероприятия
+        r = self.srequest(c, '/activity/list', {'psid' : psid2},
+                          httplib.OK)
+
+        resp = dec.decode(r)
+        x = [r for r in resp if len(r['votes']) > 0]
+        self.assertEqual(1, len(x))
+        a = x[0]
+
+        vt = a['votes'][0]
+        self.assertEqual('exclude', vt['vote'])
+        
         # инициатор подтверждает действие
+        self.srequest(c, '/activity/deny', {'psid' : psid,
+                                            'uuid' : auuid2},
+                      httplib.CREATED)
+        
         # в списке мероприятий мероприяте меняет статус на "denied"
-
-
-
+        r = self.srequest(c, '/activity/list', {'psid' : psid2},
+                          httplib.OK)
+        resp = dec.decode(r)
+        self.assertEqual([], [a for a in resp if len(a['votes']) > 0])
+        self.assertEqual(set(['accepted', 'denied']), set([a['status'] for a in resp]))
 
 if __name__ == '__main__':
     main()
