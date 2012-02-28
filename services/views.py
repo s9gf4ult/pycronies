@@ -439,7 +439,7 @@ def change_participant_route(params): # ++TESTED
 
     адрес: **/participant/change**
 
-    Принимает json словарь с ключами:
+    Парметры запросаи:
 
     - `psid`: (строка) ключ доступа
     - `uuid`: (строка) ид участника которого будем менять
@@ -776,7 +776,8 @@ def list_activities_route(params):
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
                            'action' : Any(Equal('include'), Equal('exclude')),
-                           'uuid' : _good_string})
+                           'uuid' : _good_string,
+                           'comment' : OrNone(_good_string)})
 def activity_participation_route(params):
     """
     **Участие в мероприятии**
@@ -786,8 +787,9 @@ def activity_participation_route(params):
     Параметры запроса:
 
     - `psid`: (строка) ключ запроса
-    - `action`: "include" or "exclude", действие: включить участника в мероприятие или исключить
+    - `action`: 'include' or 'exclude', действие: включить участника в мероприятие или исключить
     - `uuid`: ид мероприятия
+    - `comment`: комментарий участия в мероприятии, не обязательный
 
     Статусы возврата:
 

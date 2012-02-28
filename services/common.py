@@ -9,7 +9,8 @@ import re
 import json
 from functools import wraps
 from svalidate import Validate
-from services.statuses import PARAMETERS_BROKEN
+from services.statuses import PARAMETERS_BROKEN, ACCESS_DENIED
+from services.models import Participant
 
 yearmonthdayhour = ['year', 'month', 'day', 'hour', 'minute', 'second']
 formats = ['%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d', '%Y-%m-%dT%H:%M:%S.%f', '%Y-%m-%d %H:%M:%S.%f']
@@ -347,3 +348,64 @@ def get_or_create_object(objclass, findparams, setparams = {},
     obj = objclass(**h)
     obj.save()
     return obj
+
+
+def get_authorized_user(p):
+    """
+    Return None if there is no user
+
+    Return False if user has no 'accepted' status
+
+    Otherwise return user itself
+
+    Arguments:
+
+    - `p`: string with user `psid`
+    """
+    if Participant.objects.filter(psid=p).count() == 0:
+        return None
+    user = Participant.objects.filter(psid=p).all()[0]
+    if user.participantstatus_set.filter(Q(status='accepted') & Q(value='accepted')).count() > 0:
+        return user
+    return False
+
+
+def get_user(fnc):
+    """
+    Wraps function with user picker
+    
+    Arguments:
+    
+    - `fnc`:
+    """
+    @wraps(fnc)
+    def ret(*args, **kargs):
+        params = args[0]
+        user = get_authorized_user(params['psid'])
+        if user == None:
+            return u'There is no user with that psid', httplib.NOT_FOUND
+        if user == False:
+            return {'code' : ACCESS_DENIED,
+                    'caption' : 'You are not authorized user to do that'}, httplib.PRECONDITION_FAILED
+        return fnc(*tuple([params, user] + list(args[1:])), **kargs)
+    return ret
+
+class get_object_by_uuid(object):
+    """Try to get object by uuid in parameters
+    """
+    
+    def __init__(self, modelclass, code, caption):
+        self._modelclass = modelclass
+        self._code = code
+        self._caption = caption
+
+    def __call__(self, fnc):
+        @wraps(fnc)
+        def ret(*args, **kargs):
+            params = args[0]
+            if self._modelclass.objects.filter(uuid=params['uuid']).count() == 0:
+                return {'code' : self._code,
+                        'caption' : self._caption}, httplib.PRECONDITION_FAILED
+            obj = self._modelclass.objects.filter(uuid=params['uuid']).all()[0]
+            return fnc(*tuple([params, obj] + list(args[1:])), **kargs)
+        return ret
