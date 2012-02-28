@@ -720,9 +720,9 @@ def execute_activity_participation(params, act, user):
         apv.comment = params['comment']
     apv.save()
     return conform_activity_participation({'psid' : params['psid'],
-                                           'uuid' : params['uuid']})
+                                           'uuid' : params['uuid']}, act, user)
 
-def conform_activity_participation(params):
+def conform_activity_participation(params, act, user):
     """
     Параметры:
 
@@ -731,4 +731,28 @@ def conform_activity_participation(params):
 
     Выполняет согласование участия участника в мероприятии
     """
+    if ActivityParticipantStatus(Q(activity_participant__participant=user) & Q(status='voted')).count() == 0:
+        return 'There is nothing to conform', httplib.CREATED
+    aps = ActivityParticipantStatus(Q(activity_participant__participant=user) & Q(status='voted') & Q(activityparticipantvote__voter=user)).all()[0]
+    ActivityParticipantStatus(Q(activity_participant__participant=user) & Q(status='accepted')).update(status='changed')
+    ActivityParticipantStatus(Q(activity_participant__participant=user) & Q(status='voted')).update(status='denied')
+    aps.status='accepted'
+    aps.save()
+    return 'OK', httplib.CREATED
+
+@get_user
+def execute_create_activity(params, user):
+    prj = user.project
+    ac = Activity(project=prj,
+                  name=params['name'],
+                  begin_date = params['begin'],
+                  end_date = params['end'])
+    if params.get('descr') != None:
+        ac.descr=params['descr']
+    try:
+        ac.save()
+    except IntegrityError:
+        return {'code' : ACTIVITY_ALREADY_EXISTS,
+                'caption' : 'Activity with such parameters already exists'}, httplib.PRECONDITION_FAILED
+    return {'uuid' : ac.uuid}, httplib.OK
     

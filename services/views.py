@@ -10,7 +10,7 @@ from services.app import execute_create_project, execute_list_projects, execute_
     execute_list_project_parameters, execute_create_project_parameter_from_default, execute_change_participant, \
     execute_invite_participant, execute_change_project_parameter, execute_enter_project_open, execute_enter_project_invitation,\
     execute_conform_participant, execute_list_participants, execute_exclude_participant, execute_conform_participant_vote,\
-    execute_list_activities, execute_activity_participation
+    execute_list_activities, execute_activity_participation, execute_create_activity
 from services.common import json_request_handler, getencdec, validate_params, standard_request_handler
 from services.models import Project
 from svalidate import OrNone, Any, DateTimeString, RegexpMatch, Equal, JsonString, Able
@@ -831,10 +831,14 @@ def create_activity_route(params):
 
     - `201`: ok
     - `412`: не верные данные с описанием в теле ответа
-    - `501`: если тип управления проектом не "despot" (временно)
+    - `501`: если тип управления проектом не 'despot' (временно)
     - `500`: ошибка сервера
     """
-    pass
+    enc = json.JSONEncoder()
+    ret, st = execute_create_activity(params)
+    if st != httplib.CREATED:
+        transaction.rollback()
+    return http.HttpResponse(enc.encode(ret), status=st, content_type='application/json')
 
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
