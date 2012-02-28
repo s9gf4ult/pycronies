@@ -568,15 +568,23 @@ def execute_invite_participant(params):
         q['user'] = params['user_id']
 
     try:
+        def check(p):
+            return prj.ruleset == 'despot' and user.is_initiator
+        
         part = get_or_create_object(Participant, q, {'descr' : params.get('descr'),
                                                      'user' : params.get('user_id')},
-                                    prj.ruleset == 'despot' and user.is_initiator)
+                                    can_change = check)
     except IntegrityError:
         return {'code' : PARTICIPANT_ALREADY_EXISTS,
                 'caption' : 'This participant already exists, try repeat this query but do not specify "user_id" field or specify the same value'}, httplib.PRECONDITION_FAILED
-    if part == None:
+    if part == None:            # в том случае если пользователь есть но мы не можем менять атрибуты
         return {'code' : PARTICIPANT_ALREADY_EXISTS,
                 'caption' : 'This participant already exists, try repeat this query but do not specify "user_id" and "descr" fields or specify the same value'}, httplib.PRECONDITION_FAILED
+
+    if part.participantstatus_set.filter(Q(value='denied') & Q(status='accepted')).count() > 0:
+        return {'code' : PARTICIPANT_DENIED,
+                'caption' : 'This participant has denied status, so you can not invite him/her again'}, httplib.PRECONDITION_FAILED
+
     if part.token == None:
         part.token = hex4()
         part.save()
@@ -816,9 +824,15 @@ def execute_conform_participant_vote(params):
                 'caption' : 'Participant with such uuid has not been found'}, httplib.PRECONDITION_FAILED
 
     part = Participant.objects.filter(uuid=params['uuid']).all()[0]
+    if params['vote'] == 'exclude':
+        if part.participantstatus_set.filter(Q(value='denied') & Q(status='accepted')).count() > 0:
+            return 'Participant is already denied', httplib.CREATED
+    elif part.participantstatus_set.filter(Q(value='accepted') & Q(status='accepted')).count() > 0:
+        return 'Participant is already accepted', httplib.CREATED
+    
     ps = get_or_create_object(ParticipantStatus, {'participant' : part,
-                                                  'value' : 'voted',
-                                                  'status' : 'accepted' if params['vote'] == 'include' else 'denied'})
+                                                  'status' : 'voted',
+                                                  'value' : 'accepted' if params['vote'] == 'include' else 'denied'})
     pv = get_or_create_object(ParticipantVote, {'participant_status' : ps,
                                                 'voter' : user},
                               {'comment' : params.get('comment')})

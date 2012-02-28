@@ -188,6 +188,6 @@ class SimpleTest(TestCase):
         prt = get_or_create_object(models.Participant, {'name' : 'part1', 'project' : pp})
         prt2 = get_or_create_object(models.Participant, {'name' : 'part1', 'project' : pp}, {'descr' : 'asdf'})
         self.assertEqual(prt.uuid, prt2.uuid)
-        prt3 = get_or_create_object(models.Participant, {'name' : 'part1', 'project' : pp}, {'descr' : 'ijsji'}, False)
+        prt3 = get_or_create_object(models.Participant, {'name' : 'part1', 'project' : pp}, {'descr' : 'ijsji'}, (lambda p: False))
         self.assertEqual(None, prt3)
         

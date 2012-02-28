@@ -298,7 +298,9 @@ class standard_request_handler(object):
         return ret
 
 
-def get_or_create_object(objclass, findparams, setparams = {}, can_change = True):
+def get_or_create_object(objclass, findparams, setparams = {},
+                         can_change = (lambda p: True),
+                         can_use = (lambda p: True)):
     """
     Try to find object by findparams dictionary applying AND policy to find
     object with all fields (as keys) equal to values of this dictionary. If
@@ -311,17 +313,25 @@ def get_or_create_object(objclass, findparams, setparams = {}, can_change = True
     - `objclass`: model class
     - `findparams`: fields to find with, dict
     - `setparams`: fields to set after found or creation, dict
-    - `can_change`: if True, then change object with `setparams`, else
+    - `can_change`: one argument function checking that we can change
+      existing object, if it return False and we need to change object the
+      `get_or_create_object` return None
+    - `can_use`: one argumeht function checking that we can use existing object
       return None emmediately
     """
     if len(findparams) == len([a for a in findparams.itervalues() if a != None]): # все параметры запроса установлены
         q = reduce(lambda a, b: a & b, [Q(**{key: val}) for (key, val) in findparams.iteritems()])
         if objclass.objects.filter(q).count() > 0: # есть объект который ищем
             obj = objclass.objects.filter(q).all()[0]
+            if not can_use(obj):
+                return None
             k = False
+            ct = None
             for key, val in [(key, val) for (key, val) in setparams.iteritems() if val != None]: # выставляем значения если они не None
                 if getattr(obj, key) != val:
-                    if can_change:
+                    if ct == None:
+                        ct = can_change(obj)
+                    if ct:
                         setattr(obj, key, val)
                         k = True
                     else:

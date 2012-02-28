@@ -653,9 +653,10 @@ class mytest(TestCase):
         pts = dec.decode(r)
         uuid2 = [a['uuid'] for a in pts if a['name'] == 'ololosh'][0]
 
-        self.srequest(c, '/participant/invitation/conform', {'psid' : psid,
+        self.srequest(c, '/participant/vote/conform', {'psid' : psid,
                                                              'uuid' : uuid2,
-                                                             'vote' : 'include'})
+                                                             'vote' : 'include'},
+                      httplib.CREATED)
 
         # повторно фейлимся
         # request(c, '/participant/invite', {'psid' : psid,
@@ -669,7 +670,7 @@ class mytest(TestCase):
         # приглашенный участник входит на проект
         r = self.srequest(c, '/project/enter/invitation', {'uuid' : puuid,
                                                            'token' : token},
-                          httplib.CREATED, True)
+                          httplib.CREATED)
         resp = dec.decode(r)
         psid2 = resp['psid']
 
@@ -715,7 +716,8 @@ class mytest(TestCase):
         # участник повторно добавляет того же друго но указывает не верные данные
         self.srequest(c, '/participant/invite', {'psid' : psid2,
                                                  'name' : 'mister guy',
-                                                 'descr' : 'blah blah another description'}, httplib.PRECONDITION_FAILED)
+                                                 'descr' : 'blah blah another description'},
+                      httplib.PRECONDITION_FAILED)
 
         # участни повторно дабавляет того же участника и указывает теже данные
         self.srequest(c, '/participant/invite', {'psid' : psid2,
@@ -734,25 +736,20 @@ class mytest(TestCase):
         self.assertEqual(resp['code'], PARTICIPANT_ALREADY_EXISTS)
 
         # инициатор согласует добавление второго друга
-        r = self.srequest(c, '/participant/list', {'psid' : psid}, httplib.OK)
-        resp = dec.decode(r)
-        name = [a['name'] for a in resp if a['uuid'] == uuid3][0]
+        self.srequest(c, '/participant/vote/conform', {'psid' : psid,
+                                                             'vote' : 'include',
+                                                             'uuid' : uuid3},
+                      httplib.CREATED)
 
-        self.srequest(c, '/participant/invite', {'psid' : psid,
-                                                 'name' : name,
-                                                 'user_id' : 'blah blah'}, httplib.PRECONDITION_FAILED) # ид инициатора не совпадает с ид приглашенного
-
-        self.srequest(c, '/participant/invite', {'psid' : psid,
-                                                 'name' : name,
-                                                 'user_id' : 'you you'}, httplib.CREATED) # ид совпдает
-        
-        self.srequest(c, '/participant/invite', {'psid' : psid,
-                                                 'name' : name,
-                                                 'comment' : u'conform'}, httplib.CREATED)
+        self.srequest(c, '/participant/vote/conform', {'psid' : psid,
+                                                             'vote' : 'include',
+                                                             'uuid' : uuid3},
+                      httplib.CREATED)
         
         # зашедщий друг пытается править друга и фейлится
         r = self.srequest(c, '/project/enter/invitation', {'uuid' : puuid,
-                                                           'token' : token3}, httplib.CREATED)
+                                                           'token' : token3},
+                          httplib.CREATED)
         resp = dec.decode(r)
         psid3 = resp['psid']
 

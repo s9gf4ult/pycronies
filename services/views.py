@@ -562,7 +562,7 @@ def conform_participant_vote_route(params):
     """
     **Подтвердить действие над участником**
 
-    путь запроса: **/participant/invitation/conform**
+    путь запроса: **/participant/vote/conform**
 
     Параметры запроса:
 
