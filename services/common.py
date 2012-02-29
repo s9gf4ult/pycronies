@@ -3,6 +3,7 @@
 
 import django.http as http
 from django.db.models import Q
+from django.db import transaction
 import httplib
 import datetime
 import re
@@ -10,7 +11,7 @@ import json
 from functools import wraps
 from svalidate import Validate
 from services.statuses import PARAMETERS_BROKEN, ACCESS_DENIED
-from services.models import Participant
+from services.models import Participant, Activity
 
 yearmonthdayhour = ['year', 'month', 'day', 'hour', 'minute', 'second']
 formats = ['%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d', '%Y-%m-%dT%H:%M:%S.%f', '%Y-%m-%d %H:%M:%S.%f']
@@ -273,6 +274,7 @@ class standard_request_handler(object):
     """
     """
     white = re.compile(r'^\s*$')
+    v = Validate()
 
     def __init__(self, validator):
         self._validator = validator
@@ -287,8 +289,7 @@ class standard_request_handler(object):
             for key, value in request.POST.iteritems():
                 if self.white.match(value) == None:
                     h[key] = value
-            v = Validate()
-            r = v.validate(self._validator, h)
+            r = self.v.validate(self._validator, h)
             if r != None:
                 enc = json.JSONEncoder()
                 return http.HttpResponse(enc.encode({'code' : PARAMETERS_BROKEN,
@@ -409,3 +410,34 @@ class get_object_by_uuid(object):
             obj = self._modelclass.objects.filter(uuid=params['uuid']).all()[0]
             return fnc(*tuple([params, obj] + list(args[1:])), **kargs)
         return ret
+
+class typical_json_responder(object):
+    enc = json.JSONEncoder()
+    
+    def __init__(self, executor, normal_status):
+        if not callable(executor):
+            raise ValueError('executor must be callable')
+        self._executor = executor
+        self._normal_status = normal_status
+
+    def __call__(self, fnc):
+        @wraps(fnc)
+        def ret(*args, **kargs):
+            val, st = self._executor(*args, **kargs)
+            if st != self._normal_status:
+                transaction.rollback()
+            return http.HttpResponse(self.enc.encode(val), status=st, content_type='application/json')
+
+        return ret
+
+def get_activity_from_uuid(fnc):
+    @wraps(fnc)
+    def ret(*args, **kargs):
+        params, user = args[:2]
+        prj = user.project
+        if Activity.objects.filter(Q(project=prj) & Q(uuid=params['uuid'])).count() == 0:
+            return {'code' : ACTIVITY_NOT_FOUND,
+                    'caption' : 'There is no such actvivity'}, httplib.PRECONDITION_FAILED
+        act = Activity.objects.filter(uuid=params['uuid']).all()[0]
+        return fnc(*tuple([params, act, user] + list(args[2:])), **kargs)
+    return ret

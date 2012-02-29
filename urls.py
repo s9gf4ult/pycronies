@@ -25,6 +25,13 @@ urlpatterns = patterns('',
                        url(r'^participant/vote/conform$', 'services.views.conform_participant_vote_route'),
                        url(r'^participant/conform$', 'services.views.conform_participant_route'),
                        url(r'^participant/exclude$', 'services.views.exclude_participant_route'),
+                       url(r'^activity/create$', 'services.views.create_activity_route'),
+                       url(r'^activity/delete$', 'services.views.activity_delete_route'),
+                       url(r'^activity/public$', 'services.views.public_activity_route'),
+                       url(r'^activity/list$', 'services.views.list_activities_route'),
+                       url(r'^activity/participation$', 'services.views.activity_participation_route'),
+                       url(r'^activity/participant/list', 'services.views.activity_list_participants_route'),
+                       
     # url(r'^pycronies/', include('pycronies.foo.urls')),
 
     # Uncomment the admin/doc line below to enable admin documentation:
@@ -34,3 +41,4 @@ urlpatterns = patterns('',
     # url(r'^admin/', include(admin.site.urls)),
                        url(r'^project/delete', 'services.views.delete_project_route'), # just for testing
 )
+

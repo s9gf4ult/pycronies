@@ -10,8 +10,11 @@ from services.app import execute_create_project, execute_list_projects, execute_
     execute_list_project_parameters, execute_create_project_parameter_from_default, execute_change_participant, \
     execute_invite_participant, execute_change_project_parameter, execute_enter_project_open, execute_enter_project_invitation,\
     execute_conform_participant, execute_list_participants, execute_exclude_participant, execute_conform_participant_vote,\
-    execute_list_activities, execute_activity_participation, execute_create_activity
-from services.common import json_request_handler, getencdec, validate_params, standard_request_handler
+    execute_list_activities, execute_activity_participation, execute_create_activity, execute_public_activity, execute_conform_project_parameter, \
+    execute_activity_list_participants, execute_activity_delete, execute_conform_activity, execute_activity_deny
+
+from services.common import json_request_handler, getencdec, validate_params, standard_request_handler, \
+     typical_json_responder
 from services.models import Project
 from svalidate import OrNone, Any, DateTimeString, RegexpMatch, Equal, JsonString, Able
 from copy import copy
@@ -27,6 +30,7 @@ _good_string = RegexpMatch(r'^[^;:"''|\\/#&><]*$')
                            'user_name' : _good_string,
                            'user_id' : OrNone(_good_string),
                            'user_descr' : OrNone(_good_string)})
+@typical_json_responder(execute_create_project, httplib.CREATED)
 def create_project_route(prs):  # ++TESTED
     """
     **Создать проект**
@@ -63,11 +67,7 @@ def create_project_route(prs):  # ++TESTED
     - `501`: query was not post
     - `500`: otherwise
     """
-    enc, dec = getencdec()
-    result, stat = execute_create_project(prs)
-    if stat != httplib.CREATED:
-        transaction.rollback()
-    return http.HttpResponse(enc.encode(result), status=stat, content_type='application/json')
+    pass
 
 @transaction.commit_on_success
 @standard_request_handler({'page_number' : OrNone(Able(int)),
@@ -163,6 +163,7 @@ def list_user_projects_route(params): # ++TESTED
 @transaction.commit_on_success
 @standard_request_handler({'psid' : '',
                            'status' : Any(*[Equal(a[0]) for a in Project.PROJECT_STATUS])})
+@typical_json_responder(execute_change_project_status, httplib.CREATED)
 def change_project_status_route(params): # ++TESTED
     """
     **Изменить статус проекта**
@@ -188,11 +189,7 @@ def change_project_status_route(params): # ++TESTED
     - `501`: query was not post
     - `500`: otherwise
     """
-    enc, dec = getencdec()
-    ret, st = execute_change_project_status(params)
-    if st != httplib.CREATED:
-        transaction.rollback()
-    return http.HttpResponse(enc.encode(ret), status=st, content_type='application/jsno')
+    pass
 
 @transaction.commit_on_success
 def list_default_parameters_route(request): # ++TESTED
@@ -275,6 +272,7 @@ def create_project_parameter_route(params): # ++TESTED
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
                            'uuid' : _good_string})
+@typical_json_responder(execute_create_project_parameter_from_default, httplib.CREATED)
 def create_project_parameter_from_default_route(params): # ++TESTED
     """
     **Создать параметр проекта из типового параметра**
@@ -294,13 +292,7 @@ def create_project_parameter_from_default_route(params): # ++TESTED
     - `501`: query was not post
     - `500`: otherwise
     """
-    enc = json.JSONEncoder()
-    ret, st = execute_create_project_parameter_from_default(params)
-    if st != httplib.CREATED:
-        transaction.rollback()
-    return http.HttpResponse(enc.encode(ret), status=st, content_type='application/json')
-
-
+    pass
 
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string})
@@ -349,6 +341,7 @@ def list_project_parameters_route(params): # ++TESTED
                            'uuid' : _good_string,
                            'value' : _good_string,
                            'caption' : OrNone(_good_string)})
+@typical_json_responder(execute_change_project_parameter, httplib.CREATED)
 def change_project_parameter_route(params): # ++TESTED
     """
     **Изменить параметр проекта**
@@ -369,15 +362,12 @@ def change_project_parameter_route(params): # ++TESTED
     - `404`: user was not found with such psid
     - `500`: otherwise
     """
-    enc = json.JSONEncoder()
-    ret, st = execute_change_project_parameter(params)
-    if st != httplib.CREATED:
-        transaction.rollback()
-    return http.HttpResponse(enc.encode(ret), status=st, content_type='application/json')
+    pass
 
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
                            'uuid' : _good_string})
+@typical_json_responder(execute_conform_project_parameter, httplib.CREATED)
 def conform_project_parameter_route(params): # ++TESTED на прямую не вызывался
     """
     **Согласование проекта**
@@ -404,11 +394,7 @@ def conform_project_parameter_route(params): # ++TESTED на прямую не �
     - `404`: user was not found with such psid
     - `500`: otherwise
     """
-    enc = json.JSONEncoder()
-    ret, st = execute_conform_project_parameter(params)
-    if st != httplib.CREATED:
-        transaction.rollback()
-    return http.HttpResponse(enc.encode(ret), status=st, content_type='application/json')
+    pass
 
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string})
@@ -418,6 +404,9 @@ def delete_project_route(params): #  FIXME: метод для тестов
 
     just for testing
     """
+    from django.conf import settings
+    if not settings.DEBUG:
+        return http.HttpResponse('Works just in debug mode', status=httplib.INTERNAL_SERVER_ERROR)
     if Project.objects.filter(participant__psid=params['psid']).count() == 0:
         return http.HttpResponse(u'No such project', status=httplib.PRECONDITION_FAILED)
     p = Project.objects.filter(participant__psid=params['psid']).all()[0]
@@ -470,6 +459,7 @@ def change_participant_route(params): # ++TESTED
 
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string})
+@typical_json_responder(execute_list_participants, httplib.OK)
 def list_participants_route(params): # ++TESTED
     """
     **Список участников проекта**
@@ -489,7 +479,7 @@ def list_participants_route(params): # ++TESTED
        - `accepted`: участник согласован и учавствует в проекте
        - `denied`: участник заерещен для участия в проекте
        - `voted`: статус участника в процессе согласования
-    - `votes`: предложения по участнику, null если `status` != "voted"
+    - `votes`: предложения по участнику
        - `voter`: (строка) uuid предлагающего
        - `vote`: (строка) одно из возможных предложений
           - `include`: предложение включить в проект
@@ -504,9 +494,7 @@ def list_participants_route(params): # ++TESTED
     - `412`: не верные данные с описанием в теле ответа
     - `500`: ошибка сервера
     """
-    enc = json.JSONEncoder()
-    ret, stat = execute_list_participants(params['psid'])
-    return http.HttpResponse(enc.encode(ret), status=stat, content_type='application/json')
+    pass
 
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
@@ -514,6 +502,7 @@ def list_participants_route(params): # ++TESTED
                            'descr' : OrNone(_good_string),
                            'user_id' : OrNone(_good_string),
                            'comment': OrNone(_good_string)})
+@typical_json_responder(execute_invite_participant, httplib.CREATED)
 def invite_participant_route(params): # ++TESTED
     """
     **Пригласить участника**
@@ -537,7 +526,7 @@ def invite_participant_route(params): # ++TESTED
        Если указанный пользователь совпадает с существующим (совпадает имя и
        user_id если последний указан, либо просто имя если не указан user_id),
        то добваляет приглашение на существующего пользователя, иначе создает
-       нового пользователя со статусом "voted". Согласование пользователя не
+       нового пользователя со статусом 'voted'. Согласование пользователя не
        вызывается.
 
     Статусы возврата:
@@ -548,17 +537,14 @@ def invite_participant_route(params): # ++TESTED
     - `501`: если тип проекта != управляемый, временно
     - `500`: ошибка сервера
     """
-    enc = json.JSONEncoder()
-    ret, stat = execute_invite_participant(params)
-    if stat != httplib.CREATED:
-        transaction.rollback()
-    return http.HttpResponse(enc.encode(ret), status=stat, content_type='application/json')
+    pass
 
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
                            'uuid' : _good_string,
                            'vote' : Any(Equal('include'), Equal('exclude')),
                            'comment' : OrNone(_good_string)})
+@typical_json_responder(execute_conform_participant_vote, httplib.CREATED)
 def conform_participant_vote_route(params):
     """
     **Подтвердить действие над участником**
@@ -588,18 +574,14 @@ def conform_participant_vote_route(params):
     - `501`: если тип проекта != управляемый, временно
     - `500`: ошибка сервера
     """
-    enc = json.JSONEncoder()
-    ret, st = execute_conform_participant_vote(params)
-    if st != httplib.CREATED:
-        transaction.rollback()
-    return http.HttpResponse(enc.encode(ret), status=st, content_type='application/json')
-    
+    pass
 
 @transaction.commit_on_success
 @standard_request_handler({'uuid' : _good_string,
                            'name' : _good_string,
                            'descr' : OrNone(_good_string),
                            'user_id' : OrNone(_good_string)})
+@typical_json_responder(execute_enter_project_open, httplib.CREATED)
 def enter_project_open_route(params): # ++TESTED
     """
     **Вход на открытый проект**
@@ -624,16 +606,13 @@ def enter_project_open_route(params): # ++TESTED
     - `412`: не верные данные с описанием в теле ответа
     - `500`: ошибка сервера
     """
-    enc = json.JSONEncoder()
-    ret, st = execute_enter_project_open(params)
-    if st != httplib.CREATED:
-        transaction.rollback()
-    return http.HttpResponse(enc.encode(ret), status=st, content_type='application/json')
+    pass
 
 
 @transaction.commit_on_success
 @standard_request_handler({'uuid' : _good_string,
                            'token' : _good_string})
+@typical_json_responder(execute_enter_project_invitation, httplib.CREATED)
 def enter_project_invitation_route(params): # ++TESTED
     """
     **Вход в проект по приглашению**
@@ -655,15 +634,12 @@ def enter_project_invitation_route(params): # ++TESTED
     - `412`: не верные данные с описанием в теле ответа
     - `500`: ошибка сервера
     """
-    enc = json.JSONEncoder()
-    ret, st = execute_enter_project_invitation(params)
-    if st != httplib.CREATED:
-        transaction.rollback()
-    return http.HttpResponse(enc.encode(ret), status=st, content_type='application/json')
+    pass
 
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
                            'uuid' : _good_string})
+@typical_json_responder(execute_conform_participant, httplib.CREATED)
 def conform_participant_route(params): # ++TESTED на прямую не вызывается
     """
     **Согласование участника**
@@ -684,16 +660,13 @@ def conform_participant_route(params): # ++TESTED на прямую не выз�
     - `501`: если тип проекта != управляемый, временно
     - `500`: ошибка сервера
     """
-    enc = json.JSONEncoder()
-    r, st = execute_conform_participant(params)
-    if st != httplib.CREATED:
-        transaction.rollback()
-    return http.HttpResponse(enc.encode(r), status=st, content_type='application/json')
+    pass
 
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
                            'uuid' : _good_string,
                            'comment' : OrNone(_good_string)})
+@typical_json_responder(execute_exclude_participant, httplib.CREATED)
 def exclude_participant_route(params):
     """
     **Исключить участника**
@@ -715,14 +688,10 @@ def exclude_participant_route(params):
     - `501`: если тип проекта != управляемый, временно
     - `500`: ошибка сервера
     """
-    enc = json.JSONEncoder()
-    ret, st = execute_exclude_participant(params)
-    if st != httplib.CREATED:
-        transaction.rollback()
-    return http.HttpResponse(enc.encode(ret), status=st, content_type='application/json')
 
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string})
+@typical_json_responder(execute_list_activities, httplib.OK)
 def list_activities_route(params):
     """
     **Просмотр мероприятий проекта**
@@ -756,8 +725,8 @@ def list_activities_route(params):
 
     Поведение:
 
-       Если статус мероприятия "accepted", "denied" или "voted" то мероприятие
-       показывается всем участникам. Если статус == "created" то мероприятие
+       Если статус мероприятия 'accepted', 'denied' или 'voted' то мероприятие
+       показывается всем участникам. Если статус == 'created' то мероприятие
        будет показано только тому пользователю, который его создал.
 
     Статусы возврата:
@@ -767,17 +736,14 @@ def list_activities_route(params):
     - `412`: не верные данные с описанием в теле ответа
     - `500`: ошибка сервера
     """
-    enc = json.JSONEncoder()
-    ret, st = execute_list_activities(params['psid'])
-    if st != httplib.OK:
-        transaction.rollback()
-    return http.HttpResponse(enc.encode(ret), status=st, content_type='application/json')
+    pass
 
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
                            'action' : Any(Equal('include'), Equal('exclude')),
                            'uuid' : _good_string,
                            'comment' : OrNone(_good_string)})
+@typical_json_responder(execute_activity_participation, httplib.CREATED)
 def activity_participation_route(params):
     """
     **Участие в мероприятии**
@@ -797,11 +763,7 @@ def activity_participation_route(params):
     - `412`: не верные данные с описанием в теле ответа
     - `500`: ошибка сервера
     """
-    enc = json.JSONEncoder()
-    ret, st = execute_activity_participation(params)
-    if st != httplib.CREATED:
-        transaction.rollback()
-    return http.HttpResponse(enc.encode(ret), status=st, content_type='application/json')
+    pass
 
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
@@ -809,6 +771,7 @@ def activity_participation_route(params):
                            'descr' : OrNone(_good_string),
                            'begin' : DateTimeString(),
                            'end' : DateTimeString()})
+@typical_json_responder(execute_create_activity, httplib.CREATED)
 def create_activity_route(params):
     """
     **Создание мероприятия**
@@ -834,16 +797,13 @@ def create_activity_route(params):
     - `501`: если тип управления проектом не 'despot' (временно)
     - `500`: ошибка сервера
     """
-    enc = json.JSONEncoder()
-    ret, st = execute_create_activity(params)
-    if st != httplib.CREATED:
-        transaction.rollback()
-    return http.HttpResponse(enc.encode(ret), status=st, content_type='application/json')
+    pass
 
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
                            'uuid' : _good_string,
                            'comment' : OrNone(_good_string)})
+@typical_json_responder(execute_public_activity, httplib.CREATED)
 def public_activity_route(params):
     """
     **Публикация мероприятия**
@@ -858,15 +818,15 @@ def public_activity_route(params):
 
     Поведение:
 
-       Если мероприятие имеет статус "created" и создано оно участником, то
-       меняем статус на "voted", далее предлагаем мероприятие на добавление и
+       Если мероприятие имеет статус 'created' и создано оно участником, то
+       меняем статус на 'voted', далее предлагаем мероприятие на добавление и
        вызываем согласование мероприятия
     
     Статусы возврата:
 
     - `201`: ok
     - `412`: не верные данные с описанием в теле ответа
-    - `501`: если управление проектом != "despot"
+    - `501`: если управление проектом != 'despot'
     - `500`: ошибка сервера
     """
     pass
@@ -874,6 +834,7 @@ def public_activity_route(params):
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
                            'uuid' : _good_string})
+@typical_json_responder(execute_activity_delete, httplib.CREATED)
 def activity_delete_route(params):
     """
     **Удаление мероприятия**
@@ -888,7 +849,7 @@ def activity_delete_route(params):
     Поведение:
 
        Если пользователь - создатель мероприятия и статус мероприятия ==
-       "created" то удаляем мероприятие
+       'created' то удаляем мероприятие
 
     Статусы возврата:
 
@@ -903,6 +864,7 @@ def activity_delete_route(params):
 @standard_request_handler({'psid' : _good_string,
                            'uuid' : _good_string,
                            'comment' : OrNone(_good_string)})
+@typical_json_responder(execute_activity_deny, httplib.CREATED)
 def activity_deny_route(params):
     """
     **Исключение мероприятия**
@@ -931,6 +893,7 @@ def activity_deny_route(params):
 
 @transaction.commit_on_success
 @standard_request_handler({'uuid' : _good_string})
+@typical_json_responder(execute_activity_list_participants, httplib.OK) 
 def activity_list_participants_route(params):
     """
     **Просмотр списка участников**
@@ -955,6 +918,7 @@ def activity_list_participants_route(params):
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
                            'uuid' : _good_string})
+@typical_json_responder(execute_conform_activity, httplib.CREATED)
 def conform_activity_route(params):
     """
     **Согласование мероприятия**

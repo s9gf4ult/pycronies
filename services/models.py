@@ -179,7 +179,7 @@ class ActivityParticipantStatus(BaseModel):
 
 class ActivityParticipantVote(BaseModel):
     voter = models.ForeignKey(Participant, on_delete=models.CASCADE)
-    activity_particapnt_status = models.ForeignKey(ActivityParticipantStatus)
+    activity_participant_status = models.ForeignKey(ActivityParticipantStatus)
     comment = SafeTextField(null=False, default=u'')
 
 class ActivityResource(BaseModel):
