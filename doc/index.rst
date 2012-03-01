@@ -9,10 +9,11 @@ Welcome to pycronies's documentation!
 Contents:
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
 
-.. automodule:: services.views
-   :members:   
+   return412
+   services
+   
 
 
 Indices and tables
