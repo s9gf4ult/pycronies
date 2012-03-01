@@ -1083,7 +1083,7 @@ def change_activity_parameter(params):
 
     Параметры запроса:
 
-    - `psid`: ключ запроса
+    - `psid`: ключ доступа
     - `uuid`: ид параметра мероприятия
     - `value`: новое предлагаемое значение
     - `comment`: комментарий по изменению, может быть Null
@@ -1096,3 +1096,21 @@ def change_activity_parameter(params):
     - `500`: ошибка сервера
     """
     pass
+
+@transaction.commit_on_success
+@standard_request_handler({'psid' : _good_string,
+                           'uuid' : _good_string})
+@typical_json_responder(execute_conform_activity_parameter, httplib.CREATED)
+def conform_activity_parameter(params):
+    """
+    **Согласовать параметр проекта**
+
+    путь запроса: **/activity/parameter/conform**
+
+    Параметры запроса:
+
+    - `psid`: 
+    
+    """
+    pass
+    
