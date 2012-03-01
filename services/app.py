@@ -864,3 +864,16 @@ def execute_activity_deny(params, act, user):
 
 def execute_create_activity_parameter(params):
     pass
+
+def execute_create_activity_parameter_from_default(params):
+    pass
+
+def list_activity_parameters_route(params):
+    pass
+
+def execute_change_activity_parameter(params):
+    pass
+
+def execute_conform_activity_parameter(params):
+    pass
+

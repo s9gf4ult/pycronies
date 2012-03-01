@@ -12,7 +12,8 @@ from services.app import execute_create_project, execute_list_projects, execute_
     execute_conform_participant, execute_list_participants, execute_exclude_participant, execute_conform_participant_vote,\
     execute_list_activities, execute_activity_participation, execute_create_activity, execute_public_activity, execute_conform_project_parameter, \
     execute_activity_list_participants, execute_activity_delete, execute_conform_activity, execute_activity_deny, \
-    execute_create_activity_parameter
+    execute_create_activity_parameter, execute_create_activity_parameter_from_default, list_activity_parameters_route,\
+    execute_change_activity_parameter, execute_conform_activity_parameter
 
 from services.common import json_request_handler, getencdec, validate_params, standard_request_handler, \
      typical_json_responder
@@ -1109,8 +1110,15 @@ def conform_activity_parameter(params):
 
     Параметры запроса:
 
-    - `psid`: 
-    
-    """
+    - `psid`: ключ доступа
+    - `uuid`: ид параметра мероприятия
+
+    Статусы возврата:
+
+    - `201`: ok
+    - `412`: не верные данные с описанием в теле ответа
+    - `501`: если управление проектом != "despot"
+    - `500`: ошибка сервера
+"""
     pass
     

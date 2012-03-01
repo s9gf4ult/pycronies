@@ -31,7 +31,12 @@ urlpatterns = patterns('',
                        url(r'^activity/public$', 'services.views.public_activity_route'),
                        url(r'^activity/list$', 'services.views.list_activities_route'),
                        url(r'^activity/participation$', 'services.views.activity_participation_route'),
-                       url(r'^activity/participant/list', 'services.views.activity_list_participants_route'),
+                       url(r'^activity/participant/list$', 'services.views.activity_list_participants_route'),
+                       url(r'^activity/parameter/create$', 'services.views.create_activity_parameter_route'),
+                       url(r'^activity/parameter/create/fromdefault$', 'services.views.create_activity_parameter_from_default_route'),
+                       url(r'^activity/parameter/list$', 'services.views.list_activity_parameters_route'),
+                       url(r'^activity/parameter/change$', 'services.views.change_activity_parameter'),
+                       url(r'^activity/parameter/conform$', 'services.views.conform_activity_parameter'),
                        
     # url(r'^pycronies/', include('pycronies.foo.urls')),
 

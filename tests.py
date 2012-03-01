@@ -1044,5 +1044,22 @@ class mytest(TestCase):
         for p in psids:
             self._delete_project(p)
 
+    def test_activity_parameter(self, ):
+        psids = []
+        enc, dec = getencdec()
+        c = httplib.HTTPConnection(host, port)
+        r = self.srequest(c, '/project/create', {'name' : 'proj1',
+                                                 'sharing' : 'open',
+                                                 'ruleset' : 'despot',
+                                                 'user_name' : 'asdf'},
+                          httplib.CREATED)
+        psid = dec.decode(r)['psid']
+        psids.append(psid)
+
+        
+        
+        
+        
+
 if __name__ == '__main__':
     main()
