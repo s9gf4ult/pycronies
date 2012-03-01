@@ -11,8 +11,9 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
-.. automodule:: services.views
-   :members:   
+   return412
+   services
+   
 
 
 Indices and tables
