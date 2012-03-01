@@ -45,6 +45,9 @@ class BaseModel(models.Model):
     class Meta:
         abstract = True
 
+
+
+
 class Project(BaseModel):
     """Проект
     """
@@ -114,11 +117,18 @@ class Participant(BaseModel):
         unique_together = (("project", "name"),
                            ("project", "user"))
 
-class ActivityVote(BaseModel):
+class BaseVote(BaseModel):
+    """Базовый класс голоса
+    """
+    voter = models.ForeignKey(Participant, on_delete = models.CASCADE)
+    comment = SafeTextField(null=False, default=u'')
+    class Meta:
+        abstract = True
+
+
+class ActivityVote(BaseVote):
     """Предложение по мероприятию"""
     activity_status = models.ForeignKey(ActivityStatus, on_delete=models.CASCADE)
-    voter = models.ForeignKey(Participant, on_delete=models.CASCADE)
-    comment = SafeTextField(null=False, default=u'')
 
 
 class ParticipantStatus(BaseModel):
@@ -175,12 +185,10 @@ class ActivityParticipantStatus(BaseModel):
     activity_participant = models.ForeignKey(ActivityParticipant, on_delete=models.CASCADE)
     status = models.CharField(max_length=40, choices = ACTIVITY_PARTICIPANT_STATUS_STATUS)
     value = models.CharField(max_length=40, choices = ACTIVITY_PARTICIPANT_STATUS)
-        
 
-class ActivityParticipantVote(BaseModel):
-    voter = models.ForeignKey(Participant, on_delete=models.CASCADE)
+
+class ActivityParticipantVote(BaseVote):
     activity_participant_status = models.ForeignKey(ActivityParticipantStatus)
-    comment = SafeTextField(null=False, default=u'')
 
 class ActivityResource(BaseModel):
     """Ресурс мероприятия
@@ -245,28 +253,6 @@ class ProjectRulesetDefaults(BaseModel): # соответствия свойст
     class Meta:
         unique_together = (('parameter', 'ruleset'))
 
-
-# class DefaultProjectParameter(BaseModel):
-#     """Предлагаемый параметр
-#     """
-#     ruleset = models.CharField(max_length=40, null=True, choices=Project.PROJECT_RULESET)
-#     status = models.CharField(max_length=40, null=True, choices=Project.PROJECT_STATUS)
-#     name = SafeCharField(max_length=100, default=None)
-#     descr = SafeTextField(default=u'')
-#     tp = models.CharField(max_length=40)
-#     enum = models.BooleanField(default = False)
-#     default_value = models.CharField(max_length=40, null=True, default=None)
-#     class Meta:
-#         unique_together=(('ruleset', 'name'), )
-
-# class DefaultProjectParameterVl(BaseModel):
-#     """Перечисляемое значение предлагаемого параметра
-#     """
-#     parameter = models.ForeignKey(DefaultProjectParameter, on_delete=models.CASCADE)
-#     value = models.CharField(max_length=40, default=None, null=False)
-#     caption = models.TextField()
-
-
 class BaseParameter(BaseModel):
     """Базовый класс для параметров
     """
@@ -311,9 +297,8 @@ class ProjectParameterVl(BaseParameterVl):
 class ProjectParameterVal(BaseParameterVal):
     parameter = models.ForeignKey(ProjectParameter, on_delete=models.CASCADE)
 
-class ProjectParameterVote(BaseModel):
+class ProjectParameterVote(BaseVote):
     PROJECT_PARAMETER_VOTE=(('change', u'Изменить значение параметра на указанное'),)
-    voter = models.ForeignKey(Participant)
     parameter_val = models.ForeignKey(ProjectParameterVal, on_delete=models.CASCADE)
     vote = models.CharField(max_length=40, choices=PROJECT_PARAMETER_VOTE)
     class Meta:
@@ -326,6 +311,13 @@ class ActivityParameterVl(BaseParameterVl):
     parameter = models.ForeignKey(ActivityParameter, on_delete=models.CASCADE)
 class ActivityParameterVal(BaseParameterVal):
     parameter = models.ForeignKey(ActivityParameter, on_delete=models.CASCADE)
+class ActivityParameterVote(BaseVote):
+    ACTIVITY_PARAMETER_VOTE = ((u'change', u'Изменить значение параметра мероприятия'), )
+    activity_parameter_val = models.ForeignKey(ActivityParameterVal, on_delete = models.CASCADE)
+    vote = models.CharField(max_length=40, choices=ACTIVITY_PARAMETER_VOTE)
+    class Meta:                 # не можем голосовать одновременно за отмену значения и за его установку
+        unique_together = (('voter', 'activity_parameter_val'), )
+
 
 class ResourceParameter(BaseParameter):
     resource = models.ForeignKey(Resource, on_delete=models.CASCADE)

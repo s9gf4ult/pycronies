@@ -860,3 +860,7 @@ def execute_activity_deny(params, act, user):
     else:
         return {'code' : ACTIVITY_IS_NOT_ACCEPTED,
                 'caption' : 'Activity is not even voted, you can not deny it, use "/activity/delete" if you want delete the activity'}, httplib.PRECONDITION_FAILED
+
+
+def execute_create_activity_parameter(params):
+    pass

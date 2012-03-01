@@ -11,12 +11,13 @@ from services.app import execute_create_project, execute_list_projects, execute_
     execute_invite_participant, execute_change_project_parameter, execute_enter_project_open, execute_enter_project_invitation,\
     execute_conform_participant, execute_list_participants, execute_exclude_participant, execute_conform_participant_vote,\
     execute_list_activities, execute_activity_participation, execute_create_activity, execute_public_activity, execute_conform_project_parameter, \
-    execute_activity_list_participants, execute_activity_delete, execute_conform_activity, execute_activity_deny
+    execute_activity_list_participants, execute_activity_delete, execute_conform_activity, execute_activity_deny, \
+    execute_create_activity_parameter
 
 from services.common import json_request_handler, getencdec, validate_params, standard_request_handler, \
      typical_json_responder
 from services.models import Project
-from svalidate import OrNone, Any, DateTimeString, RegexpMatch, Equal, JsonString, Able
+from svalidate import OrNone, Any, DateTimeString, RegexpMatch, Equal, JsonString, Able, Validate
 from copy import copy
 
 _good_string = RegexpMatch(r'^[^;:"''|\\/#&><]*$')
@@ -558,14 +559,14 @@ def conform_participant_vote_route(params):
     - `vote`: "include" или "exclude", подтверждаем приглашение или
       исключение участника соответственно
     - `comment`: комментарий по приглашению, не обязательный
-    
+
 
     Поведение:
 
        Если предложение на удаление или включение участника от имени вызывавшего
        сервис уже есть, то согласуем это предложение. Иначе создаем предложение
        и согласуем его.
-      
+
     Статусы возврата:
 
     - `201`: ok
@@ -789,7 +790,7 @@ def create_activity_route(params):
     Возвращает JSON словарь:
 
     - `uuid`: ид нового мероприятия
-    
+
     Статусы возврата:
 
     - `201`: ok
@@ -821,7 +822,7 @@ def public_activity_route(params):
        Если мероприятие имеет статус 'created' и создано оно участником, то
        меняем статус на 'voted', далее предлагаем мероприятие на добавление и
        вызываем согласование мероприятия
-    
+
     Статусы возврата:
 
     - `201`: ok
@@ -881,7 +882,7 @@ def activity_deny_route(params):
 
        Создаем предложение на удаление мероприятия (если такого еще нет) и
        вызываем согласование мероприятия
-    
+
     Статусы возврата:
 
     - `201`: ok
@@ -893,7 +894,7 @@ def activity_deny_route(params):
 
 @transaction.commit_on_success
 @standard_request_handler({'uuid' : _good_string})
-@typical_json_responder(execute_activity_list_participants, httplib.OK) 
+@typical_json_responder(execute_activity_list_participants, httplib.OK)
 def activity_list_participants_route(params):
     """
     **Просмотр списка участников**
@@ -929,6 +930,163 @@ def conform_activity_route(params):
 
     - `psid`: ключ доступа
     - `uuid`: ид мероприятия
+
+    Статусы возврата:
+
+    - `201`: ok
+    - `412`: не верные данные с описанием в теле ответа
+    - `501`: если управление проектом != "despot"
+    - `500`: ошибка сервера
+    """
+    pass
+
+@transaction.commit_on_success
+@standard_request_handler({'psid' : _good_string,
+                           'uuid' : _good_string,
+                           'name' : _good_string,
+                           'descr' : OrNone(_good_string),
+                           'tp' : _good_string,
+                           'enum' : JsonString(True),
+                           'value' : OrNone(_good_string)})
+def create_activity_parameter_route(params):
+    """
+    **Создание параметра мероприятия**
+
+    путь запроса: **/activity/parameter/create**
+
+    Параметры запроса:
+
+    - `psid`: ключ доступа
+    - `uuid`: ид мероприятия
+    - `name`: имя параметра мероприятия
+    - `descr`: описание параметра, не обязательный
+    - `tp`: тип параметра
+    - `enum`: JSON кодированное значение True или False, означает
+      что параметр имеет ограниченный набор значений
+    - `value`: Значение параметра при создании, может быть Null
+    - `values`: JSON кодированный список словарей с ключами:
+       - `value`: значение параметра (одно из возможных в списке)
+       - `caption`: описание значения, может быть Null
+
+    Возвращает JSON кодированный словарь:
+
+    - `uuid`: ид нового параметра
+
+    Статусы возврата:
+
+    - `201`: ok
+    - `412`: не верные данные с описанием в теле ответа
+    - `501`: если управление проектом != "despot"
+    - `500`: ошибка сервера
+    """
+    enc, dec = getencdec()
+    pp['enum'] = dec.decode(pp['enum'])
+    if pp['enum']:
+        v = Validate()
+        r = v.validate({'values' : [{'value' : _good_string,
+                                     'caption' : OrNone(_good_string)}]},
+                       pp)
+        if r != None:
+            return {'code' : PARAMETERS_BROKEN,
+                    'error' : r,
+                    'caption' : 'values are broken'}, httplib.PRECONDITION_FAILED
+    ret, st = execute_create_activity_parameter(pp)
+    if st != httplib.CREATED:
+        transaction.rollback()
+    return http.HttpResponse(enc.encode(ret), status=st, content_type='application/json')
+
+
+@transaction.commit_on_success
+@standard_request_handler({'psid' : _good_string,
+                           'uuid' : _good_string,
+                           'default' : _good_string})
+@typical_json_responder(execute_create_activity_parameter_from_default, httplib.CREATED)
+def create_activity_parameter_from_default_route(params):
+    """
+    **Содание параметра мероприятия из типового**
+
+    путь запроса: **/activity/parameter/create/fromdefault**
+
+    Параметры запроса:
+
+    - `psid`: ключ доступа
+    - `uuid`: uuid мероприятия
+    - `default`: uuid типового параметра
+
+    Возвращает JSON словарь:
+
+    - `uuid`: uuid нового параметра мероприятия
+
+    Статусы возврата:
+
+    - `201`: ok
+    - `412`: не верные данные с описанием в теле ответа
+    - `501`: если управление проектом != "despot"
+    - `500`: ошибка сервера
+    """
+    pass
+
+@transaction.commit_on_success
+@standard_request_handler({'psid' : _good_string,
+                           'uuid' : _good_string})
+@typical_json_responder(execute_list_activity_parameters, httplib.OK)
+def list_activity_parameters_route(params):
+    """
+    **Получение перечня параметров мероприятия**
+
+    путь запроса: **/activity/parameter/list**
+
+    Параметры запроса:
+
+    - `psid`: ключ доступа
+    - `uuid`: ид мероприятия
+
+    Возвращает JSON кодированный список словарей с ключами:
+
+    - `uuid`: ид параметра
+    - `name`: имя параметра
+    - `descr`: описание параметра
+    - `tp`: тип параметра
+    - `enum`: Boolean, является ли параметр параметром с
+      ограниченным набором значений
+    - `values`: список словарей с ключами:
+       - `value`: значение
+       - `caption`: описание
+    - `value`: значение параметра, если нет значений то None
+    - `caption`: описание значения, если `value` == None то None
+    - `votes`: список словарей с ключами:
+       - `uuid`: uuid участника проекта, голосовавшего за параметр
+       - `value`: значение, которое предложил участник
+       - `caption`: описание значения
+       - `comment`: комментарий участника
+       - `dt`: дата время в ISO формате (строка), время голосования участника
+       
+    Статусы возврата:
+
+    - `200`: ok
+    - `412`: не верные данные с описанием в теле ответа
+    - `500`: ошибка сервера
+    """
+    pass
+
+@transaction.commit_on_success
+@standard_request_handler({'psid' : _good_string,
+                           'uuid' : _good_string,
+                           'value' : _good_string,
+                           'comment' : OrNone(_good_string)})
+@typical_json_responder(execute_change_activity_parameter, httplib.CREATED)
+def change_activity_parameter(params):
+    """
+    **Изененеие параметра мероирятия**
+
+    путь запроса: **/activity/parameter/change**
+
+    Параметры запроса:
+
+    - `psid`: ключ запроса
+    - `uuid`: ид параметра мероприятия
+    - `value`: новое предлагаемое значение
+    - `comment`: комментарий по изменению, может быть Null
 
     Статусы возврата:
 
