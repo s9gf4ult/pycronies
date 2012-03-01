@@ -9,7 +9,7 @@ Welcome to pycronies's documentation!
 Contents:
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
 
    return412
    services
