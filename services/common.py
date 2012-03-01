@@ -439,5 +439,7 @@ def get_activity_from_uuid(fnc):
             return {'code' : ACTIVITY_NOT_FOUND,
                     'caption' : 'There is no such actvivity'}, httplib.PRECONDITION_FAILED
         act = Activity.objects.filter(uuid=params['uuid']).all()[0]
+        if act.activitystatus_set.filter(status='accepted').count() == 0:
+            return 'There is no one active status in this activity, posible error in some service', httplib.INTERNAL_SERVER_ERROR
         return fnc(*tuple([params, act, user] + list(args[2:])), **kargs)
     return ret

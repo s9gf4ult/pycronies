@@ -890,6 +890,10 @@ class mytest(TestCase):
                                                      'uuid' : auuid1},
                       httplib.CREATED)
 
+        self.srequest(c, '/project/status/change', {'psid' : psid,
+                                                    'status' : 'planning'},
+                      httplib.CREATED)
+        
         # приглашаем второго участника
         r = self.srequest(c, '/participant/invite', {'psid' : psid,
                                                      'name' : 'part2',
@@ -897,6 +901,16 @@ class mytest(TestCase):
                           httplib.CREATED)
         resp = dec.decode(r)
         token2 = resp['token']
+
+        r = self.srequest(c, '/participant/list', {'psid' : psid}, httplib.OK)
+        prts = dec.decode(r)
+        self.assertEqual(2, len(prts))
+        uuid1 = [a['uuid'] for a in prts if a['name'] == 'part2'][0] # получили ид пользователя
+
+        self.srequest(c, '/participant/vote/conform', {'psid' : psid,
+                                                       'uuid' : uuid1,
+                                                       'vote' : 'include'},
+                      httplib.CREATED)
 
         # второй участник входит в проект
         r = self.srequest(c, '/project/enter/invitation', {'uuid' : puuid,
@@ -913,9 +927,6 @@ class mytest(TestCase):
 
         # просатриваем список участников мероприятий: смотрим чтобы было два
         # участника
-        r = self.srequest(c, '/participant/list', {'psid' : psid},
-                          httplib.OK)
-        prts = dec.decode(r)
 
         r = self.srequest(c, '/activity/participant/list', {'uuid' : auuid1},
                           httplib.OK)
@@ -925,7 +936,7 @@ class mytest(TestCase):
         # второй участник создает мероприятие
         self.srequest(c, '/activity/create', {'psid' : psid2,
                                               'name' : 'activ2',
-                                              'begin' : '2020-10-10T20:20:20',
+                                              'begin' : '2020-10-10T20:20:20', # вторая дата позднее
                                               'end' : '2010-10-10T20:20:20'},
                       httplib.PRECONDITION_FAILED)
 
@@ -964,6 +975,12 @@ class mytest(TestCase):
         self.srequest(c, '/activity/public', {'psid' : psid,
                                               'uuid' : auuid2},
                       httplib.CREATED)
+        
+        # теперь мероприятие видно как accepted
+        r = self.srequest(c, '/activity/list', {'psid' : psid},
+                          httplib.OK)
+        resp = dec.decode(r)
+        self.assertEqual(set(['accepted']), set([a['status'] for a in resp]))
 
         # второй участник пытается удалить мероприятие и фейлится потому что
         # мероприятие уже согласовано
@@ -1024,6 +1041,8 @@ class mytest(TestCase):
         resp = dec.decode(r)
         self.assertEqual([], [a for a in resp if len(a['votes']) > 0])
         self.assertEqual(set(['accepted', 'denied']), set([a['status'] for a in resp]))
+        for p in psids:
+            self._delete_project(p)
 
 if __name__ == '__main__':
     main()

@@ -694,6 +694,10 @@ def execute_list_activities(params, user):
 @get_user
 @get_activity_from_uuid
 def execute_activity_participation(params, act, user):
+    st = act.activitystatus_set.filter(status='accepted').all()[0]
+    if st.value != 'accepted':
+        return {'code' : ACTIVITY_IS_NOT_ACCEPTED,
+                'caption' : 'Activity must be accepted join in'}, httplib.PRECONDITION_FAILED
     prj = user.project
     ap = get_or_create_object(ActivityParticipant,
                               {'activity' : act,
@@ -759,8 +763,6 @@ def execute_create_activity(params, user):
 @get_user
 @get_activity_from_uuid
 def execute_public_activity(params, act, user):
-    if act.activitystatus_set.filter(status='accepted').count() == 0:
-        return 'This activity has no status, that may mean that there is error somewhere in service', httplib.INTERNAL_SERVER_ERROR
     st = act.activitystatus_set.filter(status='accepted').all()[0]
     if st.value == 'accepted':
         return 'This activity is already public', httplib.CREATED
@@ -834,8 +836,6 @@ def execute_activity_list_participants(params, act):
 @get_user
 @get_activity_from_uuid
 def execute_activity_delete(params, act, user):
-    if act.activitystatus_set.filter(Q(status='accepted')).count() == 0:
-        return 'activity has no status, maybe error in service', httplib.INTERNAL_SERVER_ERROR
     st = act.activitystatus_set.filter(Q(status='accepted')).all()[0]
     if st.value != 'created' or st.activityvote_set.filter(voter=user).count() == 0: # не тот статус или создали не мы
         return {'code' : ACCESS_DENIED,
@@ -846,4 +846,17 @@ def execute_activity_delete(params, act, user):
 @get_user
 @get_activity_from_uuid
 def execute_activity_deny(params, act, user):
-    pass
+    st = act.activitystatus_set.filter(status='accepted').all()[0]
+    if st.value == 'denied':
+        return 'Already denied', httplib.CREATED
+    elif st.value in ['accepted', 'voted']:
+        nst = get_or_create_object(ActivityStatus, {'activity' : act,
+                                                    'status' : 'voted',
+                                                    'value' : 'denied'})
+        nvt = get_or_create_object(ActivityVote, {'activity_status' : nst,
+                                                  'voter' : user},
+                                   {'comment' : params.get('comment')})
+        return conform_activity(user, act)
+    else:
+        return {'code' : ACTIVITY_IS_NOT_ACCEPTED,
+                'caption' : 'Activity is not even voted, you can not deny it, use "/activity/delete" if you want delete the activity'}, httplib.PRECONDITION_FAILED
