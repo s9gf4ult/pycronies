@@ -406,15 +406,20 @@ def execute_list_project_parameters(psid):
     return ret, httplib.OK
 
 @get_user
-@get_object_by_uuid(Participant,
-                    PARTICIPANT_NOT_FOUND,
-                    u'There is no participants found')
-def execute_change_participant(params, par, user):
-    """
-
-    Arguments:
-    - `params`:
-    """
+def execute_change_participant(params, user):
+    prj = user.project
+    par = None
+    if params.get('uuid') == None:
+        par = user
+    else:
+        if Participant.objects.filter(uuid=params['uuid']).count() == 0:
+            return {'code' : PARTICIPANT_NOT_FOUND,
+                    'caption' : 'There is no such participant'}, httplib.PRECONDITION_FAILED
+        par = Participant.objects.filter(uuid=params['uuid']).all()[0]
+        if par.project != user.project:
+            return {'code' : ACCESS_DENIED,
+                    'caption' : 'You can not change this participant'}, httplib.PRECONDITION_FAILED
+    
     def check_user(par, user):
         # проверка того, что пользователь меняет себя или приглашенного, который еще не входил
         if par.uuid == user.uuid:
@@ -451,7 +456,8 @@ def execute_list_participants(params, part):
     for par in Participant.objects.filter(project=prj).all():
         a = {'uuid' : par.uuid,
              'name' : par.name,
-             'descr' : par.descr}
+             'descr' : par.descr,
+             'me' : part.uuid == par.uuid}
         # текущий статус
         if ParticipantStatus.objects.filter(Q(participant=par) & Q(status='accepted')).count() > 0:
             a['status'] = (ParticipantStatus.objects.filter(Q(participant=par) & Q(status='accepted')).all()[0]).value
