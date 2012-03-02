@@ -10,7 +10,7 @@ from services.models import Project, Participant, hex4, ParticipantVote, \
     ProjectParameter, ProjectParameterVl, ProjectParameterVal, DefaultParameter, \
     DefaultParameterVl, ProjectRulesetDefaults, ProjectParameterVote, ParticipantStatus, \
     ActivityParticipant, Activity, ActivityStatus, ActivityVote, ActivityParticipantStatus, \
-    ActivityParticipantVote
+    ActivityParticipantVote, ActivityParameter, ActivityParameterVal, ActivityParameterVl, ActivityParameterVote
 from services.statuses import *
 from django.db import transaction, IntegrityError
 from django.db.models import Q
@@ -905,9 +905,11 @@ def create_activity_parameter(params, act, user):
                 pass
 
     if params.get('value') != None:
-        return change_activity_parameter(params, ap, user)
-    else:
-        return "OK", httplib.CREATED
+        ret, st = change_activity_parameter(params, ap, user)
+        if st != httplib.CREATED:
+            return ret, st
+
+    return {'uuid' : ap.uuid}, httplib.CREATED
 
 @get_user
 @get_activity_from_uuid
@@ -933,9 +935,44 @@ def execute_create_activity_parameter_from_default(params, act, user):
 @get_activity_from_uuid
 def execute_list_activity_parameters(params, act, user):
     ret = []
-    for act.activityparameter_set.filter(Q(activityparameterval__status='accepted') |
+    for prm in act.activityparameter_set.filter(Q(activityparameterval__status='accepted') |
                                          Q(activityparameterval__status=None)).all():
-        
+       a = {'uuid' : prm.uuid,
+            'name' : prm.name,
+            'tp' : prm.tp,
+            'enum' : prm.enum}
+       if prm.descr != None:
+           a['descr'] = prm.descr
+           
+       vts = []
+       for pval in prm.activityparameterval_set.filter(status='voted').all():
+           for ptsp in ActivityParameterVote.objects.filter(activity_parameter_val=pval).distinct().all():
+               vv = {'uuid' : ptsp.voter.uuid,
+                     'value' : pval.value}
+               if pval.caption != None:
+                   vv['caption'] = pval.caption
+               if ptsp.comment != None:
+                   vv['comment'] = ptsp.comment
+               vts.append(vv)
+
+       a['votes'] = vts
+
+       if prm.enum:
+           vls = []
+           for vl in prm.activityparametervl.all():
+               vx = {'value' : vl.value}
+               if vl.caption != None:
+                   vx['caption'] = vl.caption
+           a['values'] = vls
+
+       if prm.activityparameterval_set.filter(status='accepted').count() > 0:
+           aps = prm.activityparameterval_set.filter(status='accepted').all()[0]
+           a['value'] = aps.value
+           if aps.caption != None:
+               a['caption'] = aps.caption
+
+       
+       ret.append(a)
 
     return ret, httplib.OK
     
