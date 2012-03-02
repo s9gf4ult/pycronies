@@ -668,7 +668,7 @@ def conform_participant_route(params): # ++TESTED на прямую не выз�
 
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
-                           'uuid' : _good_string,
+                           'uuid' : OrNone(_good_string),
                            'comment' : OrNone(_good_string)})
 @typical_json_responder(execute_exclude_participant, httplib.CREATED)
 def exclude_participant_route(params):
@@ -680,7 +680,8 @@ def exclude_participant_route(params):
     Параметры запроса:
 
     - `psid`: (строка) ключ доступа
-    - `uuid`: (строка) идентификатор участника
+    - `uuid`: (строка) идентификатор участника, не обязательный,
+      если не указан, подразумевается удаление самого себя из проекта
     - `comment`: (строка) комментарий, не обязательный
 
     В теле ответа ниче нету
