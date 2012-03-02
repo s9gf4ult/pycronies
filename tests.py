@@ -1047,5 +1047,37 @@ class mytest(TestCase):
         for p in psids:
             self._delete_project(p)
 
+    def test_self_deleting_test(self, ):
+        c = httplib.HTTPConnection(host, port)
+        enc, dec = getencdec()
+        r = self.srequest(c, '/project/create', {'name' : 'asdf',
+                                                 'sharing' : 'open',
+                                                 'ruleset' : 'despot',
+                                                 'user_name' : 'asdf'},
+                          httplib.CREATED)
+        resp = dec.decode(r)
+        psid = resp['psid']
+        puuid = resp['uuid']
+
+        self.srequest(c, '/project/status/change', {'psid' : psid,
+                                                    'status' : 'planning'},
+                      httplib.CREATED)
+
+        r = self.srequest(c, '/project/enter/open', {'uuid' : puuid,
+                                                     'name' : 'blalajs',
+                                                     'user_id' : 'jsjsjfs'},
+                          httplib.CREATED)
+        psid2 = dec.decode(r)['psid']
+        token = dec.decode(r)['token']
+
+        self.srequest(c, '/participant/exclude', {'psid' : psid2},
+                      httplib.CREATED)
+
+        self.srequest(c, '/project/enter/invitation', {'uuid' : puuid,
+                                                           'token' : token},
+                      httplib.PRECONDITION_FAILED)
+
+        self._delete_project(psid)
+
 if __name__ == '__main__':
     main()

@@ -549,24 +549,23 @@ def execute_conform_participant(params, partic, user):
         return u'project with ruleset {0} is not supported in conform_participant'.format(prj.ruleset), httplib.NOT_IMPLEMENTED
 
 def despot_conform_participant(voter, prt, params):
-    if not voter.is_initiator:  # управляемый проект - только инициатор может менять
-        return 'You are not participant, so doing nothing', httplib.CREATED
     # если мы не имеем предложений по участнику, то выходим
     if ParticipantVote.objects.filter(Q(voter=voter) & Q(participant_status__participant=prt) & Q(participant_status__status='voted')).count() == 0:
         return u'There is no one active vote for participant', httplib.CREATED
     # берем наше предложение
     pv = ParticipantVote.objects.filter(Q(voter=voter) & Q(participant_status__participant=prt) & Q(participant_status__status='voted')).all()[0]
-
+    if (not voter.is_initiator) and (not ((voter == prt) and (pv.participant_status.value == 'denied'))):
+        return 'You are not initiator, doing nothing', httplib.CREATED
+    ps = pv.participant_status
+    ps.status='accepted'
+            
     # остальные активные предложения по этому участнику закрываем
     ParticipantStatus.objects.filter(Q(participant=prt) & Q(status='voted')).update(status='denied')
 
     # если есть активный статус участника - закрываем
-    if ParticipantStatus.objects.filter(Q(participant=prt) & Q(status='accepted')).count() > 0:
-        ParticipantStatus.objects.filter(Q(participant=prt) & Q(status='accepted')).update(status='changed')
+    ParticipantStatus.objects.filter(Q(participant=prt) & Q(status='accepted')).update(status='changed')
 
     # делаем статус по активному предложению активным
-    ps = pv.participant_status
-    ps.status='accepted'
     ps.save()
     return '', httplib.CREATED
 
@@ -618,11 +617,19 @@ def execute_enter_project_invitation(params, prj):
     return {'psid' : prt.psid}, httplib.CREATED
 
 @get_user
-@get_object_by_uuid(Participant,
-                    PARTICIPANT_NOT_FOUND,
-                    u'There is no participant with such uuid')
-def execute_exclude_participant(params, part, user):
-    part = Participant.objects.filter(uuid=params['uuid']).all()[0]
+def execute_exclude_participant(params, user):
+    prj = user.project
+    part = None 
+    if params.get('uuid') == None:
+        part = user
+    else:
+        if Participant.objects.filter(uuid=params['uuid']).count() == 0:
+            return {'code' : PARTICIPANT_NOT_FOUND,
+                    'caption' : 'There is no participant with such uuid'}, httplib.PRECONDITION_FAILED
+        part = Participant.objects.filter(uuid=params['uuid']).all()[0]
+        if part.project != user.project:
+            return {'code' : ACCESS_DENIED,
+                    'caption' : 'You can not change this participant (wrong project)'}, httplib.PRECONDITION_FAILED
 
     if part.participantstatus_set.filter(Q(status='accepted') & Q(value='denied')).count() > 0:
         return 'This participant is denied already', httplib.CREATED
@@ -641,7 +648,7 @@ def execute_exclude_participant(params, part, user):
 
     # согласуем участника
     return execute_conform_participant({'psid' : params['psid'],
-                                        'uuid' : params['uuid']})
+                                        'uuid' : part.uuid})
 
 @get_user
 @get_object_by_uuid(Participant, PARTICIPANT_NOT_FOUND,
