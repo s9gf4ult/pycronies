@@ -1055,11 +1055,153 @@ class mytest(TestCase):
                           httplib.CREATED)
         psid = dec.decode(r)['psid']
         psids.append(psid)
+        r = self.srequest(c, '/activity/create', {'psid' : psid,
+                                                  'name' : 'newact',
+                                                  'begin' : '2010-10-10T20:20:20',
+                                                  'end' : '2010-10-11T20:20:20'},
+                          httplib.CREATED)
+        auuid = dec.decode(r)['uuid']
+        self.srequest(c, '/activity/public', {'psid' : psid,
+                                              'uuid' : auuid,
+                                              'comment' : 'public'},
+                      httplib.CREATED)
 
+        # создаем параметра
+        r = self.srequest(c, '/activity/parameter/create', {'psid' : psid,
+                                                            'uuid' : auuid,
+                                                            'name' : 'par1',
+                                                            'tp' : 'text',
+                                                            'enum' : enc.encode(False)},
+                          httplib.CREATED)
+        p1 = dec.decode(r)['uuid']
+
+        # фейлимся
+        r = self.srequest(c, '/activity/parameter/create', {'psid' : psid,
+                                                            'uuid' : auuid,
+                                                            'name' : 'par1', # создание параметра с тем же именем
+                                                            'tp' : 'text',
+                                                            'enum' : enc.encode(False)},
+                          httplib.PRECONDITION_FAILED)
+
+        # создаем еще один с ограниченным набором значений
+        r = self.srequest(c, '/activity/parameter/create',
+                          {'psid' : psid,
+                           'uuid' : auuid,
+                           'name' : 'par2',
+                           'tp' : 'text',
+                           'enum' : enc.encode(True),
+                           'values' : enc.encode([{'value' : 'val1'},
+                                                  {'value' : 'val2',
+                                                   'caption' : 'val2'}])},
+                          httplib.CREATED)
+        p2 = dec.deocde(r)['uuid']
+
+        # фейлимся
+        self.srequest(c, '/activity/parameter/create', {'psid' : psid,
+                                                        'uuid' : auuid,
+                                                        'name' : 'par3',
+                                                        'tp' : 'text',
+                                                        'enum': enc.encode(True)}, # не указаны перечисляемые значения
+                      httplib.PRECONDITION_FAILED)
+
+        # создаем третий параметр
+        r = self.srequest(c, '/activity/parameter/create', {'psid' : psid,
+                                                            'uuid' : auuid,
+                                                            'name' : 'par3',
+                                                            'tp' : 'text',
+                                                            'enum' : enc.encode(False),
+                                                            'value' : 'this is the default value'},
+                          httplib.CREATED)
+        p3 = dec.decode(r)['uuid']
+
+        # создаем параметр имя которого совпадает с именем типового параметра из фикстуры
+        self.srequest(c, '/activity/parameter/create', {'psid' : psid,
+                                                        'uuid' : auuid,
+                                                        'name' : 'test asdf',
+                                                        'tp' : 'text',
+                                                        'enum' : enc.encode(False)},
+                      httplib.CREATED)
+
+        # просматриваем созданные параметры
+        r = self.srequest(c, '/activity/parameter/list', {'psid' : psid,
+                                                          'uuid' : auuid},
+                          httplib.CREATED)
+        prms = dec.decode(r)
         
+        # просматриваем типовые параметры
+        r = self.srequest(c, '/parameters/list', {}, httplib.OK)
+        defprms = dec.decode(r)
+
+        # создаем параметры из типовых и проверяем чтобы статус возврата был
+        # фейловым на параметрах с тем же именем что уже есть
+        for defprm in defprms:
+            self.srequest(c, '/activity/parameter/create/fromdefault', {'psid' : psid,
+                                                                        'uuid' : defprm['uuid']},
+                          httplib.PRECONDITION_FAILED if (defprm['name'] in [a['name'] for a in prms]) else httplib.CREATED)
+
+        # добавляем участника
+        r = self.srequest(c, '/project/enter/open', {'uuid' : puuid,
+                                                     'name' : 'spiderman',
+                                                     'user_id' : 'blah blah'},
+                          httplib.CREATED)
+        psid2 = dec.decode(r)['psid']
+
+        # меняем первый параметр
+        self.srequest(c, '/project/parameter/change', {'psid' : psid,
+                                                       'uuid' : p1,
+                                                       'value' : 'newval'},
+                      httplib.CREATED)
+
+        # смотрим что значение поменялось в списке параметров
+        r = self.srequest(c, '/activity/parameter/list', {'psid' : psid},
+                          httplib.OK)
+        prms = dec.decode(r)
+        val = [a['value'] for a in prms if a['uuid'] == p][0]
+        self.assertEqual(val, 'newval')
+
+        # гость предлагает сменить значение первого параметра
+        self.srequest(c, '/activity/parameter/change', {'psid' : psid2,
+                                                        'uuid' : p1,
+                                                        'value' : 'nextval',
+                                                        'comment' : 'jff'},
+                      httplib.CREATED)
+
+        # проверяем что появилось предложение по этому параметру
+        r = self.srequest(c, '/activity/parameter/list', {'psid' : psid},
+                          httplib.OK)
+        prms = dec.decode(r)
+        prm = [a for a in prms if a['uuid'] == p1][0]
+        self.assertEqual(prm['value'], 'newval')
+        self.assertEqual(1, len(prm['votes']))
+        self.assertEqual('nextval', prm['votes'][0]['value'])
+
+        # инициатор предлагает такое же значение и подтверждает
+        self.srequest(c, '/activity/parameter/change', {'psid' : psid,
+                                                        'uuid' : p1,
+                                                        'value' : 'nextval',
+                                                        'comment' : 'ok'},
+                      httplib.CREATED)
+
+        # проверяем что значение сменилось
+        r = self.srequest(c, '/activity/parameter/list', {'psid' : psid},
+                          httplib.OK)
+        prms = dec.decode(r)
+        prm = [a for a in prms if a['uuid'] == p1][0]
+        self.assertEqual([], prm['votes'])
+        self.assertEqual('nextval', prm['value'])
         
+
+        # Пробуем сменить значение параметра с ограниченным набором значений
+        # на значение не из набора и фейлимся
+        self.srequest(c, '/activity/parameter/change', {'psid' : psid,
+                                                        'uuid' : p2,
+                                                        'value' : '1111111'},
+                      httplib.PRECONDITION_FAILED)
+
+        for p in psids:
+            self._delete_project(p)
         
-        
+
 
 if __name__ == '__main__':
     main()

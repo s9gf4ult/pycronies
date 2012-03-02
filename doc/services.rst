@@ -59,4 +59,9 @@
              activity_participation_route,
              activity_list_participants_route,
              conform_activity_route,
+             create_activity_parameter_route,
+             create_activity_parameter_from_default_route,
+             list_activity_parameters_route,
+             change_activity_parameter,
+             conform_activity_parameter,
              

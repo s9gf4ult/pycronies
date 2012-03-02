@@ -861,18 +861,97 @@ def execute_activity_deny(params, act, user):
         return {'code' : ACTIVITY_IS_NOT_ACCEPTED,
                 'caption' : 'Activity is not even voted, you can not deny it, use "/activity/delete" if you want delete the activity'}, httplib.PRECONDITION_FAILED
 
+@get_user
+@get_activity_from_uuid
+def execute_create_activity_parameter(params, act, user):
+    if 'default' in params:
+        del params['default']
+    return create_activity_parameter(params, act, user)
 
-def execute_create_activity_parameter(params):
+def create_activity_parameter(params, act, user):
+    ap = ActivityParameter(activity=act, name=params['name'], tp=params['tp'], enum=params['enum'])
+    if params.get('descr') != None:
+        ap.descr = params['descr']
+    if params.get('default') != None:
+        ap.default_parameter = params['default']
+    try:
+        ap.save()
+    except IntegrityError:
+        return {'code' : ACTIVITY_PARAMETER_ALREADY_EXISTS,
+                'caption' : 'Parameter with such name is already exists'}, httplib.PRECONDITION_FAILED
+
+    if params['enum']:
+        for val in params['values']:
+            apvl = ActivityParameterVl(parameter=ap,
+                                       value=val['value'])
+            if val.get('caption') != None:
+                apvl.caption=val['caption']
+            try:
+                apvl.save()
+            except IntegrityError: # одинаковые значения просто игнорируем
+                pass
+
+    if params.get('value') != None:
+        return change_activity_parameter(params, ap, user)
+    else:
+        return "OK", httplib.CREATED
+
+@get_user
+@get_activity_from_uuid
+def execute_create_activity_parameter_from_default(params, act, user):
+    if DefaultParameter.objects.filter(uuid=params['default']).count() == 0:
+        return {'code': DEFAULT_PARAMETER_NOT_FOUND,
+                'caption' : 'There is no such default parameter'}, httplib.PRECONDITION_FAILED
+    dp = DefaultParameter.objects.filter(uuid=params['default']).all()[0]
+    params['name'] = dp.name
+    params['descr'] = dp.descr
+    params['tp'] = dp.tp
+    params['enum'] = dp.enum
+    if params['enum']:
+        vs = []
+        for v in dp.defaultparametervl_set.all():
+            vs.append({'value' : v.value,
+                       'caption' : v.caption})
+        params['values'] = vs
+
+    return create_activity_parameter(params, act, user)
+    
+
+def execute_list_activity_parameters(params):
     pass
 
-def execute_create_activity_parameter_from_default(params):
-    pass
+@get_user
+def execute_change_activity_parameter(params, user):
+    prj = user.project
+    if ActivityParameter.objects.filter(uuid=params['uuid']).count() == 0:
+        return {'code' : ACTIVITY_PARAMETER_NOT_FOUND,
+                'caption' : 'Activity parameter did not found'}, httplib.PRECONDITION_FAILED
+    ap = ActivityParameter.objects.filter(uuid=params['uuid']).all()[0]
+    if ap.activity.project != prj:
+        return {'code' : ACCESS_DENIED,
+                'caption' : 'Activity is not from your project'}, httplib.PRECONDITION_FAILED
+    elif ap.activity.activitystatus_set.filter(Q(status='accepted') & Q(value='accepted')).count() == 0:
+        return {'code' : ACTIVITY_IS_NOT_ACCEPTED,
+                'caption' : 'This activity is not accepted'}, httplib.PRECONDITION_FAILED
+    return change_activity_parameter(params, ap, user)
+    
 
-def list_activity_parameters_route(params):
-    pass
-
-def execute_change_activity_parameter(params):
-    pass
+def change_activity_parameter(params, ap, user):
+    if ap.activityparameterval_set.filter(status='accepted').count() > 0:
+        apv = ap.activityparameterval_set.filter(status='accepted').all()[0]
+        if apv.value == params['value']:
+            return 'Already have this value', httplib.CREATED
+    apv = get_or_create_object(ActivityParameterVal, {'parameter' : ap,
+                                                      'status' : 'voted',
+                                                      'value' : params['value']})
+    ActivityParameterVote.objects.filter(Q(voter=user) &
+                                         Q(activity_parameter_val__status='voted') &
+                                         Q(activity_parameter_val__parameter=ap)).delete()
+    apvn = ActivityParameterVote(voter=user, activity_parameter_val = apv)
+    if params.get('comment') != None:
+        apvn.comment=params['comment']
+    apvn.save()
+    return conform_activity_parameter(params, ap, user)
 
 def execute_conform_activity_parameter(params):
     pass
