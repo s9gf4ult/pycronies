@@ -10,8 +10,8 @@ import re
 import json
 from functools import wraps
 from svalidate import Validate
-from services.statuses import PARAMETERS_BROKEN, ACCESS_DENIED
-from services.models import Participant, Activity
+from services.statuses import PARAMETERS_BROKEN, ACCESS_DENIED, ACTIVITY_PARAMETER_NOT_FOUND, ACTIVITY_IS_NOT_ACCEPTED
+from services.models import Participant, Activity, ActivityParameter, 
 
 yearmonthdayhour = ['year', 'month', 'day', 'hour', 'minute', 'second']
 formats = ['%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d', '%Y-%m-%dT%H:%M:%S.%f', '%Y-%m-%d %H:%M:%S.%f']
@@ -442,4 +442,23 @@ def get_activity_from_uuid(fnc):
         if act.activitystatus_set.filter(status='accepted').count() == 0:
             return 'There is no one active status in this activity, posible error in some service', httplib.INTERNAL_SERVER_ERROR
         return fnc(*tuple([params, act, user] + list(args[2:])), **kargs)
+    return ret
+
+def get_activity_parameter_from_uuid(fnc):
+    @wraps(fnc)
+    def ret(*args, **kargs):
+        params, user = args[:2]
+        prj = user.project
+        if ActivityParameter.objects.filter(uuid=params['uuid']).count() == 0:
+            return {'code' : ACTIVITY_PARAMETER_NOT_FOUND,
+                    'caption' : 'Activity parameter did not found'}, httplib.PRECONDITION_FAILED
+        ap = ActivityParameter.objects.filter(uuid=params['uuid']).all()[0]
+        if ap.activity.project != prj:
+            return {'code' : ACCESS_DENIED,
+                    'caption' : 'Activity is not from your project'}, httplib.PRECONDITION_FAILED
+        elif ap.activity.activitystatus_set.filter(Q(status='accepted') & Q(value='accepted')).count() == 0:
+            return {'code' : ACTIVITY_IS_NOT_ACCEPTED,
+                    'caption' : 'This activity is not accepted'}, httplib.PRECONDITION_FAILED
+        return fnc(*tuple([params, ap, user] + list(args[2:])), **kargs)
+
     return ret

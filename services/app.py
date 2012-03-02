@@ -5,7 +5,7 @@ from services.common import check_safe_string, check_safe_string_or_null, \
     check_datetime_or_null, check_bool, check_string, check_string_choise, \
     check_string_or_null, string2datetime, check_int_or_null, check_string_choise_or_null, \
     datetime2dict, check_list_or_null, get_or_create_object, get_user, get_authorized_user, \
-    get_object_by_uuid, get_activity_from_uuid
+    get_object_by_uuid, get_activity_from_uuid, get_activity_parameter_from_uuid
 from services.models import Project, Participant, hex4, ParticipantVote, \
     ProjectParameter, ProjectParameterVl, ProjectParameterVal, DefaultParameter, \
     DefaultParameterVl, ProjectRulesetDefaults, ProjectParameterVote, ParticipantStatus, \
@@ -922,23 +922,20 @@ def execute_create_activity_parameter_from_default(params, act, user):
 
     return create_activity_parameter(params, act, user)
     
+@get_user
+@get_activity_from_uuid
+def execute_list_activity_parameters(params, act, user):
+    ret = []
+    for act.activityparameter_set.filter(Q(activityparameterval__status='accepted') |
+                                         Q(activityparameterval__status=None)).all():
+        
 
-def execute_list_activity_parameters(params):
-    pass
+    return ret, httplib.OK
+    
 
 @get_user
-def execute_change_activity_parameter(params, user):
-    prj = user.project
-    if ActivityParameter.objects.filter(uuid=params['uuid']).count() == 0:
-        return {'code' : ACTIVITY_PARAMETER_NOT_FOUND,
-                'caption' : 'Activity parameter did not found'}, httplib.PRECONDITION_FAILED
-    ap = ActivityParameter.objects.filter(uuid=params['uuid']).all()[0]
-    if ap.activity.project != prj:
-        return {'code' : ACCESS_DENIED,
-                'caption' : 'Activity is not from your project'}, httplib.PRECONDITION_FAILED
-    elif ap.activity.activitystatus_set.filter(Q(status='accepted') & Q(value='accepted')).count() == 0:
-        return {'code' : ACTIVITY_IS_NOT_ACCEPTED,
-                'caption' : 'This activity is not accepted'}, httplib.PRECONDITION_FAILED
+@get_activity_parameter_from_uuid
+def execute_change_activity_parameter(params, ap, user):
     return change_activity_parameter(params, ap, user)
     
 
@@ -959,6 +956,32 @@ def change_activity_parameter(params, ap, user):
     apvn.save()
     return conform_activity_parameter(params, ap, user)
 
-def execute_conform_activity_parameter(params):
-    pass
+@get_user
+@get_activity_parameter_from_uuid
+def execute_conform_activity_parameter(params, ap, user):
+    conform_activity_parameter(params, ap, user)
 
+def conform_activity_parameter(params, ap, user):
+    prj = user.project
+    if prj.ruleset == 'despot' :
+        return despot_conform_activity_parameter(params, ap, user)
+    else:
+        return 'Can not conform activity parameter in this project for now', httplib.NOT_IMPLEMENTED
+
+def despot_conform_activity_parameter(params, ap, user):
+    if not user.is_initiator:
+        return 'You are not initiator, just ignore', httplib.CREATED
+    if ActivityParameterVote.objects.filter(Q(voter=user) &
+                                            Q(activity_parameter_val__status='voted') &
+                                            Q(activity_parameter_val__parameter=ap)).count() == 0:
+        return 'Nothing to conform', httplib.CREATED
+    apv = ActivityParameterVote.objects.filter(Q(voter=user) &
+                                               Q(activity_parameter_val__status='voted') &
+                                               Q(activity_parameter_val__parameter=ap)).all()[0]
+    av = apv.activity_parameter_val
+    av.status='accepted'
+    ActivityParameterVal.objects.filter(Q(parameter=ap) & Q(status='accepted')).update(status='changed')
+    ActivityParameterVal.objects.filter(Q(parameter=ap) & Q(status='voted')).update(status='denied')
+    av.save()
+
+    return 'Value changed', httplib.CREATED
