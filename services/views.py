@@ -415,7 +415,7 @@ def delete_project_route(params): #  FIXME: метод для тестов
 
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
-                           'uuid' : _good_string,
+                           'uuid' : OrNone(_good_string),
                            'name' : OrNone(_good_string),
                            'descr' : OrNone(_good_string),
                            'user_id' : OrNone(_good_string)})
@@ -431,7 +431,8 @@ def change_participant_route(params): # ++TESTED
     Парметры запросаи:
 
     - `psid`: (строка) ключ доступа
-    - `uuid`: (строка) ид участника которого будем менять
+    - `uuid`: (строка) ид участника которого будем менять, не обязательный параметр
+      если не указано, то меняем сами себя
     - `name`: (строка) новое имя участника либо null
     - `descr`: (строка) описание участника либо null
     - `user_id`: (строка) поле user_id либо null
@@ -486,6 +487,7 @@ def list_participants_route(params): # ++TESTED
           - `exclude`: предложение исключить из проекта
        - `comment`: (строка) комментарий предложившего
        - `dt`: Дата и время предложения, строка в ISO формате
+    - `me`: Bool признак того что этот пользователь - и есть мы
 
     Статусы возврата:
 

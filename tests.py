@@ -655,14 +655,6 @@ class mytest(TestCase):
                                                              'vote' : 'include'},
                       httplib.CREATED)
 
-        # повторно фейлимся
-        # request(c, '/participant/invite', {'psid' : psid,
-        #                                    'name' : 'ololosh',
-        #                                    'descr' : 'asdfasd'})
-        # r = c.getresponse()
-        # self.assertEqual(r.status, httplib.PRECONDITION_FAILED)
-        # resp = dec.decode(r.read())
-        # self.assertEqual(resp['code'], PARTICIPANT_ALREADY_EXISTS)
 
         # приглашенный участник входит на проект
         r = self.srequest(c, '/project/enter/invitation', {'uuid' : puuid,
@@ -672,11 +664,22 @@ class mytest(TestCase):
         psid2 = resp['psid']
 
         # зашедший участник меняет сам себя
+        self.srequest(c, '/participant/change', {'psid' : psid2,
+                                                 'name' : 'vasek',
+                                                 'user_id' : 'barlam barlam'},
+                      httplib.CREATED)
+
+        # а теперь тоже самое но с uuid
         r = self.srequest(c, '/participant/list', {'psid' : psid2},
                           httplib.OK)
         resp = dec.decode(r)
-        self.assertIn('ololosh', [a['name'] for a in resp])
-        uuid2 = [a['uuid'] for a in resp if a['name'] == 'ololosh'][0] #взяли свой uuid
+
+        # участник с нашим именем имеет поле `me` == True
+        self.assertEqual(set([True]), set([a['me'] for a in resp if a['name'] == 'vasek']))
+        self.assertEqual(set([False]), set([a['me'] for a in resp if a['name'] != 'vasek']))
+        
+        self.assertIn('vasek', [a['name'] for a in resp])
+        uuid2 = [a['uuid'] for a in resp if a['name'] == 'vasek'][0] #взяли свой uuid
         r = self.srequest(c, '/participant/change', {'psid' : psid2,
                                                      'uuid' : uuid2,
                                                      'name' : 'vasek',
