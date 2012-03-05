@@ -886,7 +886,7 @@ def create_activity_parameter(params, act, user):
     if params.get('descr') != None:
         ap.descr = params['descr']
     if params.get('default') != None:
-        ap.default_parameter = params['default']
+        ap.default_parameter = DefaultParameter.objects.filter(uuid=params['default']).all()[0]
     try:
         ap.save()
     except IntegrityError:
@@ -1023,6 +1023,11 @@ def despot_conform_activity_parameter(params, ap, user):
                                                Q(activity_parameter_val__status='voted') &
                                                Q(activity_parameter_val__parameter=ap)).all()[0]
     av = apv.activity_parameter_val
+    ap = av.parameter
+    if ap.enum and av.value not in [a.value for a in ap.activityparametervl_set.all()]:
+        return {'code' : ACTIVITY_PARAMETER_ERRO,
+                'caption' : 'This is not acceptable value for this parameter'}, httplib.PRECONDITION_FAILED
+    
     av.status='accepted'
     ActivityParameterVal.objects.filter(Q(parameter=ap) & Q(status='accepted')).update(status='changed')
     ActivityParameterVal.objects.filter(Q(parameter=ap) & Q(status='voted')).update(status='denied')
