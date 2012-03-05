@@ -17,6 +17,7 @@ from services.app import execute_create_project, execute_list_projects, execute_
 
 from services.common import json_request_handler, getencdec, validate_params, standard_request_handler, \
      typical_json_responder
+from statuses import PARAMETERS_BROKEN
 from services.models import Project
 from svalidate import OrNone, Any, DateTimeString, RegexpMatch, Equal, JsonString, Able, Validate
 from copy import copy
@@ -988,13 +989,16 @@ def create_activity_parameter_route(params):
     pp['enum'] = dec.decode(pp['enum'])
     if pp['enum']:
         v = Validate()
-        r = v.validate({'values' : [{'value' : _good_string,
-                                     'caption' : OrNone(_good_string)}]},
+        r = v.validate({'values' : JsonString([{'value' : _good_string,
+                                                'caption' : OrNone(_good_string)}])},
                        pp)
         if r != None:
-            return {'code' : PARAMETERS_BROKEN,
-                    'error' : r,
-                    'caption' : 'values are broken'}, httplib.PRECONDITION_FAILED
+            return http.HttpResponse(enc.encode({'code' : PARAMETERS_BROKEN,
+                                                 'error' : r,
+                                                 'caption' : 'values are broken'}),
+                                                 status = httplib.PRECONDITION_FAILED,
+                                                 content_type = 'application/json')
+        pp['values'] = dec.decode(pp['values'])
     ret, st = execute_create_activity_parameter(pp)
     if st != httplib.CREATED:
         transaction.rollback()

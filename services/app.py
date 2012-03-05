@@ -959,7 +959,7 @@ def execute_list_activity_parameters(params, act, user):
 
        if prm.enum:
            vls = []
-           for vl in prm.activityparametervl.all():
+           for vl in prm.activityparametervl_set.all():
                vx = {'value' : vl.value}
                if vl.caption != None:
                    vx['caption'] = vl.caption

@@ -1069,7 +1069,7 @@ class mytest(TestCase):
                                               'comment' : 'public'},
                       httplib.CREATED)
 
-        # создаем параметра
+        # создаем параметр
         r = self.srequest(c, '/activity/parameter/create', {'psid' : psid,
                                                             'uuid' : auuid,
                                                             'name' : 'par1',
@@ -1097,7 +1097,7 @@ class mytest(TestCase):
                                                   {'value' : 'val2',
                                                    'caption' : 'val2'}])},
                           httplib.CREATED)
-        p2 = dec.deocde(r)['uuid']
+        p2 = dec.decode(r)['uuid']
 
         # фейлимся
         self.srequest(c, '/activity/parameter/create', {'psid' : psid,
@@ -1128,7 +1128,7 @@ class mytest(TestCase):
         # просматриваем созданные параметры
         r = self.srequest(c, '/activity/parameter/list', {'psid' : psid,
                                                           'uuid' : auuid},
-                          httplib.CREATED)
+                          httplib.OK)
         prms = dec.decode(r)
         
         # просматриваем типовые параметры

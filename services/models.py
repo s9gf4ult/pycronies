@@ -307,8 +307,14 @@ class ProjectParameterVote(BaseVote):
 class ActivityParameter(BaseParameter):
     activity = models.ForeignKey(Activity, on_delete=models.CASCADE)
     default_parameter = models.ForeignKey(DefaultParameter, null=True, on_delete=models.SET_NULL)
+    class Meta:
+        unique_together = (('activity', 'name'), )
+    
 class ActivityParameterVl(BaseParameterVl):
     parameter = models.ForeignKey(ActivityParameter, on_delete=models.CASCADE)
+    class Meta:
+        unique_together = (('parameter', 'value'), )
+    
 class ActivityParameterVal(BaseParameterVal):
     parameter = models.ForeignKey(ActivityParameter, on_delete=models.CASCADE)
 class ActivityParameterVote(BaseVote):
@@ -322,10 +328,15 @@ class ActivityParameterVote(BaseVote):
 class ResourceParameter(BaseParameter):
     resource = models.ForeignKey(Resource, on_delete=models.CASCADE)
     default_parameter = models.ForeignKey(DefaultParameter, null=True, on_delete=models.SET_NULL)
+    class Meta:
+        unique_together = (('resource', 'name'), )
+    
 class ResourceParameterVl(BaseParameterVl):
     parameter = models.ForeignKey(ResourceParameter, on_delete=models.CASCADE)
 class ResourceParameterVal(BaseParameterVal):
     parameter = models.ForeignKey(ResourceParameter, on_delete=models.CASCADE)
+    class Meta:
+        unique_together = (('parameter', 'value'), )
 
 class ParticipantParameter(BaseParameter):
     participant = models.ForeignKey(Participant, on_delete=models.CASCADE)
