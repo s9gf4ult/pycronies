@@ -1125,8 +1125,44 @@ def conform_activity_parameter(params):
 
     - `201`: ok
     - `412`: не верные данные с описанием в теле ответа
-    - `501`: если управление проектом != "despot"
+    - `501`: если управление проектом != 'despot'
     - `500`: ошибка сервера
 """
     pass
     
+@transaction.commit_on_success
+@standard_request_handler({'psid' : _good_string,
+                           'name' : _good_string,
+                           'descr' : _good_string,
+                           'units' : _good_string,
+                           'use' : Any(*[Equal(a[0]) for a in Resource.RESOURCE_USAGE]),
+                           'site' : Any(*[Equal(a[0]) for a in Resource.RESOURCE_SITE])})
+@typical_json_responder(execute_create_project_resource, httplib.CREATED)
+def create_project_resource_route(params):
+    """
+    **Создать ресурс в проекте**
+
+    путь запроса: **/resource/create**
+
+    Параметры запроса:
+
+    - `psid`: ключ доступа
+    - `name`: имя ресурска
+    - `descr`: описание ресурса
+    - `units`: название еденицы измерения
+    - `use`: использование ресурса, одно из возможных значений
+       - `personal`: ресурс может быть использован как личный ресурс
+       - `common`: ресерс используется только как общий ресурс
+    - `site`: принадлежность ресурса, одно из возможных значений
+       - `internal`: Внутренний ресурс, не требуется поставка
+       - `external`: Внешний ресурс, нужна покупка
+
+    Статусы возврата:
+
+    - `201`: ok
+    - `412`: не верные данные с описанием в теле ответа
+    - `501`: если управление проектом != 'despot'
+    - `500`: ошибка сервера
+       
+    """
+    pass

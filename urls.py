@@ -37,6 +37,8 @@ urlpatterns = patterns('',
                        url(r'^activity/parameter/list$', 'services.views.list_activity_parameters_route'),
                        url(r'^activity/parameter/change$', 'services.views.change_activity_parameter'),
                        url(r'^activity/parameter/conform$', 'services.views.conform_activity_parameter'),
+
+                       url(r'^resource/create', 'services.views.create_project_resource_route'),
                        
     # url(r'^pycronies/', include('pycronies.foo.urls')),
 
