@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 
 from services.common import get_or_create_object, get_user, get_authorized_user, \
-    get_object_by_uuid, get_activity_from_uuid, get_activity_parameter_from_uuid, string2datetime
+    get_object_by_uuid, get_activity_from_uuid, get_activity_parameter_from_uuid, string2datetime, create_object_parameter, \
+    set_object_status, set_object_parameter
 from services.models import Project, Participant, hex4, ParticipantVote, \
     ProjectParameter, ProjectParameterVl, ProjectParameterVal, DefaultParameter, \
     DefaultParameterVl, ProjectRulesetDefaults, ProjectParameterVote, ParticipantStatus, \
@@ -23,6 +24,7 @@ def execute_create_project(parameters):
 
     - `parameters`: dict with parametes
     """
+    # создаем проект
     p = Project(name = parameters['name'], sharing=parameters['sharing'],
                 ruleset=parameters['ruleset'])
     if 'descr' in parameters:
@@ -31,7 +33,6 @@ def execute_create_project(parameters):
         p.begin_date = string2datetime(parameters['begin_date'])
     else:
         p.begin_date=datetime.now()
-    p.status = 'opened'
     p.save()
 
     # создаем участника - владельца
@@ -39,41 +40,40 @@ def execute_create_project(parameters):
     pr.psid=hex4()
     pr.token=hex4()
     pr.is_initiator=True
-    if 'user_id' in parameters:
+    if parameters.get('user_id') != None:
         pr.user = parameters['user_id']
-    if 'user_descr' in parameters:
+    if parameters.get('user_descr') != None:
         pr.descr = parameters['user_descr']
     pr.save()
 
-    # создаем его активный статус
-    ps = ParticipantStatus(participant=pr, value='accepted', status='accepted')
-    ps.save()
+    create_object_parameter(p, 'status', True, values = [a[0] for a in Project.PROJECT_STATUS])
+    create_object_parameter(pr, 'status', True, values = [a[0] for a in Participant.PARTICIPANT_STATUS])
 
-    # создаем предложение на добавление участника
-    pv = ParticipantVote(participant_status=ps, voter=pr, comment=u'Инициатор проекта')
-    pv.save()
+    set_object_status(p, pr, 'opened')
+    set_object_status(pr, pr, 'accepted')
 
     # заполняем дефолтные параметры проекта
     for prd in ProjectRulesetDefaults.objects.filter(Q(ruleset=p.ruleset) | Q(ruleset=None)).all():
         dpr = prd.parameter
-        projpar = ProjectParameter(project=p, default_parameter=dpr,
-                                   name=dpr.name, descr=dpr.descr,
-                                   tp=dpr.tp, enum=dpr.enum)
-        projpar.save()
-        if dpr.enum:
-            for enums in DefaultParameterVl.objects.filter(parameter=dpr).all():
-                penum = ProjectParameterVl(parameter=projpar, value=enums.value, caption=enums.caption)
-                penum.save()
+        create_object_parameter_from_default(p, dpr)
+        # projpar = ProjectParameter(project=p, default_parameter=dpr,
+        #                            name=dpr.name, descr=dpr.descr,
+        #                            tp=dpr.tp, enum=dpr.enum)
+        # projpar.save()
+        # if dpr.enum:
+        #     for enums in DefaultParameterVl.objects.filter(parameter=dpr).all():
+        #         penum = ProjectParameterVl(parameter=projpar, value=enums.value, caption=enums.caption)
+        #         penum.save()
 
-        pval=ProjectParameterVal(parameter=projpar,
-                                 value=dpr.default_value,
-                                 dt=datetime.now(),
-                                 status='accepted')
-        if dpr.enum and DefaultParameterVl.objects.filter(Q(parameter=dpr) & Q(value=dpr.default_value)).count() == 0:
-            print('Error in default parameters of project, default value not in posible values "{0}"'.format(dpr.uuid))
-            return {'code' : PROJECT_PARAMETER_ERROR,
-                    'caption' : 'Error in default parameters of project, default value not in posible values "{0}"'.format(dpr.uuid)}, httplib.INTERNAL_SERVER_ERROR
-        pval.save()
+        # pval=ProjectParameterVal(parameter=projpar,
+        #                          value=dpr.default_value,
+        #                          dt=datetime.now(),
+        #                          status='accepted')
+        # if dpr.enum and DefaultParameterVl.objects.filter(Q(parameter=dpr) & Q(value=dpr.default_value)).count() == 0:
+        #     print('Error in default parameters of project, default value not in posible values "{0}"'.format(dpr.uuid))
+        #     return {'code' : PROJECT_PARAMETER_ERROR,
+        #             'caption' : 'Error in default parameters of project, default value not in posible values "{0}"'.format(dpr.uuid)}, httplib.INTERNAL_SERVER_ERROR
+        # pval.save()
 
     return {'uuid' : p.uuid,
             'psid' : pr.psid,

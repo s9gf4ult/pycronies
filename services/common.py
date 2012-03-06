@@ -11,7 +11,7 @@ import json
 from functools import wraps
 from svalidate import Validate
 from services.statuses import PARAMETERS_BROKEN, ACCESS_DENIED, ACTIVITY_PARAMETER_NOT_FOUND, ACTIVITY_IS_NOT_ACCEPTED
-from services.models import Participant, Activity, ActivityParameter
+from services.models import Participant, Activity, ActivityParameter, parameter_class_map
 
 yearmonthdayhour = ['year', 'month', 'day', 'hour', 'minute', 'second']
 formats = ['%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d', '%Y-%m-%dT%H:%M:%S.%f', '%Y-%m-%d %H:%M:%S.%f']
@@ -234,3 +234,122 @@ def get_activity_parameter_from_uuid(fnc):
         return fnc(*tuple([params, ap, user] + list(args[2:])), **kargs)
 
     return ret
+
+def create_object_parameter(obj, tpclass, unique, tp = None, name = None, descr = None, values = []):
+    """
+    Universal object parameter creator
+    
+    Arguments:
+    
+    - `obj`: object of model class with parameters
+    - `tpclass`: typeclass, for example 'status' or 'user'
+    - `unique`: True if there is just one parameter for given typeclass can be
+    - `tp`: type for user parameters
+    - `name`: name for user parameters
+    - `descr`: descritpion
+    - `values`: list of posible parameters
+    """
+    t = type(obj)
+    if t not in parameter_class_map:
+        raise ValueError('obj must be one of model classes with parametes, not {0}'.format(t))
+    pclass = parameter_class_map[t]['param']
+    pvlclass = parameter_class_map[t]['vl']
+    prmt = pclass(obj = obj,
+                  tpclass = tpclass,
+                  unique = 1 if unique else None,
+                  tp = tp,
+                  name = name,
+                  enum = True if len(values) > 0 ele False,
+                  descr = descr)
+    prmt.save(force_insert=True)
+    for vl in values:
+        pvl = pvlclass(parameter = prmt,
+                       value = vl['value'],
+                       caption = vl.get('caption'))
+        try:
+            pvl.save(force_insert=True)
+        except IntegrityError:
+            pass                # just ignore same values
+        
+def set_object_status(obj, user, newstatus, comment = None):
+    """
+    Arguments:
+    
+    - `obj`:
+    - `user`: user which changes the status
+    - `newstatus`:
+    - `comment`: user comment
+    
+    Raises:
+
+    - `IndexError`: if there is no such parameter
+    - `TypeError`: when given `obj` is not model class which has parameters
+    - `ValueError`: when given value can not be set for this parameter
+    """
+    set_object_parameter(obj, user, 'status', newstatus, comment = comment)
+
+def set_object_parameter(obj, user, tpclass, value, name = None, caption = None, dt = None, comment = None):
+    """
+    Arguments:
+    
+    - `obj`:
+    - `user`: Participant, which set object parameter
+    - `tpclass`: typeclass for example 'status'
+    - `value`: new value to set
+    - `name`: name of user parameter if `tpclass` == 'user'
+    - `caption`: caption for this value
+    - `dt`: datetime for parameter activation
+    - `comment`: user comment
+
+    Raises:
+
+    - `IndexError`: if there is no such parameter
+    - `TypeError`: when given `obj` is not model class which has parameters
+    - `ValueError`: when given value can not be set for this parameter
+    """
+    t = type(obj)
+    if t not in parameter_class_map:
+        raise TypeError('obj must be model type with parameters, not {0}'.format(t))
+    pclass = parameter_class_map[t]['param']
+    pvalclass = parameter_class_map[t]['val']
+    pvlclass = parameter_class_map[t]['vl']
+    voteclass = parameter_class_map[t].get('vote')
+    q = Q(value=value) & Q(status='accepted') & Q(parameter__obj=obj) & Q(parameter__tpclass = tpclass)
+    if tpclass == 'user' :
+        q &= Q(parameter__name = name)
+    if pvalclass.objects.filter(q).count() > 0: # there is one value set already
+        return
+    qf = Q(obj = obj) & Q(tpclass = tpclass)
+    if tpclass == 'user':
+        qf &= Q(name=name)
+    # got parameter
+    param = pclass.objects.filter(qf).all()[0]
+    # check value before set if needed
+    if param.enum:
+        if pvlclass.objects.filter(Q(parameter=param) & Q(value=value)).count() == 0:
+            raise ValueError('value can not be set for this parameter')
+    # set value
+    val = pvalclass(parameter = param,
+                    value = value,
+                    caption = caption,
+                    dt = dt,
+                    status = 'accepted')
+    pvalclass.objects.filter(parameter = param,
+                             status='accepted').update(status='changed')
+    val.save(force_insert=True)
+    # set vote for it
+    if voteclass != None:
+        vote = voteclass(voter = user,
+                         comment = comment,
+                         parameter_val = val)
+        vote.save(force_insert=True)
+
+def create_object_parameter_from_default(obj, default):
+    """
+    Arguments:
+    
+    - `obj`:
+    - `default`:
+    """
+    
+    pass

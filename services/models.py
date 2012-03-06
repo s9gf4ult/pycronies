@@ -7,6 +7,8 @@ import re
 
 # Create your models here.
 
+parameter_class_map = {}
+
 class SafeTextField(models.TextField):
     def get_prep_value(self, value):
         """Validate value and return prepared
@@ -126,6 +128,9 @@ class Project(BaseModel):
 class Participant(BaseModel):
     """Участрник проекта
     """
+    PARTICIPANT_STATUS=((u'accepted', u'Участник актинвен'),
+                        (u'denied', u'Участник запрещен'),
+                        (u'voted', u'Участник в процессе согласования'))
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
     dt = models.DateTimeField(default=None, null=True) # Дата последнего входа участника
     is_initiator = models.BooleanField(default=False)
@@ -145,12 +150,12 @@ class BaseVote(BaseModel):
 
 
 class ProjectParameter(BaseParameter):
-    project = models.ForeignKey(Project, on_delete=models.CASCADE)
+    obj = models.ForeignKey(Project, on_delete=models.CASCADE)
     default = models.ForeignKey(DefaultParameter, null=True, on_delete=models.SET_NULL)
 
     class Meta:
-        unique_together = (('name', 'project'),
-                           ('project', 'tpclass', 'unique'))
+        unique_together = (('name', 'obj'),
+                           ('obj', 'tpclass', 'unique'))
 
 class ProjectParameterVal(BaseParameterVal):
     parameter = models.ForeignKey(ProjectParameter, on_delete = models.CASCADE)
@@ -165,6 +170,10 @@ class ProjectParameterVote(BaseVote):
     class Meta:
         unique_together = ((u'voter', 'parameter_val'), )
 
+parameter_class_map[Project] = {'param' : ProjectParameter,
+                                'val' : ProjectParameterVal,
+                                'vl' : ProjectParameterVl,
+                                'vote' : ProjectParameterVote}
 
 class Activity(BaseModel):
     """Мероприятие
@@ -179,11 +188,11 @@ class Activity(BaseModel):
         unique_together = (("project", "name"), )
 
 class ActivityParameter(BaseParameter):
-    activity = models.ForeignKey(Activity, on_delete = models.CASCADE)
+    obj = models.ForeignKey(Activity, on_delete = models.CASCADE)
     default = models.ForeignKey(DefaultParameter, null=True, on_delete = models.SET_NULL)
     class Meta:
-        unique_together = (('activity', 'name'),
-                           ('activity', 'tpclass', 'unique'))
+        unique_together = (('obj', 'name'),
+                           ('obj', 'tpclass', 'unique'))
 
 class ActivityParameterVal(BaseParameterVal):
     parameter = models.ForeignKey(ActivityParameter, on_delete = models.CASCADE)
@@ -198,6 +207,10 @@ class ActivityParameterVote(BaseVote):
     class Meta:
         unique_together = (('parameter_val', 'voter'), )
 
+parameter_class_map[Activity] = {'param' : ActivityParameter,
+                                 'val' : ActivityParameterVal,
+                                 'vl' : ActivityParameterVl,
+                                 'vote' : ActivityParameterVote}
 
 class MeasureUnits(BaseModel):
     """Еденицы измерения количества ресурса
@@ -233,10 +246,10 @@ class ActivityParticipant(BaseModel):
 class ActivityParticipantParameter(BaseParameter):
     """Параметр участника мероприятия
     """
-    activity_participant = models.ForeignKey(ActivityParticipant, on_delete = models.CASCADE)
+    obj = models.ForeignKey(ActivityParticipant, on_delete = models.CASCADE)
     class Meta:
-        unique_together = (('activity_participant', 'name'),
-                           ('activity_participant', 'tpclass', 'unique'))
+        unique_together = (('obj', 'name'),
+                           ('obj', 'tpclass', 'unique'))
 
 class ActivityParticipantParameterVal(BaseParameterVal):
     """Значение параметра участника мероприятия
@@ -252,6 +265,11 @@ class ActivityParticipantParameterVote(BaseVote):
     parameter_val = models.ForeignKey(ActivityParticipantParameterVal, on_delete = models.CASCADE)
     class Meta:
         unique_together = (('parameter_val', 'voter'), )
+
+parameter_class_map[ActivityParticipant] = {'param' : ActivityParticipantParameter,
+                                            'val' : ActivityParticipantParameterVal,
+                                            'vl' : ActivityParticipantParameterVl,
+                                            'vote' : ActivityParticipantParameterVote}
 
 class ActivityResource(BaseModel):
     """Ресурс мероприятия
@@ -291,6 +309,11 @@ class ActivityResourceParameterVote(BaseVote):
     class Meta:
         unique_together = (('parameter_val', 'voter'), )
 
+parameter_class_map[ActivityResource] = {'param' : ActivityResourceParameter,
+                                         'val' : ActivityResourceParameterVal,
+                                         'vl' : ActivityResourceParameterVl,
+                                         'vote' : ActivityResourceParameterVote}
+
 class ParticipantResource(BaseModel):
     """Личный ресурс участника мероприятия
     """
@@ -299,6 +322,24 @@ class ParticipantResource(BaseModel):
     amount = models.DecimalField(max_digits=20, decimal_places=2, null=False, default=None)
     class Meta:
         unique_together = (("participant", "resource"), )
+
+class ParticipantResourceParameter(BaseParameter):
+    resource = models.ForeignKey(ParticipantResource, on_delete = models.CASCADE)
+    class Meta:
+        unique_together = (('resource', 'name'),
+                           ('resource', 'tpclass', 'equal'))
+
+class ParticipantResourceParameterVal(BaseParameterVal):
+    parameter = models.ForeignKey(ParticipantResourceParameter, on_delete = models.CASCADE)
+
+class ParticipantResourceParameterVl(BaseParameterVl):
+    parameter = models.ForeignKey(ParticipantResourceParameter, on_delete = models.CASCADE)
+    class Meta:
+        unique_together = (('parameter', 'value'), )
+
+parameter_class_map[ParticipantResource] = {'param' : ParticipantResourceParameter,
+                                            'val' : ParticipantResourceParameterVal,
+                                            'vl' : ParticipantResourceParameterVl}
 
 class ProjectRulesetDefaults(BaseModel): # соответствия свойств проекта дефолтным параметрам
     parameter = models.ForeignKey(DefaultParameter)
