@@ -51,7 +51,7 @@ class BaseParameter(BaseModel):
     enum = models.BooleanField() # параметр с ограниченным набором значений
     tpclass = models.CharField(max_length=40) # тип, напримера "status"
     unique = models.IntegerField(null=True) # хак уникальности с полем tpclass либо null либо 1
-    tp = models.CharField(max_length=40) # тип, для пользовательских параметров, если tpclass == 'user'
+    tp = models.CharField(max_length=40, default='text') # тип, для пользовательских параметров, если tpclass == 'user'
     name = SafeTextField(null=True, default=None)                  # имя параметра если tp == 'user'
     descr = SafeTextField(null=True, default=None)                 # описание если tp == 'user'
 
@@ -96,7 +96,7 @@ class DefaultParameterVl(BaseModel):
     """
     parameter = models.ForeignKey(DefaultParameter, on_delete=models.CASCADE)
     value = models.CharField(max_length=40, default=None, null=False)
-    caption = models.TextField()
+    caption = models.TextField(default=u'')
     class Meta:
         unique_together = (('value', 'parameter'), )
 
@@ -148,6 +148,29 @@ class BaseVote(BaseModel):
     class Meta:
         abstract = True
 
+class ParticipantParameter(BaseParameter):
+    obj = models.ForeignKey(Participant, on_delete = models.CASCADE)
+    class Meta:
+        unique_together = (('name', 'obj'),
+                           ('obj', 'tpclass', 'unique'))
+
+class ParticipantParameterVal(BaseParameterVal):
+    parameter = models.ForeignKey(ParticipantParameter, on_delete = models.CASCADE)
+
+class ParticipantParameterVl(BaseParameterVl):
+    parameter = models.ForeignKey(ParticipantParameter, on_delete = models.CASCADE)
+    class Meta:
+        unique_together = (('parameter', 'value'), )
+
+class ParticipantParameterVote(BaseVote):
+    parameter_val = models.ForeignKey(ParticipantParameterVal, on_delete=models.CASCADE)
+    class Meta:
+        unique_together = (('parameter_val', 'voter'), )
+
+parameter_class_map[Participant] = {'param' : ParticipantParameter,
+                                    'val' : ParticipantParameterVal,
+                                    'vl' : ParticipantParameterVl,
+                                    'vote' : ParticipantParameterVote}
 
 class ProjectParameter(BaseParameter):
     obj = models.ForeignKey(Project, on_delete=models.CASCADE)
@@ -327,7 +350,7 @@ class ParticipantResourceParameter(BaseParameter):
     resource = models.ForeignKey(ParticipantResource, on_delete = models.CASCADE)
     class Meta:
         unique_together = (('resource', 'name'),
-                           ('resource', 'tpclass', 'equal'))
+                           ('resource', 'tpclass', 'unique'))
 
 class ParticipantResourceParameterVal(BaseParameterVal):
     parameter = models.ForeignKey(ParticipantResourceParameter, on_delete = models.CASCADE)
@@ -353,7 +376,7 @@ class ParticipantContact(BaseModel):
     participant = models.ForeignKey(Participant, on_delete=models.CASCADE)
     tp = models.CharField(max_length = 40)
     contact = SafeTextField()
-    
+
 # class Vote(BaseModel):
 #     """Голос участника
 #     """

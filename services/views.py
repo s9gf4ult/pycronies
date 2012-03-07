@@ -15,8 +15,7 @@ from services.app import execute_create_project, execute_list_projects, execute_
     execute_create_activity_parameter, execute_create_activity_parameter_from_default,\
     execute_change_activity_parameter, execute_conform_activity_parameter, execute_list_activity_parameters
 
-from services.common import json_request_handler, getencdec, validate_params, standard_request_handler, \
-     typical_json_responder
+from services.common import getencdec, standard_request_handler, typical_json_responder
 from services.models import Project
 from svalidate import OrNone, Any, DateTimeString, RegexpMatch, Equal, JsonString, Able, Validate
 from copy import copy
@@ -164,7 +163,8 @@ def list_user_projects_route(params): # ++TESTED
 
 @transaction.commit_on_success
 @standard_request_handler({'psid' : '',
-                           'status' : Any(*[Equal(a[0]) for a in Project.PROJECT_STATUS])})
+                           'status' : Any(*[Equal(a[0]) for a in Project.PROJECT_STATUS]),
+                           'comment' : OrNone(_good_string)})
 @typical_json_responder(execute_change_project_status, httplib.CREATED)
 def change_project_status_route(params): # ++TESTED
     """
@@ -182,6 +182,7 @@ def change_project_status_route(params): # ++TESTED
        - `budget`: Формирование бюджета
        - `control`: Контроль
        - `closed`: Закрыт
+    - `comment`: комментарий пользователя
 
     Posible return status:
 
@@ -230,7 +231,9 @@ def list_default_parameters_route(request): # ++TESTED
                            'enum' : JsonString(True),
                            'value' : _good_string,
                            'values' : OrNone(JsonString([{'value' : _good_string,
-                                                          'caption' : OrNone(_good_string)}]))})
+                                                          'caption' : OrNone(_good_string)}])),
+                           'caption' : OrNone(_good_string),
+                           'comment' : OrNone(_good_string)})
 def create_project_parameter_route(params): # ++TESTED
     """
     **Создать параметр проекта**
@@ -241,13 +244,15 @@ def create_project_parameter_route(params): # ++TESTED
 
     - `psid`: ключ доступа
     - `name`: имя параметра
-    - `descr`: описание параметра
+    - `descr`: описание параметра, не обязательно
     - `tp`: тип параметра
     - `enum`: JSON кодированный boolean (true or false). 'true' если параметр имеет ограниченный набор значений
     - `value`: значение параметра или None если параметр создается без значения
     - `values`: JSON кодированный список словарей с ключами
        - `value`: значение параметра
        - `caption`: подпись
+    - `caption`: пояснение к значению
+    - `comment`: комментарий пользователя
 
     Posible return status:
 

@@ -3,15 +3,16 @@
 
 import django.http as http
 from django.db.models import Q
-from django.db import transaction
+from django.db import transaction, IntegrityError
 import httplib
 import datetime
 import re
 import json
 from functools import wraps
 from svalidate import Validate
-from services.statuses import PARAMETERS_BROKEN, ACCESS_DENIED, ACTIVITY_PARAMETER_NOT_FOUND, ACTIVITY_IS_NOT_ACCEPTED
-from services.models import Participant, Activity, ActivityParameter, parameter_class_map
+from services.statuses import PARAMETERS_BROKEN, ACCESS_DENIED, ACTIVITY_PARAMETER_NOT_FOUND, ACTIVITY_IS_NOT_ACCEPTED, \
+    ACTIVITY_NOT_FOUND
+from services.models import Participant, Activity, ActivityParameter, parameter_class_map, DefaultParameterVl
 
 yearmonthdayhour = ['year', 'month', 'day', 'hour', 'minute', 'second']
 formats = ['%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d', '%Y-%m-%dT%H:%M:%S.%f', '%Y-%m-%d %H:%M:%S.%f']
@@ -110,7 +111,7 @@ def get_or_create_object(objclass, findparams, setparams = {},
                     else:
                         return None
             if k:
-                obj.save()
+                obj.save(force_update=True)
             return obj
     # если мы тут значит надо создать новый объект
     h = {}
@@ -119,7 +120,7 @@ def get_or_create_object(objclass, findparams, setparams = {},
             if val != None:
                 h[key] = val
     obj = objclass(**h)
-    obj.save()
+    obj.save(force_insert=True)
     return obj
 
 
@@ -138,7 +139,7 @@ def get_authorized_user(p):
     if Participant.objects.filter(psid=p).count() == 0:
         return None
     user = Participant.objects.filter(psid=p).all()[0]
-    if user.participantstatus_set.filter(Q(status='accepted') & Q(value='accepted')).count() > 0:
+    if get_object_status(user) == 'accepted':
         return user
     return False
 
@@ -235,7 +236,7 @@ def get_activity_parameter_from_uuid(fnc):
 
     return ret
 
-def create_object_parameter(obj, tpclass, unique, tp = None, name = None, descr = None, values = []):
+def create_object_parameter(obj, tpclass, unique, tp = 'text', name = None, descr = None, values = []):
     """
     Universal object parameter creator
     
@@ -248,10 +249,15 @@ def create_object_parameter(obj, tpclass, unique, tp = None, name = None, descr 
     - `name`: name for user parameters
     - `descr`: descritpion
     - `values`: list of posible parameters
+
+    Raises:
+
+    - `TypeError`: if obj is wrong type
+    - `IntegrityError`: if this such parameter is alreary exists
     """
     t = type(obj)
     if t not in parameter_class_map:
-        raise ValueError('obj must be one of model classes with parametes, not {0}'.format(t))
+        raise TypeError('obj must be one of model classes with parametes, not {0}'.format(t))
     pclass = parameter_class_map[t]['param']
     pvlclass = parameter_class_map[t]['vl']
     prmt = pclass(obj = obj,
@@ -259,7 +265,7 @@ def create_object_parameter(obj, tpclass, unique, tp = None, name = None, descr 
                   unique = 1 if unique else None,
                   tp = tp,
                   name = name,
-                  enum = True if len(values) > 0 ele False,
+                  enum = (True if (len(values) > 0) else False),
                   descr = descr)
     prmt.save(force_insert=True)
     for vl in values:
@@ -331,25 +337,122 @@ def set_object_parameter(obj, user, tpclass, value, name = None, caption = None,
     # set value
     val = pvalclass(parameter = param,
                     value = value,
-                    caption = caption,
-                    dt = dt,
                     status = 'accepted')
+    if caption != None:
+        val.caption = caption
+    if dt != None:
+        val.dt = dt
     pvalclass.objects.filter(parameter = param,
                              status='accepted').update(status='changed')
     val.save(force_insert=True)
     # set vote for it
     if voteclass != None:
         vote = voteclass(voter = user,
-                         comment = comment,
                          parameter_val = val)
+        if comment != None:
+            vote.comment = comment
         vote.save(force_insert=True)
 
 def create_object_parameter_from_default(obj, default):
     """
+    Creates user parameter (tpclass = 'user') with name and other parameters
+    given from `default`
+    
     Arguments:
     
     - `obj`:
-    - `default`:
+    - `default`: object of default parameter
+
+    Raises:
+
+    - `TypeError`: if obj is wrong typed
+    """
+    values = []
+    if default.enum:
+        for v in DefaultParameterVl.objects.filter(parameter=default).all():
+            values.append({'value' : v.value,
+                           'caption' : v.caption})
+    create_object_parameter(obj, 'user', False,
+                            tp = default.tp,
+                            name=default.name,
+                            descr=default.descr,
+                            values=values)
+
+def get_object_status(obj):
+    """
+    Return current value of status
+    
+    Arguments:
+    - `obj`:
+    """
+    return get_object_parameter(obj, 'status')
+
+def get_object_parameter(obj, tpclass, name = None):
     """
     
-    pass
+    Arguments:
+    - `obj`:
+    - `tpclass`:
+    - `name`: user parameter if tpclass == 'user'
+
+    Raises:
+
+    - `TypeError`: if `obj` has wrong class
+    """
+    t = type(obj)
+    if t not in parameter_class_map:
+        raise TypeError('obj must be instance of model class with properties, not {0}'.format(t))
+    pclass = parameter_class_map[t]['param']
+    pvalclass = parameter_class_map[t]['val']
+    q = Q(status='accepted') & Q(parameter__tpclass=tpclass) & Q(parameter__obj=obj)
+    if tpclass == 'user':
+        if not isinstance(name, basestring):
+            raise ValueError('if tpclass == "user" then name must be set')
+        q &= Q(parameter__name = name)
+    try:
+        prm = pvalclass.objects.filter(q).all()[0]
+    except IndexError:
+        return None
+    return prm.value
+
+def add_vote_for_object_parameter(obj, user, tpclass, value, name = None, comment = None, caption = None):
+    """
+    Add vote for object parameter if it does not exists, if it is, then
+    add vote for existing value
+    
+    Arguments:
+    
+    - `obj`:
+    - `user`:
+    - `tpclass`:
+    - `value`:
+    - `name`:
+    - `comment`:
+    - `caption`:
+    """
+    t = type(obj):
+    if t not in parameter_class_map:
+        raise TypeError('obj has wrong type {0}'.format(t))
+
+    pclass = parameter_class_map[t]['param']
+    pvalclass = parameter_class_map[t]['val']
+    pvlclass = parameter_class_map[t]['vl']
+    pvoteclass = parameter_class_map[t].get('vote')
+
+    q = Q(obj=obj) & Q(tpclass=tpclass)
+    if tpclass == 'user':
+        if not isinstance(name, basestring):
+            raise ValueError('name must be string when tpclass == "user"')
+        q &= Q(name=name)
+    prm = pclass.objects.filter(q).all()[0]
+    x = {'parameter' : prm,
+         'value' : value,
+         'status' : 'voted'}
+    pval = get_or_create_object(pvalclass, x,
+                                {'caption' : caption},
+                                can_change = (lambda a: False))
+    if pvoteclass != None:
+        pvt = get_or_create_object(pvoteclass, {'voter' : user,
+                                                'parameter_val' : pval}
+                                   {'comment' : comment})
+                                     
