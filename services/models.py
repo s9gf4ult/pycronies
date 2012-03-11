@@ -46,6 +46,7 @@ class BaseModel(models.Model):
 
     class Meta:
         abstract = True
+        ordering = ['create_date']
 
 class BaseParameter(BaseModel):
     enum = models.BooleanField() # параметр с ограниченным набором значений
@@ -57,6 +58,7 @@ class BaseParameter(BaseModel):
 
     class Meta:
         abstract = True
+        ordering = ['name']
 
 class BaseParameterVal(BaseModel):
     """Базовый класс значения параметра
@@ -72,6 +74,7 @@ class BaseParameterVal(BaseModel):
     status = models.CharField(max_length=40, choices=PARAMETER_VALUE_STATUS)
     class Meta:
         abstract = True
+        ordering = ['status', 'value']
 
 class BaseParameterVl(BaseModel):
     """Базовый класс возможных значений параметра
@@ -80,6 +83,7 @@ class BaseParameterVl(BaseModel):
     caption = models.TextField(null=True)
     class Meta:
         abstract = True
+        ordering = ['value']
 
 class DefaultParameter(BaseModel):
     """Предлагаемый параметр проекта или чего нибудь еще
@@ -123,7 +127,7 @@ class Project(BaseModel):
     begin_date = models.DateTimeField(null=True)
     end_date = models.DateTimeField(null=True)
     class Meta:
-        ordering = ['begin_date']
+        ordering = ['name']
 
 class Participant(BaseModel):
     """Участрник проекта
@@ -139,6 +143,10 @@ class Participant(BaseModel):
     token = models.CharField(max_length=40, null=True, unique=True)
     name = SafeCharField(max_length=100, default=None, null=False)
     descr = SafeTextField(default=u'')
+    class Meta:
+        unique_together = ((u'name', u'project'),
+                           (u'project', u'user'))
+        ordering = ['name']
 
 class BaseVote(BaseModel):
     """Базовый класс голоса
@@ -209,6 +217,7 @@ class Activity(BaseModel):
 
     class Meta:
         unique_together = (("project", "name"), )
+        ordering = ['name']
 
 class ActivityParameter(BaseParameter):
     obj = models.ForeignKey(Activity, on_delete = models.CASCADE)

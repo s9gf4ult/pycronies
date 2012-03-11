@@ -519,7 +519,7 @@ class mytest(TestCase):
         self.assertIn('token', d)
 
         request(c, '/project/enter/open', {'uuid' : resp['uuid'],
-                                           'name' : 'blah blah',
+                                           'name' : 'blah blah', # same name can not enter
                                            'user_id' : 'sdfasdf'})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.PRECONDITION_FAILED)

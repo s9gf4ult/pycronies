@@ -303,6 +303,7 @@ def create_project_parameter_from_default_route(params): # ++TESTED
 
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string})
+@typical_json_responder(execute_list_project_parameters, httplib.OK)
 def list_project_parameters_route(params): # ++TESTED
     """
     **Просмотр списка параметров проекта**
@@ -339,15 +340,14 @@ def list_project_parameters_route(params): # ++TESTED
     - `404`: user was not found with such psid
     - `500`: otherwise
     """
-    enc = json.JSONEncoder()
-    ret, st = execute_list_project_parameters(params['psid'])
-    return http.HttpResponse(enc.encode(ret), status=st, content_type='application/json')
+    pass
 
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
                            'uuid' : _good_string,
                            'value' : _good_string,
-                           'caption' : OrNone(_good_string)})
+                           'caption' : OrNone(_good_string),
+                           'comment' : OrNone(_good_string)})
 @typical_json_responder(execute_change_project_parameter, httplib.CREATED)
 def change_project_parameter_route(params): # ++TESTED
     """
@@ -361,6 +361,7 @@ def change_project_parameter_route(params): # ++TESTED
     - `uuid`: parameter uuid
     - `value`: parameter value
     - `caption`: value caption, may be null
+    - `comment`: users's comment
 
     Return status:
 
