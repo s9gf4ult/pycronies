@@ -136,7 +136,7 @@ def execute_list_user_projects(user_id):
                     'descr' : pr.descr,
                     'begin_date' : pr.begin_date.isoformat() if pr.begin_date != None else None,
                     'initiator' : part.is_initiator,
-                    'status' : get_object_status(pr.status)})
+                    'status' : get_object_status(pr)})
     return ret, httplib.OK
 
 @get_user
@@ -994,7 +994,11 @@ def change_activity_parameter(params, ap, user):
     # if params.get('comment') != None:
     #     apvn.comment=params['comment']
     # apvn.save()
-    set_vote_for_object_parameter(ap.obj, user, params['value'], uuid=ap.uuid) 
+    try:
+        set_vote_for_object_parameter(ap.obj, user, params['value'], uuid=ap.uuid)
+    except ValueError:
+        return {'code' : ACTIVITY_PARAMETER_ERROR,
+                'caption' : 'This value can not be set for enum parameter'}, httplib.PRECONDITION_FAILED
     return conform_activity_parameter(params, ap, user)
 
 @get_user

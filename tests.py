@@ -16,7 +16,7 @@ def getencdec():
     return (json.JSONEncoder(), json.JSONDecoder())
 
 def encodeparams(prms):
-    return urllib.urlencode(prms)
+    return urllib.urlencode(prms, 'utf-8')
 
 def request(conn, route, data):
     conn.request('POST', route, encodeparams(data), {'Content-Type' : 'application/x-www-form-urlencoded; charset=utf-8'})
@@ -873,7 +873,7 @@ class mytest(TestCase):
         self.srequest(c, '/activity/public', {'psid' : psid,
                                               'uuid' : auuid1,
                                               'comment' : 'hoy!'},
-                      httplib.CREATED, True)
+                      httplib.CREATED)
 
         # просматриваем список мероприятий
         r = self.srequest(c, '/activity/list', {'psid' : psid},

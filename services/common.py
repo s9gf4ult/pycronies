@@ -227,7 +227,7 @@ def get_activity_parameter_from_uuid(fnc):
             return {'code' : ACTIVITY_PARAMETER_NOT_FOUND,
                     'caption' : 'Activity parameter did not found'}, httplib.PRECONDITION_FAILED
         ap = ActivityParameter.objects.filter(uuid=params['uuid']).all()[0]
-        if ap.activity.project != prj:
+        if ap.obj.project != prj:
             return {'code' : ACCESS_DENIED,
                     'caption' : 'Activity is not from your project'}, httplib.PRECONDITION_FAILED
         ast = get_object_status(ap.obj)

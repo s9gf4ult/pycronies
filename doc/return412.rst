@@ -108,14 +108,14 @@
 
   Если указанный UUID не соответствует ни одному параметру мероприятия
 
-- ACTIVITY_PARAMETER_ERRO = 120
+- ACTIVITY_PARAMETER_ERROR = 120
 
   При попытке изменения параметра мероприятия с ограниченным набором значений на
   значение не из этого набора
   
 
 ^^^^^^^^^^^^^^^
-Для жабаскрипта
+JavaSctip копипаста
 ^^^^^^^^^^^^^^^
 
 .. code-block:: js
@@ -140,7 +140,7 @@
   var ACTIVITY_IS_NOT_ACCEPTED = 117;
   var ACTIVITY_PARAMETER_ALREADY_EXISTS = 118;
   var ACTIVITY_PARAMETER_NOT_FOUND = 119;
-  var ACTIVITY_PARAMETER_ERRO = 120;
+  var ACTIVITY_PARAMETER_ERROR = 120;
 
 -------------------
 Формат поля `error`
@@ -271,7 +271,7 @@
 
 
 ^^^^^^^^^^^^^^^
-Для жабаскрипта
+JavaScript копипаста
 ^^^^^^^^^^^^^^^
 
 .. code-block:: js

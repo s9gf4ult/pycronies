@@ -16,7 +16,7 @@ from services.app import execute_create_project, execute_list_projects, execute_
     execute_change_activity_parameter, execute_conform_activity_parameter, execute_list_activity_parameters
 
 from services.common import getencdec, standard_request_handler, typical_json_responder
-from services.models import Project
+from services.models import Project, Resource
 from services.statuses import PARAMETERS_BROKEN
 from svalidate import OrNone, Any, DateTimeString, RegexpMatch, Equal, JsonString, Able, Validate
 from copy import copy
