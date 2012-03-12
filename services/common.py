@@ -346,7 +346,7 @@ def set_object_parameter(obj, user, value, uuid = None, tpclass = None, name = N
     pvalclass = parameter_class_map[t]['val']
     pvlclass = parameter_class_map[t]['vl']
     voteclass = parameter_class_map[t].get('vote')
-    
+
     q = Q(value=value) & Q(status='accepted') & Q(parameter__obj=obj)
     if isinstance(uuid, basestring):
         q &= Q(parameter__uuid=uuid)
@@ -356,7 +356,7 @@ def set_object_parameter(obj, user, value, uuid = None, tpclass = None, name = N
             q &= Q(parameter__name = name)
     if pvalclass.objects.filter(q).count() > 0: # there is one value set already
         return
-    
+
     qf = Q(obj = obj)
     if isinstance(uuid, basestring):
         qf &= Q(uuid=uuid)
@@ -498,7 +498,7 @@ def set_vote_for_object_parameter(obj, user, value, uuid = None, tpclass = None,
     if prm.enum:
        if pvlclass.objects.filter(Q(value=value) & Q(parameter=prm)).count() == 0:
            raise ValueError('this value can not be accepted')
-           
+
     # get or create voted value
     pval = get_or_create_object(pvalclass,
                                 {'parameter' : prm,
@@ -549,10 +549,10 @@ def get_vote_value_for_object_parameter(obj, user, uuid = None, tpclass = None, 
         return None
     return ret
 
-def set_as_accepted_value_of_object_parameter(val):
+def set_as_accepted_value_of_object_parameter(val): #  FIXME: надо проверять enum параметр перед назначением
     """
     Waring ! this does not check value can be set for enumerable parameters
-    
+
     Arguments:
     - `val`: value object
 

@@ -100,6 +100,20 @@
   При попытке выполнить действие, требующее чтобы статус мероприятия был
   "accepted".
 
+- ACTIVITY_PARAMETER_ALREADY_EXISTS = 118
+
+  При попытке создать параметр мероприятия с тем же именем
+
+- ACTIVITY_PARAMETER_NOT_FOUND = 119
+
+  Если указанный UUID не соответствует ни одному параметру мероприятия
+
+- ACTIVITY_PARAMETER_ERRO = 120
+
+  При попытке изменения параметра мероприятия с ограниченным набором значений на
+  значение не из этого набора
+  
+
 ^^^^^^^^^^^^^^^
 Для жабаскрипта
 ^^^^^^^^^^^^^^^
@@ -124,8 +138,9 @@
   var ACTIVITY_ALREADY_EXISTS = 115;
   var WRONG_DATETIME_PERIOD = 116;
   var ACTIVITY_IS_NOT_ACCEPTED = 117;
-
-
+  var ACTIVITY_PARAMETER_ALREADY_EXISTS = 118;
+  var ACTIVITY_PARAMETER_NOT_FOUND = 119;
+  var ACTIVITY_PARAMETER_ERRO = 120;
 
 -------------------
 Формат поля `error`

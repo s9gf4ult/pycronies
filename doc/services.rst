@@ -37,7 +37,7 @@
              list_participants_route,
              conform_participant_route,
              exclude_participant_route,
-             
+
 ------------------
 Участие в проектах
 ------------------
@@ -45,7 +45,7 @@
 .. automodule:: services.views
    :members: enter_project_open_route,
              enter_project_invitation_route,
-             
+
 ----------------------
 Работа с мероприятиями
 ----------------------
@@ -64,4 +64,11 @@
              list_activity_parameters_route,
              change_activity_parameter,
              conform_activity_parameter,
-             
+
+
+------------------
+Работа с ресурсами
+------------------
+
+.. automodule:: services.views
+   :members: create_project_resource

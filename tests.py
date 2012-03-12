@@ -1056,8 +1056,15 @@ class mytest(TestCase):
                                                  'ruleset' : 'despot',
                                                  'user_name' : 'asdf'},
                           httplib.CREATED)
+        
         psid = dec.decode(r)['psid']
+        puuid = dec.decode(r)['uuid']
         psids.append(psid)
+
+        self.srequest(c, '/project/status/change', {'psid' : psid,
+                                                    'status' : 'planning'},
+                      httplib.CREATED)
+        
         r = self.srequest(c, '/activity/create', {'psid' : psid,
                                                   'name' : 'newact',
                                                   'begin' : '2010-10-10T20:20:20',
@@ -1069,7 +1076,7 @@ class mytest(TestCase):
                                               'comment' : 'public'},
                       httplib.CREATED)
 
-        # создаем параметра
+        # создаем параметр
         r = self.srequest(c, '/activity/parameter/create', {'psid' : psid,
                                                             'uuid' : auuid,
                                                             'name' : 'par1',
@@ -1139,8 +1146,9 @@ class mytest(TestCase):
         # фейловым на параметрах с тем же именем что уже есть
         for defprm in defprms:
             self.srequest(c, '/activity/parameter/create/fromdefault', {'psid' : psid,
-                                                                        'uuid' : defprm['uuid']},
-                          httplib.PRECONDITION_FAILED if (defprm['name'] in [a['name'] for a in prms]) else httplib.CREATED, True)
+                                                                        'uuid' : auuid,
+                                                                        'default' : defprm['uuid']},
+                          httplib.PRECONDITION_FAILED if (defprm['name'] in [a['name'] for a in prms]) else httplib.CREATED)
 
         # добавляем участника
         r = self.srequest(c, '/project/enter/open', {'uuid' : puuid,
@@ -1150,16 +1158,17 @@ class mytest(TestCase):
         psid2 = dec.decode(r)['psid']
 
         # меняем первый параметр
-        self.srequest(c, '/project/parameter/change', {'psid' : psid,
-                                                       'uuid' : p1,
-                                                       'value' : 'newval'},
+        self.srequest(c, '/activity/parameter/change', {'psid' : psid,
+                                                        'uuid' : p1,
+                                                        'value' : 'newval'},
                       httplib.CREATED)
 
         # смотрим что значение поменялось в списке параметров
-        r = self.srequest(c, '/activity/parameter/list', {'psid' : psid},
+        r = self.srequest(c, '/activity/parameter/list', {'psid' : psid,
+                                                          'uuid' : auuid},
                           httplib.OK)
         prms = dec.decode(r)
-        val = [a['value'] for a in prms if a['uuid'] == p][0]
+        val = [a['value'] for a in prms if a['uuid'] == p1][0]
         self.assertEqual(val, 'newval')
 
         # гость предлагает сменить значение первого параметра
@@ -1170,7 +1179,8 @@ class mytest(TestCase):
                       httplib.CREATED)
 
         # проверяем что появилось предложение по этому параметру
-        r = self.srequest(c, '/activity/parameter/list', {'psid' : psid},
+        r = self.srequest(c, '/activity/parameter/list', {'psid' : psid,
+                                                          'uuid' : auuid},
                           httplib.OK)
         prms = dec.decode(r)
         prm = [a for a in prms if a['uuid'] == p1][0]
@@ -1186,7 +1196,8 @@ class mytest(TestCase):
                       httplib.CREATED)
 
         # проверяем что значение сменилось
-        r = self.srequest(c, '/activity/parameter/list', {'psid' : psid},
+        r = self.srequest(c, '/activity/parameter/list', {'psid' : psid,
+                                                          'uuid' : auuid},
                           httplib.OK)
         prms = dec.decode(r)
         prm = [a for a in prms if a['uuid'] == p1][0]
