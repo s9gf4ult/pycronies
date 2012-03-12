@@ -873,7 +873,7 @@ class mytest(TestCase):
         self.srequest(c, '/activity/public', {'psid' : psid,
                                               'uuid' : auuid1,
                                               'comment' : 'hoy!'},
-                      httplib.CREATED)
+                      httplib.CREATED, True)
 
         # просматриваем список мероприятий
         r = self.srequest(c, '/activity/list', {'psid' : psid},
@@ -1097,7 +1097,7 @@ class mytest(TestCase):
                                                   {'value' : 'val2',
                                                    'caption' : 'val2'}])},
                           httplib.CREATED)
-        p2 = dec.deocde(r)['uuid']
+        p2 = dec.decode(r)['uuid']
 
         # фейлимся
         self.srequest(c, '/activity/parameter/create', {'psid' : psid,

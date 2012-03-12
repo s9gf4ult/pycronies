@@ -212,8 +212,9 @@ def get_activity_from_uuid(fnc):
             return {'code' : ACTIVITY_NOT_FOUND,
                     'caption' : 'There is no such actvivity'}, httplib.PRECONDITION_FAILED
         act = Activity.objects.filter(uuid=params['uuid']).all()[0]
-        if act.activitystatus_set.filter(status='accepted').count() == 0:
-            return 'There is no one active status in this activity, posible error in some service', httplib.INTERNAL_SERVER_ERROR
+        # ast = get_object_status(act)
+        # if ast != 'accepted':
+        #     return 'There is no one active status in this activity, posible error in some service', httplib.INTERNAL_SERVER_ERROR
         return fnc(*tuple([params, act, user] + list(args[2:])), **kargs)
     return ret
 
@@ -229,7 +230,8 @@ def get_activity_parameter_from_uuid(fnc):
         if ap.activity.project != prj:
             return {'code' : ACCESS_DENIED,
                     'caption' : 'Activity is not from your project'}, httplib.PRECONDITION_FAILED
-        elif ap.activity.activitystatus_set.filter(Q(status='accepted') & Q(value='accepted')).count() == 0:
+        ast = get_object_status(ap.obj)
+        if ast != 'accepted':
             return {'code' : ACTIVITY_IS_NOT_ACCEPTED,
                     'caption' : 'This activity is not accepted'}, httplib.PRECONDITION_FAILED
         return fnc(*tuple([params, ap, user] + list(args[2:])), **kargs)
@@ -256,7 +258,7 @@ def get_or_create_object_parameter(obj, tpclass, unique, tp = 'text', name = Non
         prmt = pclass.objects.filter(q).all()[0]
     except IndexError:
         return create_object_parameter(obj, tpclass, unique, tp, name, descr, values)
-
+    return prmt
 
 def create_object_parameter(obj, tpclass, unique, tp = 'text', name = None, descr = None, values = []):
     """
@@ -517,7 +519,7 @@ def set_vote_for_object_parameter(obj, user, value, uuid = None, tpclass = None,
 
 
 def get_vote_value_for_object_parameter(obj, user, uuid = None, tpclass = None, name = None):
-    """Return object's parameter's value for whitch user has voted
+    """Return object's parameter's value model object for whitch user has voted
 
     If there is no one value voted, then return None
 

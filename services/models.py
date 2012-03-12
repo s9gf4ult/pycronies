@@ -209,6 +209,10 @@ parameter_class_map[Project] = {'param' : ProjectParameter,
 class Activity(BaseModel):
     """Мероприятие
     """
+    ACTIVITY_STATUS=((u'created', u'Мероприяте создано'),
+                     (u'voted', u'Мероприятие в процессе согласования'),
+                     (u'accepted', u'Мероприятие активно'),
+                     (u'denied', u'Меропри запрещено'))
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
     name = SafeTextField(default=None, null=False)
     descr = SafeTextField(default=u'')
@@ -270,6 +274,9 @@ class Resource(BaseModel):
 class ActivityParticipant(BaseModel):
     """Участник мероприятия
     """
+    ACTIVITY_PARTICIPANT_STATUS=((u'accepted', u'Участник актинвен'),
+                                 (u'denied', u'Участник запрещен'),
+                                 (u'voted', u'Участник в процессе согласования'))
     activity = models.ForeignKey(Activity, on_delete = models.CASCADE)
     participant = models.ForeignKey(Participant, on_delete = models.CASCADE)
     class Meta:

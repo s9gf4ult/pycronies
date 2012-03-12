@@ -119,6 +119,7 @@ def execute_list_user_projects(user_id):
     Return:
     (`response`, `answer`)
     """
+    
     # проверяем есть ли пользователь с указанным user_id
     cnt = Participant.objects.filter(Q(user=user_id) | Q(token=user_id)).count()
     if cnt==0:
@@ -446,7 +447,7 @@ def execute_list_participants(params, part):
              'descr' : par.descr,
              'me' : part.uuid == par.uuid,
              'status' : get_object_status(par)}
-        
+
         # смотрим список предложений по участнику
         vts = []
         for ps in ParticipantParameterVal.objects.filter(Q(parameter__tpclass='status') & Q(parameter__obj=par) & Q(status='voted')).all(): #все предложенные статусы участника
@@ -501,7 +502,7 @@ def execute_invite_participant(params, user):
 
     prmt = get_or_create_object_parameter(part, 'status', True, values = [{'value' : a[0], 'caption' : a[1]} for a in Participant.PARTICIPANT_STATUS])
     set_vote_for_object_parameter(part, user, 'accepted', uuid = prmt.uuid)
-    
+
     return {'token' : part.token}, httplib.CREATED
 
 @get_user
@@ -509,10 +510,10 @@ def execute_invite_participant(params, user):
                     PARTICIPANT_NOT_FOUND,
                     u'There is no participant with such uuid')
 def execute_conform_participant(params, partic, user):
-    if partic.project != user.project:
+    prj = partic.project
+    if prj != user.project:
         return {'code' : ACCESS_DENIED,
                 'caption' : 'This participant is not in your project'}, httplib.PRECONDITION_FAILED
-    prj = partic.project
     if prj.ruleset == 'despot':
         return despot_conform_participant(user, partic, params)
     else:
@@ -520,12 +521,17 @@ def execute_conform_participant(params, partic, user):
 
 def despot_conform_participant(voter, prt, params):
     # если мы не имеем предложений по участнику, то выходим
+
     vt = get_vote_value_for_object_parameter(prt, voter, tpclass = 'status')
     if vt == None:
         return u'There is no one active vote for participant', httplib.CREATED
 
+    if (not voter.is_initiator) and (not ((voter == prt) and (vt.value == 'denied'))):
+        return 'You are not initiator, doing nothing', httplib.CREATED
+
+
     set_as_accepted_value_of_object_parameter(vt)
-    
+
     # pv = ParticipantVote.objects.filter(Q(voter=voter) & Q(participant_status__participant=prt) & Q(participant_status__status='voted')).all()[0]
     # if (not voter.is_initiator) and (not ((voter == prt) and (pv.participant_status.value == 'denied'))):
     #     return 'You are not initiator, doing nothing', httplib.CREATED
@@ -540,7 +546,7 @@ def despot_conform_participant(voter, prt, params):
 
     # # делаем статус по активному предложению активным
     # ps.save()
-    
+
     return '', httplib.CREATED
 
 @get_object_by_uuid(Project,
@@ -568,7 +574,7 @@ def execute_enter_project_open(params, prj):   #++TESTED
 
     pprm = create_object_parameter(prt, 'status', True, values = [{'value' : a[0]} for a in Participant.PARTICIPANT_STATUS])
     set_object_status(prt, prt, 'accepted')
-    
+
     return {'psid' : prt.psid,
             'token' : prt.token}, httplib.CREATED
 
@@ -581,7 +587,7 @@ def execute_enter_project_invitation(params, prj):
     except IndexError:
         return {'code' : PARTICIPANT_NOT_FOUND,
                 'caption' : 'There is no participants with such token or user_id'}, httplib.PRECONDITION_FAILED
-        
+
     if get_object_status(prt) != 'accepted':
         return {'code' : ACCESS_DENIED,
                 'caption' : 'You are not allowerd user (not accepted status) to do enter to the project'}, httplib.PRECONDITION_FAILED
@@ -597,28 +603,19 @@ def execute_exclude_participant(params, user):
     if params.get('uuid') == None:
         part = user
     else:
-        if Participant.objects.filter(uuid=params['uuid']).count() == 0:
+        try:
+            part = Participant.objects.filter(uuid=params['uuid']).all()[0]
+        except IndexError:
             return {'code' : PARTICIPANT_NOT_FOUND,
                     'caption' : 'There is no participant with such uuid'}, httplib.PRECONDITION_FAILED
-        part = Participant.objects.filter(uuid=params['uuid']).all()[0]
         if part.project != user.project:
             return {'code' : ACCESS_DENIED,
                     'caption' : 'You can not change this participant (wrong project)'}, httplib.PRECONDITION_FAILED
 
-    if part.participantstatus_set.filter(Q(status='accepted') & Q(value='denied')).count() > 0:
+    if get_object_status(part) == 'denied':
         return 'This participant is denied already', httplib.CREATED
 
-    # Берем или создаем статус
-    st = get_or_create_object(ParticipantStatus, {'participant' : part,
-                                                  'status' : 'voted',
-                                                  'value' : 'denied'})
-
-    # Берем или создаем предложение
-    ParticipantVote.objects.filter(Q(voter=user) & Q(participant_status__participant=part) & Q(participant_status__status='voted')).delete()
-    vt = ParticipantVote(voter=user, participant_status=st)
-    if params.get('comment') != None:
-        vt.comment = params['comment']
-    vt.save()
+    set_vote_for_object_parameter(part, user, 'denied', tpclass = 'status', comment = params.get('comment'))
 
     # согласуем участника
     return execute_conform_participant({'psid' : params['psid'],
@@ -635,12 +632,12 @@ def execute_conform_participant_vote(params, part, user):
     elif status == 'accepted':
         return 'Participant is already accepted', httplib.CREATED
 
-    ps = get_or_create_object(ParticipantStatus, {'participant' : part,
-                                                  'status' : 'voted',
-                                                  'value' : 'accepted' if params['vote'] == 'include' else 'denied'})
-    pv = get_or_create_object(ParticipantVote, {'participant_status' : ps,
-                                                'voter' : user},
-                              {'comment' : params.get('comment')})
+    # ps = get_or_create_object(ParticipantStatus, {'participant' : part,
+    #                                               'status' : 'voted',
+    #                                               'value' : 'accepted' if params['vote'] == 'include' else 'denied'})
+    # pv = get_or_create_object(ParticipantVote, {'participant_status' : ps,
+    #                                             'voter' : user},
+    #                           {'comment' : params.get('comment')})
 
     set_vote_for_object_parameter(part, user, 'accepted', tpclass = 'status', comment = params.get('comment'))
 
@@ -652,30 +649,38 @@ def execute_conform_participant_vote(params, part, user):
 def execute_list_activities(params, user):
     prj = user.project
     ret = []
-    for act in prj.activity_set.filter(Q(activitystatus__status='accepted') &
-                                       (Q(activitystatus__value__in=['voted', 'accepted', 'denied']) |
-                                        (Q(activitystatus__value='created') &
-                                         Q(activitystatus__activityvote__voter=user)))).distinct().all():
+    for act in prj.activity_set.filter(Q(activityparameter__tpclass='status') &
+                                       Q(activityparameter__activityparameterval__status='accepted') &
+                                       (Q(activityparameter__activityparameterval__value__in=['voted', 'accepted', 'denied']) |
+                                        (Q(activityparameter__activityparameterval__value='created') &
+                                         Q(activityparameter__activityparameterval__activityparametervote__voter=user)))).distinct().all():
 
         a = {'uuid' : act.uuid,
              'name' : act.name,
-             'descr' : act.descr}
+             'descr' : act.descr,
+             'status' : get_object_status(act)}
         if act.begin_date != None:
             a['begin'] = act.begin_date.isoformat()
         if act.end_date != None:
             a['end'] = act.end_date.isoformat()
-        st = act.activitystatus_set.filter(status='accepted').all()[0] # существует из условий выборки
-        a['status'] = st.value
 
         vts = []
-        for sts in act.activitystatus_set.filter(Q(status='voted') & Q(value__in=['accepted', 'denied'])).all():
-            for vtss in sts.activityvote_set.all():
+        # for sts in act.activitystatus_set.filter(Q(status='voted') & Q(value__in=['accepted', 'denied'])).all():
+        for sts in ActivityParameterVal.objects.filter(Q(status='voted') & Q(value__in=['accepted', 'denied']) &
+                                                       Q(parameter__tpclass='status') & Q(parameter__obj=act)).all():
+            # for vtss in sts.activityvote_set.all():
+            for vtss in sts.activityparametervote_set.all():
                 vts.append({'uuid' : vtss.voter.uuid,
                             'vote' : 'include' if sts.value == 'accepted' else 'exclude',
                             'comment' : vtss.comment,
                             'dt' : vtss.create_date.isoformat()})
         a['votes'] = vts
-        a['participant'] = ActivityParticipant.objects.filter(Q(participant=user) & Q(activity=act) & Q(activityparticipantstatus__status='accepted') & Q(activityparticipantstatus__value='accepted')).count() > 0
+        # a['participant'] = ActivityParticipant.objects.filter(Q(participant=user) & Q(activity=act) & Q(activityparticipantstatus__status='accepted') & Q(activityparticipantstatus__value='accepted')).count() > 0
+        a['participant'] = ActivityParticipant.objects.filter(Q(participant=user) &
+                                                              Q(activity=act) &
+                                                              Q(activityparticipantparameter__tpclass='status') &
+                                                              Q(activityparticipantparameter__activityparticipantparameterval__status='accepted') &
+                                                              Q(activityparticipantparameter__activityparticipantparameterval__value='accepted')).count() > 0
 
         ret.append(a)
 
@@ -684,23 +689,18 @@ def execute_list_activities(params, user):
 @get_user
 @get_activity_from_uuid
 def execute_activity_participation(params, act, user):
-    st = act.activitystatus_set.filter(status='accepted').all()[0]
-    if st.value != 'accepted':
+    if get_object_status(act) != 'accepted':
         return {'code' : ACTIVITY_IS_NOT_ACCEPTED,
                 'caption' : 'Activity must be accepted join in'}, httplib.PRECONDITION_FAILED
     prj = user.project
     ap = get_or_create_object(ActivityParticipant,
                               {'activity' : act,
                                'participant' : user})
-    ast = get_or_create_object(ActivityParticipantStatus, {'activity_participant' : ap,
-                                                           'status' : 'voted',
-                                                           'value' : 'accepted' if params['action'] == 'include' else 'denied'})
 
-    ActivityParticipantVote.objects.filter(Q(voter=user) & Q(activity_participant_status__activity_participant=ap) & Q(activity_participant_status__status='voted')).delete()
-    apv = ActivityParticipantVote(voter=user, activity_participant_status=ast)
-    if params.get('comment') != None:
-        apv.comment = params['comment']
-    apv.save()
+    prmt = get_or_create_object_parameter(ap, 'status', True, values = [{'value' : a[0],
+                                                                  'caption' : a[1]} for a in ActivityParticipant.ACTIVITY_PARTICIPANT_STATUS])
+    set_vote_for_object_parameter(ap, user, 'accepted' if params['action'] == 'include' else 'denied', uuid = prmt.uuid)
+
     return conform_activity_participation({'psid' : params['psid'],
                                            'uuid' : params['uuid']}, act, user)
 
@@ -713,13 +713,15 @@ def conform_activity_participation(params, act, user):
 
     Выполняет согласование участия участника в мероприятии
     """
-    if ActivityParticipantStatus.objects.filter(Q(activity_participant__participant=user) & Q(status='voted')).count() == 0:
+    try:
+        vtval = get_vote_value_for_object_parameter(ActivityParticipant.objects.filter(Q(participant=user) &
+                                                                                       Q(activity=act)).all()[0], user, tpclass='status')
+    except IndexError:
+        return 'There is no activity participant to conform', httplib.CREATED
+    if vtval == None:
         return 'There is nothing to conform', httplib.CREATED
-    aps = ActivityParticipantStatus.objects.filter(Q(activity_participant__participant=user) & Q(status='voted') & Q(activityparticipantvote__voter=user)).all()[0]
-    ActivityParticipantStatus.objects.filter(Q(activity_participant__participant=user) & Q(status='accepted')).update(status='changed')
-    ActivityParticipantStatus.objects.filter(Q(activity_participant__participant=user) & Q(status='voted')).update(status='denied')
-    aps.status='accepted'
-    aps.save()
+
+    set_as_accepted_value_of_object_parameter(vtval)
     return 'OK', httplib.CREATED
 
 @get_user
@@ -727,7 +729,7 @@ def execute_create_activity(params, user):
     prj = user.project
     begin = string2datetime(params['begin'])
     end = string2datetime(params['end'])
-    if end <= begin:
+    if end < begin:
         return {'code' : WRONG_DATETIME_PERIOD,
                 'caption' : 'Begining must be less then ending of time period in fields "begin" and "end"'}, httplib.PRECONDITION_FAILED
     ac = Activity(project=prj,
@@ -737,52 +739,44 @@ def execute_create_activity(params, user):
     if params.get('descr') != None:
         ac.descr=params['descr']
     try:
-        ac.save()
+        ac.save(force_insert=True)
     except IntegrityError:
         return {'code' : ACTIVITY_ALREADY_EXISTS,
                 'caption' : 'Activity with such parameters already exists'}, httplib.PRECONDITION_FAILED
-    st = ActivityStatus(activity=ac, status='accepted', value='created') # создаем статус
-    st.save()
-    vt = ActivityVote(voter=user, activity_status=st) # метка кто создал
-    if params.get('comment') != None:
-        vt.comment = params['comment']
-    vt.save()
+    prmt = create_object_parameter(ac, 'status', True, values = [{'value' : a[0],
+                                                                  'caption' : a[1]} for a in Activity.ACTIVITY_STATUS])
+    set_object_status(ac, user, 'created', comment = params.get('comment'))
+
+    # st = ActivityStatus(activity=ac, status='accepted', value='created') # создаем статус
+    # st.save()
+    # vt = ActivityVote(voter=user, activity_status=st) # метка кто создал
+    # if params.get('comment') != None:
+    #     vt.comment = params['comment']
+    # vt.save()
 
     return {'uuid' : ac.uuid}, httplib.CREATED
 
 @get_user
 @get_activity_from_uuid
 def execute_public_activity(params, act, user):
-    st = act.activitystatus_set.filter(status='accepted').all()[0]
-    if st.value == 'accepted':
+    ast = get_object_status(act)
+    if ast == 'accepted':
         return 'This activity is already public', httplib.CREATED
-    elif st.value == 'voted':
-        nst = get_or_create_object(ActivityStatus, {'activity' : act,
-                                                    'status' : 'voted',
-                                                    'value' : 'accepted'})
-        nvt = get_or_create_object(ActivityVote, {'activity_status' : nst,
-                                                  'voter' : user},
-                                   {'comment' : params.get('comment')})
+    elif ast == 'voted':
+        set_vote_for_object_parameter(act, user, 'accepted', tpclass='status')
         return conform_activity(user, act)
 
-    elif st.value == 'denied':
+    elif ast == 'denied':
         return {'code' : ACTIVITY_IS_NOT_ACCEPTED,
                 'caption' : 'This activity is denied'}, httplib.PRECONDITION_FAILED
-    elif st.value == 'created':
-        if st.activityvote_set.filter(voter=user).count() > 0: # статус мероприятия 'created' и есть пометка что это предложили именно мы
-            nst = ActivityStatus(activity=act, value='voted', status='accepted')
-            act.activitystatus_set.filter(status='accepted').update(status='changed')
-            nst.save()
-            nvt = ActivityVote(activity_status=nst, voter=user)
-            nvt.save()
-
-            nast = ActivityStatus(activity=act, value='accepted', status='voted') # предложение на активацию
-            act.activitystatus_set.filter(status='voted').update(status='denied')
-            nast.save()
-            navt = ActivityVote(activity_status=nast, voter=user)
-            if params.get('comment') != None:
-                navt.comment = params['comment']
-            navt.save()
+    elif ast == 'created':
+        if ActivityParameterVal.objects.filter(Q(status='accepted') &
+                                               Q(value='created') &
+                                               Q(parameter__tpclass='status') &
+                                               Q(parameter__obj=act) &
+                                               Q(activityparametervote__voter=user)).count() > 0: # мы создали мероприятие
+            set_object_status(act, user, 'voted', comment = params.get('comment'))
+            set_vote_for_object_parameter(act, user, 'accepted', tpclass = 'status')
             return conform_activity(user, act)
         else:
             return {'code' : ACCESS_DENIED,
@@ -805,29 +799,41 @@ def conform_activity(user, act):
 def despot_conform_activity(prj, user, activity):
     if not user.is_initiator:
         return 'You are not initiator, can not conform', httplib.CREATED
-    if activity.activitystatus_set.filter(Q(status='voted') & Q(activityvote__voter=user)).count() == 0:
+    astv = get_vote_value_for_object_parameter(activity, user, tpclass = 'status')
+    if astv == None:
         return 'No one vote found, nothing to conform', httplib.CREATED
-    st = activity.activitystatus_set.filter(Q(status='voted') & Q(activityvote__voter=user)).all()[0]
-    activity.activitystatus_set.filter(status='voted').update(status='denied')
-    activity.activitystatus_set.filter(status='accepted').update(status='changed')
-    st.status='accepted'
-    st.save()
+    set_as_accepted_value_of_object_parameter(astv)
+    # st = activity.activitystatus_set.filter(Q(status='voted') & Q(activityvote__voter=user)).all()[0]
+    # activity.activitystatus_set.filter(status='voted').update(status='denied')
+    # activity.activitystatus_set.filter(status='accepted').update(status='changed')
+    # st.status='accepted'
+    # st.save()
     return 'Status changed', httplib.CREATED
 
 @get_object_by_uuid(Activity, ACTIVITY_NOT_FOUND, 'There is no such activity')
 def execute_activity_list_participants(params, act):
+    if get_object_status(act) != 'accepted':
+        return {'code' : ACTIVITY_IS_NOT_ACCEPTED,
+                'caption' : 'Status of this is activity is not "accepted"'}, httplib.PRECONDITION_FAILED
     ret = []
     for p in Participant.objects.filter(Q(activityparticipant__activity=act) &
-                                        Q(activityparticipant__activityparticipantstatus__status='accepted')&
-                                        Q(activityparticipant__activityparticipantstatus__value='accepted')).distinct().all():
+                                        Q(activityparticipant__activityparticipantparameter__tpclass = 'status') &
+                                        Q(activityparticipant__activityparticipantparameter__activityparticipantparameterval__status='accepted') &
+                                        Q(activityparticipant__activityparticipantparameter__activityparticipantparameterval__value='accepted')).distinct().all():
+                                        # Q(activityparticipant__activityparticipantstatus__status='accepted')&
+                                        # Q(activityparticipant__activityparticipantstatus__value='accepted')).distinct().all():
         ret.append(p.uuid)
     return ret, httplib.OK
 
 @get_user
 @get_activity_from_uuid
 def execute_activity_delete(params, act, user):
-    st = act.activitystatus_set.filter(Q(status='accepted')).all()[0]
-    if st.value != 'created' or st.activityvote_set.filter(voter=user).count() == 0: # не тот статус или создали не мы
+    # if stat != 'created' or st.activityvote_set.filter(voter=user).count() == 0: # не тот статус или создали не мы
+    if ActivityParameterVal.objects.filter(Q(status='accepted') &
+                                           Q(value='created') &
+                                           Q(activityparametervote__voter=user) &
+                                           Q(parameter__tpclass='status') &
+                                           Q(parameter__obj=act)).count() == 0:
         return {'code' : ACCESS_DENIED,
                 'caption' : 'You can not delete this activity'}, httplib.PRECONDITION_FAILED
     act.delete()
@@ -836,16 +842,18 @@ def execute_activity_delete(params, act, user):
 @get_user
 @get_activity_from_uuid
 def execute_activity_deny(params, act, user):
-    st = act.activitystatus_set.filter(status='accepted').all()[0]
-    if st.value == 'denied':
+    # st = act.activitystatus_set.filter(status='accepted').all()[0]
+    ast = get_object_status(act)
+    if ast == 'denied':
         return 'Already denied', httplib.CREATED
-    elif st.value in ['accepted', 'voted']:
-        nst = get_or_create_object(ActivityStatus, {'activity' : act,
-                                                    'status' : 'voted',
-                                                    'value' : 'denied'})
-        nvt = get_or_create_object(ActivityVote, {'activity_status' : nst,
-                                                  'voter' : user},
-                                   {'comment' : params.get('comment')})
+    elif ast in ['accepted', 'voted']:
+        # nst = get_or_create_object(ActivityStatus, {'activity' : act,
+        #                                             'status' : 'voted',
+        #                                             'value' : 'denied'})
+        # nvt = get_or_create_object(ActivityVote, {'activity_status' : nst,
+        #                                           'voter' : user},
+        #                            {'comment' : params.get('comment')})
+        set_vote_for_object_parameter(act, user, 'denied', tpclass = 'status', comment=params.get('comment'))
         return conform_activity(user, act)
     else:
         return {'code' : ACTIVITY_IS_NOT_ACCEPTED,
@@ -859,27 +867,32 @@ def execute_create_activity_parameter(params, act, user):
     return create_activity_parameter(params, act, user)
 
 def create_activity_parameter(params, act, user):
-    ap = ActivityParameter(activity=act, name=params['name'], tp=params['tp'], enum=params['enum'])
-    if params.get('descr') != None:
-        ap.descr = params['descr']
-    if params.get('default') != None:
-        ap.default_parameter = params['default']
+    # ap = ActivityParameter(activity=act, name=params['name'], tp=params['tp'], enum=params['enum'])
+    # if params.get('descr') != None:
+    #     ap.descr = params['descr']
+    # if params.get('default') != None:
+    #     ap.default_parameter = params['default']
+    # try:
+    #     ap.save()
+    tp = 'text' if params.get('tp') == None else params['tp']
+    values = [] if params.get('values') == None else params['values']
     try:
-        ap.save()
+        ap = create_object_parameter(act, 'user', False, tp = tp, name = params['name'],
+                                     descr = params.get('descr'), values = values)
     except IntegrityError:
         return {'code' : ACTIVITY_PARAMETER_ALREADY_EXISTS,
                 'caption' : 'Parameter with such name is already exists'}, httplib.PRECONDITION_FAILED
 
-    if params['enum']:
-        for val in params['values']:
-            apvl = ActivityParameterVl(parameter=ap,
-                                       value=val['value'])
-            if val.get('caption') != None:
-                apvl.caption=val['caption']
-            try:
-                apvl.save()
-            except IntegrityError: # одинаковые значения просто игнорируем
-                pass
+    # if params['enum']:
+    #     for val in params['values']:
+    #         apvl = ActivityParameterVl(parameter=ap,
+    #                                    value=val['value'])
+    #         if val.get('caption') != None:
+    #             apvl.caption=val['caption']
+    #         try:
+    #             apvl.save()
+    #         except IntegrityError: # одинаковые значения просто игнорируем
+    #             pass
 
     if params.get('value') != None:
         ret, st = change_activity_parameter(params, ap, user)
@@ -891,11 +904,13 @@ def create_activity_parameter(params, act, user):
 @get_user
 @get_activity_from_uuid
 def execute_create_activity_parameter_from_default(params, act, user):
-    if DefaultParameter.objects.filter(uuid=params['default']).count() == 0:
+    try:
+        dp = DefaultParameter.objects.filter(uuid=params['default']).all()[0]
+    except IndexError:
         return {'code': DEFAULT_PARAMETER_NOT_FOUND,
                 'caption' : 'There is no such default parameter'}, httplib.PRECONDITION_FAILED
-    dp = DefaultParameter.objects.filter(uuid=params['default']).all()[0]
-    params['name'] = dp.name
+
+    params['name'] = dp.name    #  FIXME: пока работает но лучше использовать create_object_parameter_from_default
     params['descr'] = dp.descr
     params['tp'] = dp.tp
     params['enum'] = dp.enum
@@ -912,8 +927,9 @@ def execute_create_activity_parameter_from_default(params, act, user):
 @get_activity_from_uuid
 def execute_list_activity_parameters(params, act, user):
     ret = []
-    for prm in act.activityparameter_set.filter(Q(activityparameterval__status='accepted') |
-                                         Q(activityparameterval__status=None)).all():
+    for prm in act.activityparameter_set.filter(Q(tpclass='user') &
+                                                (Q(activityparameterval__status='accepted') |
+                                                 Q(activityparameterval__status=None))).all():
        a = {'uuid' : prm.uuid,
             'name' : prm.name,
             'tp' : prm.tp,
@@ -923,7 +939,7 @@ def execute_list_activity_parameters(params, act, user):
 
        vts = []
        for pval in prm.activityparameterval_set.filter(status='voted').all():
-           for ptsp in ActivityParameterVote.objects.filter(activity_parameter_val=pval).distinct().all():
+           for ptsp in ActivityParameterVote.objects.filter(parameter_val=pval).distinct().all():
                vv = {'uuid' : ptsp.voter.uuid,
                      'value' : pval.value}
                if pval.caption != None:
@@ -942,11 +958,14 @@ def execute_list_activity_parameters(params, act, user):
                    vx['caption'] = vl.caption
            a['values'] = vls
 
-       if prm.activityparameterval_set.filter(status='accepted').count() > 0:
+       # if prm.activityparameterval_set.filter(status='accepted').count() > 0:
+       try:
            aps = prm.activityparameterval_set.filter(status='accepted').all()[0]
            a['value'] = aps.value
            if aps.caption != None:
                a['caption'] = aps.caption
+       except IndexError:
+           pass
 
 
        ret.append(a)
@@ -961,20 +980,21 @@ def execute_change_activity_parameter(params, ap, user):
 
 
 def change_activity_parameter(params, ap, user):
-    if ap.activityparameterval_set.filter(status='accepted').count() > 0:
-        apv = ap.activityparameterval_set.filter(status='accepted').all()[0]
-        if apv.value == params['value']:
-            return 'Already have this value', httplib.CREATED
-    apv = get_or_create_object(ActivityParameterVal, {'parameter' : ap,
-                                                      'status' : 'voted',
-                                                      'value' : params['value']})
-    ActivityParameterVote.objects.filter(Q(voter=user) &
-                                         Q(activity_parameter_val__status='voted') &
-                                         Q(activity_parameter_val__parameter=ap)).delete()
-    apvn = ActivityParameterVote(voter=user, activity_parameter_val = apv)
-    if params.get('comment') != None:
-        apvn.comment=params['comment']
-    apvn.save()
+    if ap.activityparameterval_set.filter(Q(status='accepted') & Q(value=params['value'])).count() > 0:
+        # apv = ap.activityparameterval_set.filter(status='accepted').all()[0]
+        # if apv.value == params['value']:
+        return 'Already have this value', httplib.CREATED
+    # apv = get_or_create_object(ActivityParameterVal, {'parameter' : ap,
+    #                                                   'status' : 'voted',
+    #                                                   'value' : params['value']})
+    # ActivityParameterVote.objects.filter(Q(voter=user) &
+    #                                      Q(activity_parameter_val__status='voted') &
+    #                                      Q(activity_parameter_val__parameter=ap)).delete()
+    # apvn = ActivityParameterVote(voter=user, activity_parameter_val = apv)
+    # if params.get('comment') != None:
+    #     apvn.comment=params['comment']
+    # apvn.save()
+    set_vote_for_object_parameter(ap.obj, user, params['value'], uuid=ap.uuid) 
     return conform_activity_parameter(params, ap, user)
 
 @get_user
@@ -992,17 +1012,19 @@ def conform_activity_parameter(params, ap, user):
 def despot_conform_activity_parameter(params, ap, user):
     if not user.is_initiator:
         return 'You are not initiator, just ignore', httplib.CREATED
-    if ActivityParameterVote.objects.filter(Q(voter=user) &
-                                            Q(activity_parameter_val__status='voted') &
-                                            Q(activity_parameter_val__parameter=ap)).count() == 0:
+    apvt = get_vote_value_for_object_parameter(ap.obj, user, uuid=ap.uuid)
+    # if ActivityParameterVote.objects.filter(Q(voter=user) &
+    #                                         Q(activity_parameter_val__status='voted') &
+    #                                         Q(activity_parameter_val__parameter=ap)).count() == 0:
+    if apvt == None:
         return 'Nothing to conform', httplib.CREATED
-    apv = ActivityParameterVote.objects.filter(Q(voter=user) &
-                                               Q(activity_parameter_val__status='voted') &
-                                               Q(activity_parameter_val__parameter=ap)).all()[0]
-    av = apv.activity_parameter_val
-    av.status='accepted'
-    ActivityParameterVal.objects.filter(Q(parameter=ap) & Q(status='accepted')).update(status='changed')
-    ActivityParameterVal.objects.filter(Q(parameter=ap) & Q(status='voted')).update(status='denied')
-    av.save()
-
+    # apv = ActivityParameterVote.objects.filter(Q(voter=user) &
+    #                                            Q(activity_parameter_val__status='voted') &
+    #                                            Q(activity_parameter_val__parameter=ap)).all()[0]
+    # av = apv.activity_parameter_val
+    # av.status='accepted'
+    # ActivityParameterVal.objects.filter(Q(parameter=ap) & Q(status='accepted')).update(status='changed')
+    # ActivityParameterVal.objects.filter(Q(parameter=ap) & Q(status='voted')).update(status='denied')
+    # av.save()
+    set_as_accepted_value_of_object_parameter(apvt)
     return 'Value changed', httplib.CREATED
