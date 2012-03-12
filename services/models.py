@@ -259,6 +259,8 @@ class Resource(BaseModel):
     """
     RESOURCE_USAGE = ((u'personal', u'Можно использовать как личный ресурс'),
                       (u'common', u'Можно использовать только как общий'))
+    RESOURCE_SITE = ((u'internal', u'Ресурс внутренний - не нужно покупать'),
+                     (u'external', u'Ресурс внешний, нужно сначала купить/заказать'))
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
     product = models.CharField(max_length=100, null=True) # FIXME: Это должна быть ссылка на продукт !!!
     name = SafeCharField(max_length=100, null=False, default=None)

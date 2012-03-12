@@ -13,7 +13,8 @@ from services.app import execute_create_project, execute_list_projects, execute_
     execute_list_activities, execute_activity_participation, execute_create_activity, execute_public_activity, execute_conform_project_parameter, \
     execute_activity_list_participants, execute_activity_delete, execute_conform_activity, execute_activity_deny, \
     execute_create_activity_parameter, execute_create_activity_parameter_from_default,\
-    execute_change_activity_parameter, execute_conform_activity_parameter, execute_list_activity_parameters
+    execute_change_activity_parameter, execute_conform_activity_parameter, execute_list_activity_parameters, \
+    execute_create_project_resource
 
 from services.common import getencdec, standard_request_handler, typical_json_responder
 from services.models import Project, Resource

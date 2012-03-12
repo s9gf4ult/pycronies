@@ -1032,3 +1032,7 @@ def despot_conform_activity_parameter(params, ap, user):
     # av.save()
     set_as_accepted_value_of_object_parameter(apvt)
     return 'Value changed', httplib.CREATED
+
+@get_user
+def execute_create_project_resource(params, user):
+    pass
