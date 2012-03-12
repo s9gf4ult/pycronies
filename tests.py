@@ -1128,7 +1128,7 @@ class mytest(TestCase):
         # просматриваем созданные параметры
         r = self.srequest(c, '/activity/parameter/list', {'psid' : psid,
                                                           'uuid' : auuid},
-                          httplib.CREATED)
+                          httplib.OK)
         prms = dec.decode(r)
         
         # просматриваем типовые параметры
@@ -1140,7 +1140,7 @@ class mytest(TestCase):
         for defprm in defprms:
             self.srequest(c, '/activity/parameter/create/fromdefault', {'psid' : psid,
                                                                         'uuid' : defprm['uuid']},
-                          httplib.PRECONDITION_FAILED if (defprm['name'] in [a['name'] for a in prms]) else httplib.CREATED)
+                          httplib.PRECONDITION_FAILED if (defprm['name'] in [a['name'] for a in prms]) else httplib.CREATED, True)
 
         # добавляем участника
         r = self.srequest(c, '/project/enter/open', {'uuid' : puuid,
