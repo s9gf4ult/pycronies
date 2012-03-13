@@ -1135,7 +1135,27 @@ def conform_activity_parameter(params):
     - `500`: ошибка сервера
     """
     pass
+
+def list_activity_resources(params):
+    """
+    **Просмотр ресурсов на мероприятии**
+
+    путь запроса: **/activity/resource/list**
+
+    Параметры запроса:
+
+    - `psid`: ключ доступа
+    - `uuid`: uuid мероприятия
+
+    Возвращает в тебе ответа JSON кодирванный список словарей
+    с ключами:
+
+    - <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     
+    
+    """
+    pass
+
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
                            'name' : _good_string,
@@ -1169,6 +1189,90 @@ def create_project_resource_route(params):
     - `412`: не верные данные с описанием в теле ответа
     - `501`: если управление проектом != 'despot'
     - `500`: ошибка сервера
-       
+
+    """
+    pass
+
+@transaction.commit_on_success
+@standard_request_handler({'psid' : _good_string,
+                           'uuid' : _good_string,
+                           'activity' : _good_string,
+                           'need' : JsonString(True),
+                           'amount' : Able(float),
+                           'comment' : OrNone(_good_string)})
+@typical_json_responder(execute_include_activity_resource, httplib.CREATED)
+def include_activity_resource(params):
+    """
+    **Добавление ресурса мероприятия**
+
+    путь запроса: **/activity/resource/include**
+
+    Параметры запроса:
+
+    - `psid`: строка доступа
+    - `uuid`: ид ресурса
+    - `activity`: uuid мероприятия
+    - `need`: JSON кодированный Boolean
+    - `amount`: количество ресурса, Float строкой
+    - `comment`: не обязательный комментарий
+
+    Статусы возврата:
+
+    - `201`: ok
+    - `412`: не верные данные с описанием в теле ответа
+    - `501`: если управление проектом != 'despot'
+    - `500`: ошибка сервера
+    """
+    pass
+
+@transaction.commit_on_success
+@standard_request_handler({'psid' : _good_string,
+                           'uuid' : _good_string,
+                           'activity' : _good_string,
+                           'comment' : OrNone(_good_string)})
+@typical_json_responder(execute_exclude_activity_resource, httplib.CREATED)
+def exclude_activity_resource(params):
+    """
+    **Исключить ресурс из мероприятия**
+
+    путь запроса: **/activity/resource/exclude**
+
+    Параметры зпароса:
+
+    - `psid`: ключ доступа
+    - `uuid`: uuid ресурса
+    - `activity`: uuid мероприятия
+    - `comment`: не обязательный комментарий участника
+
+    Статусы возврата:
+
+    - `201`: ok
+    - `412`: не верные данные с описанием в теле ответа
+    - `501`: если управление проектом != 'despot'
+    - `500`: ошибка сервера
+    """
+    pass
+
+@transaction.commit_on_success
+@standard_request_handler({})
+@typical_json_responder(execute_conform_activity_resource, httplib.CREATED)
+def conform_activity_resource(params):
+    """
+    **Согласование ресурса мероприятия**
+
+    путь запроса: **/activiry/resource/conform**
+
+    Параметры запроса:
+
+    - `psid`: ключ доступа
+    - `uuid`: uuid ресурса
+    - `activity`: uuid мероприятия
+
+    Статусы возврата:
+
+    - `201`: ok
+    - `412`: не верные данные с описанием в теле ответа
+    - `501`: если управление проектом != 'despot'
+    - `500`: ошибка сервера
     """
     pass
