@@ -190,9 +190,9 @@ class mytest(TestCase):
         self.assertEqual(resp[0]['initiator'], True)
         self.assertEqual(resp[0]['status'], 'opened')
 
-        request(c, '/project/list/userid', {'user_id' : '11111111111'}) # такого ид в базе нет
-        r = c.getresponse()
-        self.assertEqual(r.status, httplib.NOT_FOUND)
+        r = self.srequest(c, '/project/list/userid', {'user_id' : '11111111111'}, httplib.OK) # такого ид в базе нет
+        self.assertEqual(0, len(dec.decode(r)))
+        
         self._delete_project(psid)
 
     def test_change_project_status(self, ):
