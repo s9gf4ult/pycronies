@@ -14,7 +14,9 @@ from services.app import execute_create_project, execute_list_projects, execute_
     execute_activity_list_participants, execute_activity_delete, execute_conform_activity, execute_activity_deny, \
     execute_create_activity_parameter, execute_create_activity_parameter_from_default,\
     execute_change_activity_parameter, execute_conform_activity_parameter, execute_list_activity_parameters, \
-    execute_create_project_resource
+    execute_create_project_resource, execute_include_personal_resource, execute_list_activity_resources, \
+    execute_create_project_resource, execute_include_activity_resource, execute_exclude_activity_resource, \
+    conform_activity_resource
 
 from services.common import getencdec, standard_request_handler, typical_json_responder
 from services.models import Project, Resource
@@ -1080,7 +1082,7 @@ def list_activity_parameters_route(params):
        - `caption`: описание значения
        - `comment`: комментарий участника
        - `dt`: дата время в ISO формате (строка), время голосования участника
-       
+
     Статусы возврата:
 
     - `200`: ok
@@ -1141,6 +1143,45 @@ def conform_activity_parameter(params):
     """
     pass
 
+@transaction.commit_on_success
+@standard_request_handler({'psid' : _good_string,
+                           'uuid' : _good_string,
+                           'activity': _good_string,
+                           'amount' : Able(float)})
+@typical_json_responder(execute_include_personal_resource, httplib.CREATED)
+def include_personal_resource(params):
+    """
+    **Добавление/удаление личного ресурса**
+
+    путь запроса: **/participant/resource/use**
+
+    Параметры запроса:
+
+    - `psid`: ключ доступа
+    - `uuid`: ид ресурса
+    - `activity`: uuid мероприятия
+    - `amount`: количество ресурса, Float строкой
+
+    Поведение:
+
+       Если количество ресурса указано меньше чем 0.001 то ресурс исключается из
+       личного использования участником. Чтобы добавить ресурс снова, нужно
+       вызывать этот метод и указать колчиество большее чем 0.001
+       
+    Статусы возврата:
+
+    - `201`: ok
+    - `412`: не верные данные с описанием в теле ответа
+    - `501`: если управление проектом != 'despot'
+    - `500`: ошибка сервера
+    """
+    pass
+
+
+@transaction.commit_on_success
+@standard_request_handler({'psid' : _good_string,
+                           'uuid' : _good_string})
+@typical_json_responder(execute_list_activity_resources, httplib.OK)
 def list_activity_resources(params):
     """
     **Просмотр ресурсов на мероприятии**
@@ -1155,9 +1196,32 @@ def list_activity_resources(params):
     Возвращает в тебе ответа JSON кодирванный список словарей
     с ключами:
 
-    - <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-    
-    
+    - `uuid`: uuid ресурса
+    - `name`: имя ресурса
+    - `descr`: описание ресурса
+    - `unity`: еденица измерения (строка с названием)
+    - `use`: использование ресурса, одно из возможных значений
+       - `personal`: ресурс может быть использован как личный ресурс
+       - `common`: ресерс используется только как общий ресурс
+    - `site`: принадлежность ресурса, одно из возможных значений
+       - `internal`: Внутренний ресурс, не требуется поставка
+       - `external`: Внешний ресурс, нужна покупка
+    - `votes`: предложения по ресурсу, JSON список словарей
+       - `uuid`: ид участника проекта, выдвинувшего предложение
+       - `vote`: предложенное действие, одно из возможных значений
+          - `include`: включить ресурс в мероприятие
+          - `exclude`: исключить ресурс из мероприятия
+          - `comment`: комментарий участника
+          - `dt`: дата создания предложения
+    - `used`: JSON кодированный Boolean, признако того, что ресурс используется
+      на этом мероприятии
+    - `amount`: количество ресурса, Float строкой
+
+    Статусы возврата:
+
+    - `200`: ok
+    - `412`: не верные данные с описанием в теле ответа
+    - `500`: ошибка сервера
     """
     pass
 

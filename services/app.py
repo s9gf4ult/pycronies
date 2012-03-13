@@ -1038,3 +1038,29 @@ def despot_conform_activity_parameter(params, ap, user):
 @get_user
 def execute_create_project_resource(params, user):
     pass
+
+@get_user
+def execute_include_personal_resource(params, user):
+    pass
+
+
+@get_user
+def execute_list_activity_resources(params, user):
+    pass
+
+
+@get_user
+def execute_create_project_resource(params, user):
+    pass
+
+@get_user
+def execute_include_activity_resource(params, user):
+    pass
+
+@get_user
+def execute_exclude_activity_resource(params, user):
+    pass
+
+@get_user
+def conform_activity_resource(params, user):
+    pass
