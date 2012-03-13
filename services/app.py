@@ -492,16 +492,18 @@ def execute_invite_participant(params, user):
         return {'code' : PARTICIPANT_ALREADY_EXISTS,
                 'caption' : 'This participant already exists, try repeat this query but do not specify "user_id" and "descr" fields or specify the same value'}, httplib.PRECONDITION_FAILED
 
-    if get_object_status(part) == 'denied':
+    pstat = get_object_status(part)
+    if get_object_status(part) == 'denied': # пользователь уже был и он запрещен
         return {'code' : PARTICIPANT_DENIED,
                 'caption' : 'This participant has denied status, so you can not invite him/her again'}, httplib.PRECONDITION_FAILED
 
-    if part.token == None:
+    if part.token == None:      # создаем токен если нету
         part.token = hex4()
         part.save()
 
     prmt = get_or_create_object_parameter(part, 'status', True, values = [{'value' : a[0], 'caption' : a[1]} for a in Participant.PARTICIPANT_STATUS])
-    set_vote_for_object_parameter(part, user, 'accepted', uuid = prmt.uuid)
+    set_object_parameter(part, user, 'voted', uuid = prmt.uuid)
+    set_vote_for_object_parameter(part, user, 'accepted', uuid = prmt.uuid, comment = params.get('comment'))
 
     return {'token' : part.token}, httplib.CREATED
 
