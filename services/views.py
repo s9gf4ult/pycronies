@@ -1097,7 +1097,7 @@ def list_activity_parameters_route(params):
                            'value' : _good_string,
                            'comment' : OrNone(_good_string)})
 @typical_json_responder(execute_change_activity_parameter, httplib.CREATED)
-def change_activity_parameter(params):
+def change_activity_parameter_route(params):
     """
     **Изененеие параметра мероирятия**
 
@@ -1123,7 +1123,7 @@ def change_activity_parameter(params):
 @standard_request_handler({'psid' : _good_string,
                            'uuid' : _good_string})
 @typical_json_responder(execute_conform_activity_parameter, httplib.CREATED)
-def conform_activity_parameter(params):
+def conform_activity_parameter_route(params):
     """
     **Согласовать параметр проекта**
 
@@ -1149,7 +1149,7 @@ def conform_activity_parameter(params):
                            'activity': _good_string,
                            'amount' : Able(float)})
 @typical_json_responder(execute_include_personal_resource, httplib.CREATED)
-def include_personal_resource(params):
+def include_personal_resource_route(params):
     """
     **Добавление/удаление личного ресурса**
 
@@ -1167,7 +1167,7 @@ def include_personal_resource(params):
        Если количество ресурса указано меньше чем 0.001 то ресурс исключается из
        личного использования участником. Чтобы добавить ресурс снова, нужно
        вызывать этот метод и указать колчиество большее чем 0.001
-       
+
     Статусы возврата:
 
     - `201`: ok
@@ -1180,9 +1180,9 @@ def include_personal_resource(params):
 
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
-                           'uuid' : _good_string})
+                           'uuid' : OrNone(_good_string)})
 @typical_json_responder(execute_list_activity_resources, httplib.OK)
-def list_activity_resources(params):
+def list_activity_resources_route(params):
     """
     **Просмотр ресурсов на мероприятии**
 
@@ -1191,7 +1191,8 @@ def list_activity_resources(params):
     Параметры запроса:
 
     - `psid`: ключ доступа
-    - `uuid`: uuid мероприятия
+    - `uuid`: не обязательный uuid мероприятия, если не указан, то
+      вернет все ресурсы проекта
 
     Возвращает в тебе ответа JSON кодирванный список словарей
     с ключами:
@@ -1199,7 +1200,7 @@ def list_activity_resources(params):
     - `uuid`: uuid ресурса
     - `name`: имя ресурса
     - `descr`: описание ресурса
-    - `unity`: еденица измерения (строка с названием)
+    - `units`: еденица измерения (строка с названием)
     - `use`: использование ресурса, одно из возможных значений
        - `personal`: ресурс может быть использован как личный ресурс
        - `common`: ресерс используется только как общий ресурс
@@ -1211,9 +1212,9 @@ def list_activity_resources(params):
        - `vote`: предложенное действие, одно из возможных значений
           - `include`: включить ресурс в мероприятие
           - `exclude`: исключить ресурс из мероприятия
-          - `comment`: комментарий участника
-          - `dt`: дата создания предложения
-    - `used`: JSON кодированный Boolean, признако того, что ресурс используется
+       - `comment`: комментарий участника
+       - `dt`: дата создания предложения
+    - `used`: Boolean, признако того, что ресурс используется
       на этом мероприятии
     - `amount`: количество ресурса, Float строкой
 
@@ -1228,7 +1229,7 @@ def list_activity_resources(params):
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
                            'name' : _good_string,
-                           'descr' : _good_string,
+                           'descr' : OrNone(_good_string),
                            'units' : _good_string,
                            'use' : Any(*[Equal(a[0]) for a in Resource.RESOURCE_USAGE]),
                            'site' : Any(*[Equal(a[0]) for a in Resource.RESOURCE_SITE])})
@@ -1267,10 +1268,10 @@ def create_project_resource_route(params):
                            'uuid' : _good_string,
                            'activity' : _good_string,
                            'need' : JsonString(True),
-                           'amount' : Able(float),
+                           'amount' : OrNone(Able(float)),
                            'comment' : OrNone(_good_string)})
 @typical_json_responder(execute_include_activity_resource, httplib.CREATED)
-def include_activity_resource(params):
+def include_activity_resource_route(params):
     """
     **Добавление ресурса мероприятия**
 
@@ -1300,7 +1301,7 @@ def include_activity_resource(params):
                            'activity' : _good_string,
                            'comment' : OrNone(_good_string)})
 @typical_json_responder(execute_exclude_activity_resource, httplib.CREATED)
-def exclude_activity_resource(params):
+def exclude_activity_resource_route(params):
     """
     **Исключить ресурс из мероприятия**
 
@@ -1325,7 +1326,7 @@ def exclude_activity_resource(params):
 @transaction.commit_on_success
 @standard_request_handler({})
 @typical_json_responder(execute_conform_activity_resource, httplib.CREATED)
-def conform_activity_resource(params):
+def conform_activity_resource_route(params):
     """
     **Согласование ресурса мероприятия**
 

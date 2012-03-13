@@ -72,9 +72,9 @@
 
 .. automodule:: services.views
    :members: create_project_resource_route,
-             include_personal_resource,
-             list_activity_resources,
-             include_activity_resource,
-             exclude_activity_resource,
-             conform_activity_resource,
+             include_personal_resource_route,
+             list_activity_resources_route,
+             include_activity_resource_route,
+             exclude_activity_resource_route,
+             conform_activity_resource_route,
              

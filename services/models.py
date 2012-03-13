@@ -359,8 +359,8 @@ class ParticipantResource(BaseModel):
     """Личный ресурс участника мероприятия
     """
     participant = models.ForeignKey(ActivityParticipant, on_delete=models.CASCADE)
-    resource = models.ForeignKey(Resource, on_delete=models.CASCADE)
-    amount = models.DecimalField(max_digits=20, decimal_places=2, null=False, default=None)
+    resource = models.ForeignKey(ActivityResource, on_delete=models.CASCADE)
+    amount = models.DecimalField(max_digits=20, decimal_places=2, null=True, default=None)
     class Meta:
         unique_together = (("participant", "resource"), )
 

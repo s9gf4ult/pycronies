@@ -1269,5 +1269,237 @@ class mytest(TestCase):
 
         self._delete_project(psid)
 
+    def test_resources(self, ):
+        c = httplib.HTTPConnection(host, port)
+        enc, dec = getencdec()
+        psids = []
+        r = self.srequest(c, '/project/create', {'name' : 'wow super project',
+                                                 'sharing' : 'open',
+                                                 'ruleset' : 'despot',
+                                                 'user_name' : 'the god'},
+                          httplib.CREATED)
+        psid = dec.decode(r)['psid']
+        psids.append(psid)
+        puuid = dec.decode(r)['uuid']
+        
+        r = self.srequest(c, '/activiry/create', {'psid' : psid,
+                                                  'name' : 'new activity'},
+                          httplib.CREATED)
+        auuid = dec.decode(r)['uuid']
+        
+        # создаем личный ресурс
+        self.srequest(c, '/resource/create', {'psid' : psid,
+                                              'name' : 'kolbasa',
+                                              'units' : u'кг',
+                                              'use' : 'personal',
+                                              'site' : 'internal'},
+                      httplib.CREATED)
+
+        # ресурс виден в общем списке (не по мероприятию)
+        r = self.srequest(c, '/activity/resource/list', {'psid' : psid},
+                                                         
+                          httplib.OK)
+        rsrs = dec.decode(r)
+        self.assertEqual(1, len(rsrs))
+        personal = rsrs[0]
+        for a, b in [('kolbasa', personal['name']),
+                     (None, personal.get('descr')),
+                     (u'кг', personal['units']),
+                     ('personal', personal['use']),
+                     ('internal', personal['site']),
+                     (False, personal['used']),
+                     (0, len(personal['votes']))]:
+            self.assertEqual(a, b)
+
+        # добавляем ресурс на мероприятие
+
+        r = self.srequest(c, '/activity/resource/include',
+                          {'psid' : psid,
+                           'uuid' : personal['uuid'],
+                           'activity' : auuid,
+                           'need' : enc.encode(True),
+                           'amount' : 100500},
+                          httplib.CREATED)
+            
+        # проверяем что он добавлен
+        r = self.srequest(c, '/activity/resource/list', {'psid' : psid,
+                                                         'uuid' : auuid},
+                          httplib.OK)
+        rs = dec.decode(r)[0]
+        for a, b in [('personal', rs['use']),
+                     (False, rs['used']),
+                     (0, rs['amount']),
+                     (0, len(rs['votes']))]:
+            self.assertEqual(a, b)
+
+        # удаляем ресурс из мероприятия
+        r = self.srequest(c, '/activity/resource/exclude',
+                          {'psid' : psid,
+                           'uuid' : personal['uuid'],
+                           'activity' : auuid,
+                           'comment' : 'test'},
+                          httplib.CREATED)
+
+        # проверяем что он не на мероприятии
+        r = self.srequest(c, '/activity/resource/list', {'psid' : psid,
+                                                         'uuid' : auuid},
+                          httplib.OK)
+        self.assertEqual(0, len(dec.decode(r)))
+        r = self.srequest(c, '/activity/resource/list', {'psid' : psid},
+                          httplib.OK)
+        rs = dec.decode(r)[0]
+        for a, b in [('personal', rs['use']),
+                     (False, rs['used']),
+                     (0, len(rs['votes']))]:
+            self.assertEqual(a, b)
+
+        # второй участник входит в проект
+        r = self.srequest(c, '/project/enter/open',
+                          {'uuid' : puuid,
+                           'name' : 'test user',
+                           'user_id' : 'super user you you'},
+                          httplib.CREATED)
+        psid2 = dec.decode(r)['psid']
+
+        # второй участник предлагает использовать ресурс в мероприятии
+        r = self.srequest(c, '/activity/resource/include',
+                          {'psid' : psid2,
+                           'uuid' : personal['uuid'],
+                           'activity' : auuid,
+                           'need' : enc.encode(True),
+                           'comment' : 'Here is comment'},
+                          httplib.CREATED)
+        # предложение видно 
+        r = self.srequest(c, '/activity/resource/list', {'psid' : psid,
+                                                         'uuid' : auuid},
+                          httplib.OK)
+        rs = dec.decode(r)[0]
+        for a, b in [('personal', rs['use']),
+                     (False, rs['used']),
+                     (0, rs['amount']), # Для личного ресурса количество игнорируется при добавлении
+                     (1, len(rs['votes'])),
+                     ('include', rs['votes'][0]['vote']),
+                     ('Here is comment', rs['votes'][0]['comment'])]:
+            self.assertEqual(a, b)
+
+        # инициатор подтверждает
+        self.srequest(c, '/activity/resource/include',
+                      {'psid' : psid,
+                       'uuid' : personal['uuid'],
+                       'activity' : auuid,
+                       'need' : enc.encode(True),
+                       'amount' : 9000},
+                      httplib.CREATED)
+
+        # проверяем что ресурс действительно снова используется
+        r = self.srequest(c, '/activity/resource/list',
+                          {'psid' : psid,
+                           'uuid' : auuid},
+                          httplib.OK)
+        rs = dec.decode(r)[0]
+        for a, b in [(False, rs['used']),
+                     (0, len(rs['votes']))]:
+            self.assertEqual(a, b)
+
+        # второй участник использует ресурс как личный
+        r = self.srequest(c, '/participant/resource/use',
+                          {'psid' : psid2,
+                           'uuid' : personal['uuid'],
+                           'activity' : auuid,
+                           'amount' : 10},
+                          httplib.CREATED)
+
+        # второй участник видит что ресурс используется
+        r = self.srequest(c, '/activity/resource/list',
+                          {'psid' : psid2,
+                           'uuid' : auuid},
+                          httplib.OK)
+        rs = dec.decode(r)[0]
+        for a, b in [(True, rs['used']),
+                     (10, rs['amount'])]:
+            self.assertEqual(a, b)
+
+        # второй участник убирает ресурс из личного пользования
+        self.srequest(c, '/participant/resource/use',
+                      {'psid' : psid2,
+                       'uuid' : personal['uuid'],
+                       'activity' : auuid,
+                       'amount' : 0},
+                      httplib.CREATED)
+
+        # второй участник видит что он больше не использует этот ресурс
+        r = self.srequest(c, '/activity/resource/list',
+                          {'psid' : psid2,
+                           'uuid' : auuid},
+                          httplib.OK)
+        rs = dec.decode(r)[0]
+        for a, b in [(False, rs['used']),
+                     (0, rs['amount'])]:
+            self.assertEqual(a, b)
+
+        # создаем общий ресурс
+        self.srequest(c, '/resource/create',
+                      {'psid' : psid,
+                       'name' : 'vodka32',
+                       'units' : u'литр',
+                       'use' : 'common',
+                       'site' : 'external'},
+                      httplib.CREATED)
+
+        # смотрим что такое есть
+        r = self.srequest(c, '/activity/resource/list',
+                          {'psid' : psid,
+                           'uuid' : auuid},
+                          httplib.OK)
+        rsrs = dec.decode(r)
+        self.assertEqual(2, len(rsrs))
+        common = [a for a in rsrs if a['use'] == 'common'][0]
+        for a, b in [('vodka32', common['name']),
+                     (u'литр', common['units'])]:
+            self.assertEqual(a, b)
+        
+        
+        # добавляем его в мероприятие
+        self.srequest(c, '/actvivity/resource/include',
+                      {'psid' : psid,
+                       'uuid' : common['uuid'],
+                       'activity' : auuid,
+                       'need' : enc.encode(True),
+                       'amount' : 10,
+                       'comment' : 'good vodka'},
+                      httplib.CREATED)
+
+        # видим что ресурс используется
+        r = self.srequest(c, '/activity/resource/list',
+                          {'psid' : psid,
+                           'uuid' : auuid},
+                          httplib.OK)
+        rsrs = dec.decode(r)
+        self.assertEqual(2, len(rsrs))
+        rs = [a for a in rsrs if a['use'] == 'common'][0]
+        for a, b in [(True, rs['used']),
+                     (10, rs['amount'])]:
+            self.assertEqual(a, b)
+        
+
+        # второй участник пытается использовать общий ресурс как личный и
+        # фейлится
+        self.srequest(c, '/participant/resource/use',
+                      {'psid' : psid2,
+                       'uuid' : common['uuid'],
+                       'activity' : auuid,
+                       'amount' : 100},
+                      httplib.PRECONDITION_FAILED)
+
+
+
+
+                                                  
+
+        for p in psids:
+            self._delete_project(p)
+        
+        
+
 if __name__ == '__main__':
     main()
