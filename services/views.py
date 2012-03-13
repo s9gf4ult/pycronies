@@ -152,6 +152,11 @@ def list_user_projects_route(params): # ++TESTED
        - `control`: Контроль
        - `closed`: Закрыт
 
+    Поведение:
+
+       Если не найден ни один пользователь с указанным user_id или токеном,
+       возвращаем пустой список
+
     Posible return status:
 
     - `200`: ok

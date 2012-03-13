@@ -120,10 +120,10 @@ def execute_list_user_projects(user_id):
     (`response`, `answer`)
     """
     
-    # проверяем есть ли пользователь с указанным user_id
-    cnt = Participant.objects.filter(Q(user=user_id) | Q(token=user_id)).count()
-    if cnt==0:
-        return u'There is no one user found', httplib.NOT_FOUND
+    # # проверяем есть ли пользователь с указанным user_id
+    # cnt = Participant.objects.filter(Q(user=user_id) | Q(token=user_id)).count()
+    # if cnt==0:
+    #     return u'There is no one user found', httplib.NOT_FOUND
 
     # берем список участников с указанным user_id
     parts = Participant.objects.filter(Q(user=user_id) | Q(token=user_id)).all() # список участиков
