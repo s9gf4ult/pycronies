@@ -426,6 +426,7 @@ def get_object_status(obj):
 
 def get_object_parameter(obj, tpclass, name = None):
     """
+    Return None if there is no one parameter found
 
     Arguments:
     - `obj`:
@@ -444,7 +445,7 @@ def get_object_parameter(obj, tpclass, name = None):
     q = Q(status='accepted') & Q(parameter__tpclass=tpclass) & Q(parameter__obj=obj)
     if tpclass == 'user':
         if not isinstance(name, basestring):
-            raise ValueError('if tpclass == "user" then name must be set')
+            raise Exception('if tpclass == "user" then name must be set')
         q &= Q(parameter__name = name)
     try:
         prm = pvalclass.objects.filter(q).all()[0]
