@@ -11,8 +11,8 @@ import json
 from functools import wraps
 from svalidate import Validate
 from services.statuses import PARAMETERS_BROKEN, ACCESS_DENIED, ACTIVITY_PARAMETER_NOT_FOUND, ACTIVITY_IS_NOT_ACCEPTED, \
-    ACTIVITY_NOT_FOUND
-from services.models import Participant, Activity, ActivityParameter, parameter_class_map, DefaultParameterVl
+    ACTIVITY_NOT_FOUND, RESOURCE_NOT_FOUND, ACTIVITY_RESOURCE_NOT_FOUND, ACTIVITY_RESOURCE_NOT_ACCEPTED
+from services.models import Participant, Activity, ActivityParameter, parameter_class_map, DefaultParameterVl, Resource
 
 yearmonthdayhour = ['year', 'month', 'day', 'hour', 'minute', 'second']
 formats = ['%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d', '%Y-%m-%dT%H:%M:%S.%f', '%Y-%m-%d %H:%M:%S.%f']
@@ -203,20 +203,25 @@ class typical_json_responder(object):
 
         return ret
 
-def get_activity_from_uuid(fnc):
-    @wraps(fnc)
-    def ret(*args, **kargs):
-        params, user = args[:2]
-        prj = user.project
-        if Activity.objects.filter(Q(project=prj) & Q(uuid=params['uuid'])).count() == 0:
-            return {'code' : ACTIVITY_NOT_FOUND,
-                    'caption' : 'There is no such actvivity'}, httplib.PRECONDITION_FAILED
-        act = Activity.objects.filter(uuid=params['uuid']).all()[0]
-        # ast = get_object_status(act)
-        # if ast != 'accepted':
-        #     return 'There is no one active status in this activity, posible error in some service', httplib.INTERNAL_SERVER_ERROR
-        return fnc(*tuple([params, act, user] + list(args[2:])), **kargs)
-    return ret
+class get_activity_from_uuid(object):
+    def __init__(self, param = 'uuid'):
+        self._param = param
+        
+    def __call__(self, fnc):
+        @wraps(fnc)
+        def ret(*args, **kargs):
+            params, user = args[:2]
+            prj = user.project
+            try:
+                act = Activity.objects.filter(Q(project=prj) & Q(uuid=params[self._param])).all()[0]
+            except IndexError:
+                return {'code' : ACTIVITY_NOT_FOUND,
+                        'caption' : 'There is no such actvivity'}, httplib.PRECONDITION_FAILED
+            # ast = get_object_status(act)
+            # if ast != 'accepted':
+            #     return 'There is no one active status in this activity, posible error in some service', httplib.INTERNAL_SERVER_ERROR
+            return fnc(*tuple([params, act, user] + list(args[2:])), **kargs)
+        return ret
 
 def get_activity_parameter_from_uuid(fnc):
     @wraps(fnc)
@@ -565,3 +570,60 @@ def set_as_accepted_value_of_object_parameter(val): #  FIXME: надо пров�
     type(val).objects.filter(Q(status='accepted') & Q(parameter=prm)).update(status='changed')
     val.status='accepted'
     val.save(force_update=True)
+
+class get_resource_from_uuid(object):
+    def __init__(self, param = 'uuid'):
+        self._param = param
+
+    def __call__(self, fnc):
+        @wraps(fnc)
+        def ret(*args, **kargs):
+            (params, act, user) = args[:3]
+            prj = user.project
+            try:
+                res = Resource.objects.filter(uuid = params[self._param]).all()[0]
+            except IndexError:
+                return {'code' : RESOURCE_NOT_FOUND,
+                        'caption' : 'There is no such resource'}, httplib.PRECONDITION_FAILED
+            if res.project != prj:
+                return {'code' : ACCESS_DENIED,
+                        'caption' : 'You can not use this resource'}, httplib.PRECONDITION_FAILED
+            return fnc(*tuple([params, res, act, user] + list(args[3:])), **kargs)
+
+        return ret
+
+def get_activity_resource_from_parameter(fnc):
+    @wraps(fnc)
+    def ret(*args, **kargs):
+        (params, res, act, user) = args[:4]
+        try:
+            ares = res.activityresource_set.filter(activity=act).all()[0]
+        except IndexError:
+            return {'code' : ACTIVITY_RESOURCE_NOT_FOUND,
+                    'caption' : 'This resource is not using in this activity'}, httplib.PRECONDITION_FAILED
+        return fnc(*tuple([params, ares, res, act, user] * list(args[4:])), **kargs)
+
+    return ret
+
+def check_activity_resource_status(fnc):
+    @wraps(fnc)
+    def ret(*args, **kargs):
+        (params, ares) = args[:2]
+        st = get_object_status(ares)
+        if st == 'accepted':
+            return fnc(*args, **kargs)
+        else:
+            return {'code' : ACTIVITY_RESOURCE_NOT_ACCEPTED,
+                    'caption' : 'This resource is not accepted on this activity'}, httplib.PRECONDITION_FAILED
+    return ret
+
+def get_authorized_activity_participant(user, activ):
+    try:
+        ap = activ.activityparticipant_set.filter(participant = user).all()[0]
+    except IndexError:
+        return None
+    st = get_object_status(ap)
+    if st == 'accepted':
+        return st
+    else:
+        return False

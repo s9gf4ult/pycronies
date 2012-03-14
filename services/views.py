@@ -16,7 +16,7 @@ from services.app import execute_create_project, execute_list_projects, execute_
     execute_change_activity_parameter, execute_conform_activity_parameter, execute_list_activity_parameters, \
     execute_create_project_resource, execute_include_personal_resource, execute_list_activity_resources, \
     execute_create_project_resource, execute_include_activity_resource, execute_exclude_activity_resource, \
-    conform_activity_resource
+    execute_conform_activity_resource
 
 from services.common import getencdec, standard_request_handler, typical_json_responder
 from services.models import Project, Resource
@@ -1201,6 +1201,10 @@ def list_activity_resources_route(params):
     - `name`: имя ресурса
     - `descr`: описание ресурса
     - `units`: еденица измерения (строка с названием)
+    - `status`: статус ресурса на мероприятии
+       - `accepted`: может использоваться участником или уже используется
+         на мероприятии
+       - `voted`: предложен для использования
     - `use`: использование ресурса, одно из возможных значений
        - `personal`: ресурс может быть использован как личный ресурс
        - `common`: ресерс используется только как общий ресурс
@@ -1285,6 +1289,12 @@ def include_activity_resource_route(params):
     - `need`: JSON кодированный Boolean
     - `amount`: количество ресурса, Float строкой
     - `comment`: не обязательный комментарий
+
+    Поведение:
+
+       Поля `need` и `amount` учитываются только тогда, когда ресурс
+       еще не используется на мероприятии, если ресурс уже используется, то поля
+       игнорируются
 
     Статусы возврата:
 

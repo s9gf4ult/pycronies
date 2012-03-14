@@ -322,7 +322,6 @@ class ActivityResource(BaseModel):
     resource = models.ForeignKey(Resource, on_delete=models.CASCADE)
     required = models.BooleanField(default=False)
     amount = models.DecimalField(max_digits=20, decimal_places=2, null=False, default=None) # NOTE: так как за количество ресурса в мероприятии тоже будут голосовать, а таблица голосов содержит ForeignKey на параметр ресурса, то может количество тоже сделать параметром ресурса ??
-    status = models.CharField(max_length=40, default=u'voted', choices=ACTIVITY_RESOURCE_STATUS)
     class Meta:
         unique_together = (("activity", "resource"), )
 
@@ -330,10 +329,10 @@ class ActivityResource(BaseModel):
 class ActivityResourceParameter(BaseParameter):
     """Параметр ресурса мероприятия
     """
-    activity_resource = models.ForeignKey(ActivityResource, on_delete=models.CASCADE)
+    obj = models.ForeignKey(ActivityResource, on_delete=models.CASCADE)
     class Meta:
-        unique_together = (('activity_resource', 'name'),
-                           ('activity_resource', 'tpclass', 'unique'))
+        unique_together = (('obj', 'name'),
+                           ('obj', 'tpclass', 'unique'))
 
 class ActivityResourceParameterVal(BaseParameterVal):
     """Значение параметра ресурса мероприятия

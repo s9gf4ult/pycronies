@@ -1282,7 +1282,9 @@ class mytest(TestCase):
         psids.append(psid)
         puuid = dec.decode(r)['uuid']
         
-        r = self.srequest(c, '/activiry/create', {'psid' : psid,
+        r = self.srequest(c, '/activity/create', {'psid' : psid,
+                                                  'begin' : '2010-10-10',
+                                                  'end' : '2010-10-10',
                                                   'name' : 'new activity'},
                           httplib.CREATED)
         auuid = dec.decode(r)['uuid']
@@ -1290,7 +1292,7 @@ class mytest(TestCase):
         # создаем личный ресурс
         self.srequest(c, '/resource/create', {'psid' : psid,
                                               'name' : 'kolbasa',
-                                              'units' : u'кг',
+                                              'units' : u'kg',
                                               'use' : 'personal',
                                               'site' : 'internal'},
                       httplib.CREATED)
@@ -1303,8 +1305,8 @@ class mytest(TestCase):
         self.assertEqual(1, len(rsrs))
         personal = rsrs[0]
         for a, b in [('kolbasa', personal['name']),
-                     (None, personal.get('descr')),
-                     (u'кг', personal['units']),
+                     (u'', personal.get('descr')),
+                     (u'kg', personal['units']),
                      ('personal', personal['use']),
                      ('internal', personal['site']),
                      (False, personal['used']),
@@ -1354,6 +1356,12 @@ class mytest(TestCase):
             self.assertEqual(a, b)
 
         # второй участник входит в проект
+        self.srequest(c, '/project/status/change',
+                      {'uuid' : puuid,
+                       'status' : 'planning',
+                       'psid' : psid},
+                      httplib.CREATED)
+            
         r = self.srequest(c, '/project/enter/open',
                           {'uuid' : puuid,
                            'name' : 'test user',
@@ -1368,7 +1376,7 @@ class mytest(TestCase):
                            'activity' : auuid,
                            'need' : enc.encode(True),
                            'comment' : 'Here is comment'},
-                          httplib.CREATED)
+                          httplib.CREATED, True)
         # предложение видно 
         r = self.srequest(c, '/activity/resource/list', {'psid' : psid,
                                                          'uuid' : auuid},
