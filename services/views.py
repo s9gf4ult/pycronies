@@ -16,7 +16,7 @@ from services.app import execute_create_project, execute_list_projects, execute_
     execute_change_activity_parameter, execute_conform_activity_parameter, execute_list_activity_parameters, \
     execute_create_project_resource, execute_include_personal_resource, execute_list_activity_resources, \
     execute_create_project_resource, execute_include_activity_resource, execute_exclude_activity_resource, \
-    execute_conform_activity_resource
+    execute_conform_activity_resource, execute_create_resource_parameter
 
 from services.common import getencdec, standard_request_handler, typical_json_responder
 from services.models import Project, Resource
@@ -1302,7 +1302,7 @@ def include_activity_resource_route(params):
     Поведение:
 
        Повторно добавление ресурсов заерещено
-       
+
     Статусы возврата:
 
     - `201`: ok
@@ -1372,3 +1372,50 @@ def conform_activity_resource_route(params):
     - `500`: ошибка сервера
     """
     pass
+
+@transaction.commit_on_success
+@standard_request_handler({'psid' : _good_string,
+                           'activity' : _good_string,
+                           'uuid' : _good_string,
+                           'name' : _good_string,
+                           'descr' : OrNone(_good_string),
+                           'tp' : _good_string,
+                           'enum' : JsonString(True),
+                           'value' : OrNone(_good_string),
+                           'values' : OrNone([{'value' : _good_string,
+                                               'caption' : OrNone(_good_string)}])})
+@typical_json_responder(execute_create_resource_parameter, httplib.CREATED)
+def add_activity_resource_parameter(params):
+    """
+    **Добавить праметр ресурса мероприятия**
+
+    путь запроса: **/activity/resource/parameter/create**
+
+    Параметры запроса:
+
+    - `psid`: ключ доступа
+    - `activity`: ид мероприятия
+    - `uuid`: ид ресурса
+    - `name`: имя параметра ресурса
+    - `descr`: не обязательное описание параметра
+    - `tp`: тип ресурса
+    - `enum`: JSON кодированный Boolean, параметр имеет ограниченный набор значений
+    - `value`: не обязательное значение параметра (если пусто то параметра не существует)
+    - `values`: не обязательный набор возможных значений, список словарей с ключами
+       - `value`:
+       - `caption`: не обязательный параметр
+
+    Возвращает JSON кодированный словарь
+
+    - `uuid`: ид параметр ресурса
+
+    Статусы возврата:
+
+    - `201`: ok
+    - `412`: не верные данные с описанием в теле ответа
+    - `501`: если управление проектом != 'despot'
+    - `500`: ошибка сервера
+    """
+    pass
+
+

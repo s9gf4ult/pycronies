@@ -1111,4 +1111,11 @@ def despot_conform_activity_resource(params, actres, res, act, user):
     vtval = get_vote_value_for_object_parameter(actres, user, tpclass = 'status')
     set_as_accepted_value_of_object_parameter(vtval)
     return "Created", httplib.CREATED
-        
+
+@get_user
+@get_activity_from_uuid('activity')
+@get_resource_from_uuid()
+@get_activity_resource_from_parameter
+@check_activity_resource_status
+def execute_create_resource_parameter(params, ares, res, act, user):
+    pass
