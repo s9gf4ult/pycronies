@@ -943,7 +943,7 @@ def execute_create_project_resource(params, user):
     except IntegrityError:
         return {'code' : RESOURCE_ALREADY_EXISTS,
                 'caption' : 'Resource with such name is already exists'}, httplib.PRECONDITION_FAILED
-    return "Created", httplib.CREATED
+    return {'uuid' : res.uuid}, httplib.CREATED
 
 @get_user
 @get_activity_from_uuid('activity')
@@ -951,10 +951,13 @@ def execute_create_project_resource(params, user):
 @get_activity_resource_from_parameter
 @check_activity_resource_status
 def execute_include_personal_resource(params, actres, resource, act, user):
+    if resource.usage != 'personal' :
+        return {'code' : RESOURCE_WRONG_USAGE,
+                'caption' : 'You can not use common resource as personal'}, httplib.PRECONDITION_FAILED
     ap = get_authorized_activity_participant(user, act)
     if ap == None or ap == False:
         return {'code' : ACCESS_DENIED,
-                'caption' : 'You can not with this activity'}, httplib.PRECONDITION_FAILED
+                'caption' : 'You are not activity participant'}, httplib.PRECONDITION_FAILED
     if params['amount'] > 0.001:
         get_or_create_object(ParticipantResource, {'resource' : actres,
                                                    'participant' : ap},
@@ -962,6 +965,7 @@ def execute_include_personal_resource(params, actres, resource, act, user):
         return 'Created', httplib.CREATED
     else:
         ParticipantResource.objects.filter(resource = actres, participant = ap).delete()
+        return 'Deleted', httplib.CREATED
 
 @get_user
 def execute_list_activity_resources(params, user):
@@ -983,8 +987,8 @@ def list_activity_resources(params, act, user):
              'units' : res.measure.name,
              'status' : get_object_status(ar),
              'use' : res.usage,
-             'site' : res.site,
-             'amount' : ar.amount if res.usage == 'common' else 0}
+             'site' : res.site}
+            
         
         vts = []
         for vt in ActivityResourceParameterVote.objects.filter(Q(parameter_val__parameter__obj = ar) &
@@ -997,9 +1001,18 @@ def list_activity_resources(params, act, user):
         p['votes'] = vts
         if res.usage == 'common':
             p['used'] = p['status'] == 'accepted'
+            p['amount'] = float(ar.amount)
         else:
-            q = Q(participant__activityparticipantparameter__tpclass = 'status') & Q(participant__activityparticipantparameter__activityparticipantparameterval__status='accepted') & Q(participant__activityparticipantparameter__activityparticipantparameterval__value='accepted')
-            p['used'] = ar.participantresource_set.filter(q).count() > 0
+            p['used'] = False
+            p['amount'] = 0
+            apar = get_authorized_activity_participant(user, act)
+            if isinstance(apar, ActivityParticipant):
+                try:
+                    pres = ar.participantresource_set.filter(participant=apar).distinct().all()[0]
+                    p['used'] = True
+                    p['amount'] = float(pres.amount)
+                except IndexError:
+                    pass
         ret.append(p)
     return ret, httplib.OK
 
@@ -1025,14 +1038,18 @@ def list_project_resources(params, user):
 @get_activity_from_uuid('activity')
 @get_resource_from_uuid()
 def execute_include_activity_resource(params, res, act, user):
-
+    ap = get_authorized_activity_participant(user, act)
+    if ap == None or ap == False:
+        return {'code' : ACCESS_DENIED,
+                'caption' : 'You are not activity participant'}, httplib.PRECONDITION_FAILED
+                
     try:
         ap = ActivityResource.objects.filter(resource = res, activity = act).all()[0]
     except IndexError:
         ap = ActivityResource(resource = res,
                               activity = act,
-                              required = params['need'],
-                              amount = params['amount'])
+                              required = params['need'] if res.usage == 'common' else False,
+                              amount = params['amount'] if res.usage == 'common' else False )
         ap.save(force_insert=True)
         p = create_object_parameter(ap, 'status', True, values = [{'value' : a[0],
                                                                    'caption' : a[1]} for a in ActivityResource.ACTIVITY_RESOURCE_STATUS])

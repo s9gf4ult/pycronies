@@ -601,7 +601,7 @@ def get_activity_resource_from_parameter(fnc):
         except IndexError:
             return {'code' : ACTIVITY_RESOURCE_NOT_FOUND,
                     'caption' : 'This resource is not using in this activity'}, httplib.PRECONDITION_FAILED
-        return fnc(*tuple([params, ares, res, act, user] * list(args[4:])), **kargs)
+        return fnc(*tuple([params, ares, res, act, user] + list(args[4:])), **kargs)
 
     return ret
 
@@ -624,6 +624,6 @@ def get_authorized_activity_participant(user, activ):
         return None
     st = get_object_status(ap)
     if st == 'accepted':
-        return st
+        return ap
     else:
         return False

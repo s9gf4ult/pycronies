@@ -1288,6 +1288,15 @@ class mytest(TestCase):
                                                   'name' : 'new activity'},
                           httplib.CREATED)
         auuid = dec.decode(r)['uuid']
+
+        self.srequest(c, '/activity/public', {'psid' : psid,
+                                              'uuid' : auuid},
+                      httplib.CREATED)
+
+        self.srequest(c, '/activity/participation', {'psid' : psid,
+                                                     'action' : 'include',
+                                                     'uuid' : auuid},
+                      httplib.CREATED)
         
         # создаем личный ресурс
         self.srequest(c, '/resource/create', {'psid' : psid,
@@ -1369,19 +1378,56 @@ class mytest(TestCase):
                           httplib.CREATED)
         psid2 = dec.decode(r)['psid']
 
-        # второй участник предлагает использовать ресурс в мероприятии
+        # второй участник предлагает использовать ресурс повторно и фейлится ибо
+        # нельзя вводить один и тот же ресурс повторно
         r = self.srequest(c, '/activity/resource/include',
                           {'psid' : psid2,
                            'uuid' : personal['uuid'],
                            'activity' : auuid,
                            'need' : enc.encode(True),
                            'comment' : 'Here is comment'},
-                          httplib.CREATED, True)
+                          httplib.PRECONDITION_FAILED)
+
+        # второй участник создает свой ресурс
+        r = self.srequest(c, '/resource/create', {'psid' : psid2,
+                                                  'name' : 'myaso',
+                                                  'descr' : 'Myaso korovy',
+                                                  'units' : 'kg',
+                                                  'use' : 'personal',
+                                                  'site' : 'external'},
+                          httplib.CREATED)
+        personal2 = dec.decode(r)['uuid']
+
+
+        # второй участник предлагает ресурс на мероприятие и фелится потому что еще не вошел на мероприятие
+        self.srequest(c, '/activity/resource/include',
+                      {'psid' : psid2,
+                       'uuid' : personal2,
+                       'activity' : auuid,
+                       'comment' : 'Here is comment'},
+                      httplib.PRECONDITION_FAILED)
+
+        # второй входит на мероприятие
+        self.srequest(c, '/activity/participation',
+                      {'psid' : psid2,
+                       'action' : 'include',
+                       'uuid' : auuid,
+                       'comment' : 'Oh i forgot'},
+                      httplib.CREATED)
+
+        # второй предлагает ресурс
+        self.srequest(c, '/activity/resource/include',
+                      {'psid' : psid2,
+                       'uuid' : personal2,
+                       'activity' : auuid,
+                       'comment' : 'Here is comment'},
+                      httplib.CREATED)
+               
         # предложение видно 
-        r = self.srequest(c, '/activity/resource/list', {'psid' : psid,
+        r = self.srequest(c, '/activity/resource/list', {'psid' : psid2,
                                                          'uuid' : auuid},
                           httplib.OK)
-        rs = dec.decode(r)[0]
+        rs = [a for a in dec.decode(r) if a['uuid'] == personal2][0]
         for a, b in [('personal', rs['use']),
                      (False, rs['used']),
                      (0, rs['amount']), # Для личного ресурса количество игнорируется при добавлении
@@ -1393,18 +1439,18 @@ class mytest(TestCase):
         # инициатор подтверждает
         self.srequest(c, '/activity/resource/include',
                       {'psid' : psid,
-                       'uuid' : personal['uuid'],
+                       'uuid' : personal2,
                        'activity' : auuid,
                        'need' : enc.encode(True),
                        'amount' : 9000},
                       httplib.CREATED)
 
-        # проверяем что ресурс действительно снова используется
+        # проверяем что у ресурса пропали предложения
         r = self.srequest(c, '/activity/resource/list',
                           {'psid' : psid,
                            'uuid' : auuid},
                           httplib.OK)
-        rs = dec.decode(r)[0]
+        rs = [a for a in dec.decode(r) if a['uuid'] == personal2][0]
         for a, b in [(False, rs['used']),
                      (0, len(rs['votes']))]:
             self.assertEqual(a, b)
@@ -1412,7 +1458,7 @@ class mytest(TestCase):
         # второй участник использует ресурс как личный
         r = self.srequest(c, '/participant/resource/use',
                           {'psid' : psid2,
-                           'uuid' : personal['uuid'],
+                           'uuid' : personal2,
                            'activity' : auuid,
                            'amount' : 10},
                           httplib.CREATED)
@@ -1422,15 +1468,15 @@ class mytest(TestCase):
                           {'psid' : psid2,
                            'uuid' : auuid},
                           httplib.OK)
-        rs = dec.decode(r)[0]
+        rs = [a for a in dec.decode(r) if a['uuid'] == personal2][0]
         for a, b in [(True, rs['used']),
-                     (10, rs['amount'])]:
+                     (10, rs['amount'])]: # количество для личного ресурса при личном использовании
             self.assertEqual(a, b)
 
         # второй участник убирает ресурс из личного пользования
         self.srequest(c, '/participant/resource/use',
                       {'psid' : psid2,
-                       'uuid' : personal['uuid'],
+                       'uuid' : personal2,
                        'activity' : auuid,
                        'amount' : 0},
                       httplib.CREATED)
@@ -1440,7 +1486,7 @@ class mytest(TestCase):
                           {'psid' : psid2,
                            'uuid' : auuid},
                           httplib.OK)
-        rs = dec.decode(r)[0]
+        rs = [a for a in dec.decode(r) if a['uuid'] == personal2][0]
         for a, b in [(False, rs['used']),
                      (0, rs['amount'])]:
             self.assertEqual(a, b)
@@ -1449,26 +1495,25 @@ class mytest(TestCase):
         self.srequest(c, '/resource/create',
                       {'psid' : psid,
                        'name' : 'vodka32',
-                       'units' : u'литр',
+                       'units' : u'liter',
                        'use' : 'common',
                        'site' : 'external'},
                       httplib.CREATED)
 
         # смотрим что такое есть
         r = self.srequest(c, '/activity/resource/list',
-                          {'psid' : psid,
-                           'uuid' : auuid},
+                          {'psid' : psid},
                           httplib.OK)
         rsrs = dec.decode(r)
-        self.assertEqual(2, len(rsrs))
+        self.assertEqual(3, len(rsrs))
         common = [a for a in rsrs if a['use'] == 'common'][0]
         for a, b in [('vodka32', common['name']),
-                     (u'литр', common['units'])]:
+                     (u'liter', common['units'])]:
             self.assertEqual(a, b)
         
         
         # добавляем его в мероприятие
-        self.srequest(c, '/actvivity/resource/include',
+        self.srequest(c, '/activity/resource/include',
                       {'psid' : psid,
                        'uuid' : common['uuid'],
                        'activity' : auuid,

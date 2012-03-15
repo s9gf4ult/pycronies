@@ -1148,7 +1148,6 @@ def conform_activity_parameter_route(params):
                            'uuid' : _good_string,
                            'activity': _good_string,
                            'amount' : Able(float)})
-@typical_json_responder(execute_include_personal_resource, httplib.CREATED)
 def include_personal_resource_route(params):
     """
     **Добавление/удаление личного ресурса**
@@ -1175,7 +1174,13 @@ def include_personal_resource_route(params):
     - `501`: если управление проектом != 'despot'
     - `500`: ошибка сервера
     """
-    pass
+    enc = json.JSONEncoder()
+    prms = copy(params)
+    prms['amount'] = float(prms['amount'])
+    ret, st = execute_include_personal_resource(prms)
+    if st != httplib.CREATED:
+        transaction.rollback()
+    return http.HttpResponse(enc.encode(ret), status=st, content_type='application/json')
 
 
 @transaction.commit_on_success
@@ -1257,6 +1262,10 @@ def create_project_resource_route(params):
        - `internal`: Внутренний ресурс, не требуется поставка
        - `external`: Внешний ресурс, нужна покупка
 
+    Возвращает JSON кодированный словарь
+
+    - `uuid`: ид нового ресурса
+
     Статусы возврата:
 
     - `201`: ok
@@ -1271,10 +1280,9 @@ def create_project_resource_route(params):
 @standard_request_handler({'psid' : _good_string,
                            'uuid' : _good_string,
                            'activity' : _good_string,
-                           'need' : JsonString(True),
+                           'need' : OrNone(JsonString(True)),
                            'amount' : OrNone(Able(float)),
                            'comment' : OrNone(_good_string)})
-@typical_json_responder(execute_include_activity_resource, httplib.CREATED)
 def include_activity_resource_route(params):
     """
     **Добавление ресурса мероприятия**
@@ -1286,16 +1294,15 @@ def include_activity_resource_route(params):
     - `psid`: строка доступа
     - `uuid`: ид ресурса
     - `activity`: uuid мероприятия
-    - `need`: JSON кодированный Boolean
-    - `amount`: количество ресурса, Float строкой
+    - `need`: не обязательный JSON кодированный Boolean, признак того, что на мероприятии этот ресурс необходим и без
+      него мероприятие не может быть запущено, если ресурс - личный, то этот параметр игнорируется
+    - `amount`: не обязательное количество ресурса, Float строкой. Если ресурс личный - то игнорируется
     - `comment`: не обязательный комментарий
 
     Поведение:
 
-       Поля `need` и `amount` учитываются только тогда, когда ресурс
-       еще не используется на мероприятии, если ресурс уже используется, то поля
-       игнорируются
-
+       Повторно добавление ресурсов заерещено
+       
     Статусы возврата:
 
     - `201`: ok
@@ -1303,7 +1310,16 @@ def include_activity_resource_route(params):
     - `501`: если управление проектом != 'despot'
     - `500`: ошибка сервера
     """
-    pass
+    enc, dec = getencdec()
+    prms = copy(params)
+    if prms.get('need') != None:
+        prms['need'] = dec.decode(prms['need'])
+    if prms.get('amount') != None:
+        prms['amount'] = float(prms['amount'])
+    ret, st = execute_include_activity_resource(prms)
+    if st != httplib.CREATED:
+        transaction.rollback()
+    return http.HttpResponse(enc.encode(ret), status=st, content_type='application/json')
 
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
