@@ -1682,17 +1682,15 @@ class mytest(TestCase):
             self.assertEqual(a, b)
         
         # инициатор подтверждает
-        self.srequest(c, '/activity/resource/parameter/create',
-                      # для подтверждения создаем такой же параметр,
-                      # следовательно будет не создание нового пааметра а правка
-                      # старого, если необходимо, и uuid останется таким же
+        self.srequest(c, '/activity/resource/parameter/change',
+                      # для подтверждения меняем значение парметра на то же
+                      # самое или ставим свое значение чтобы заменить
+                      # предложенное значение своим
                       {'psid' :psid,
-                       'activity' : auuid,
-                       'uuid' : common,
-                       'name' : 'param2',
-                       'tp' : 'text',
-                       'enum' : enc.encode(False),
-                       'value' : 'value2'}, # инициатор решил использовать свое значение
+                       'uuid' : commp2,
+                       'value' : 'value2',
+                       'caption' : 'just caption',
+                       'comment' : 'just comment'},
                       httplib.CREATED)
             
         # в списке видно два значения
@@ -1746,16 +1744,6 @@ class mytest(TestCase):
                            'enum' : enc.encode(False)},
                           httplib.CREATED)
         persp = dec.decode(r)['uuid']
-        
-        # инициатор подтверждает
-        self.srequest(c, '/activity/resource/parameter/create',
-                      {'psid' : psid,
-                       'activity' : auuid,
-                       'uuid' : personal,
-                       'name' : 'personal',
-                       'tp' : 'float',
-                       'enum' : enc.encode(False)},
-                      httplib.CREATED)
         
         # второй выставлет значение параметра для личного ресурса
         self.srequest(c, '/activity/resource/parameter/change',

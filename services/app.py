@@ -1118,7 +1118,19 @@ def despot_conform_activity_resource(params, actres, res, act, user):
 @get_activity_resource_from_parameter
 @check_activity_resource_status
 def execute_create_resource_parameter(params, ares, res, act, user):
-    pass
+    try:
+        prm = create_object_parameter(ares, 'user', False, tp = params['tp'],
+                                      name = params['name'], descr = params.get('descr'),
+                                      values = params.get('values') if params['enum'] else [])
+    except IntegrityError:
+        return {'code' : RESOURCE_PARAMETER_ALREADY_EXISTS,
+                'caption' : 'This parameter is already exist'}, httplib.PRECONDITION_FAILED
+
+    if isinstance(params.get('value'), basestring):
+        return change_resource_parameter(params, prm, ares, res, act, user)
+    else:
+        return 'Created', httplib.CREATED
+    
 
 @get_user
 @get_activity_from_uuid('activity')
@@ -1126,7 +1138,20 @@ def execute_create_resource_parameter(params, ares, res, act, user):
 @get_activity_resource_from_parameter
 @check_activity_resource_status
 def execute_create_resource_parameter_from_default(params, ares, res, act, user):
-    pass
+    try:
+        default = DefaultParameter(uuid=params['default']).all()[0]
+    except IndexError:
+        return {'code' : DEFAULT_PARAMETER_NOT_FOUND,
+                'caption' : 'There is no such default parameter'}, httplib.PRECONDITION_FAILED
+    try:
+        prm = create_object_parameter_from_default(ares, default)
+    except IntegrityError:
+        return {'code' : RESOURCE_PARAMETER_ALREADY_EXISTS,
+                'caption' : 'This parameter is already exists'}, httplib.PRECONDITION_FAILED
+    if default.default_value != None:
+        return change_resource_parameter(params, prm, ares, res, act, user)
+    else:
+        return 'Created', httplib.CREATED
 
 
 def execute_list_activity_resource_parameters(params):

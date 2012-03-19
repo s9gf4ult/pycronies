@@ -960,6 +960,10 @@ def conform_activity_route(params):
     """
     pass
 
+# @transaction.commit_on_success
+# @standard_request_handler({'psid' : _good_string})
+# @typical_j
+
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
                            'uuid' : _good_string,
@@ -1386,7 +1390,7 @@ def conform_activity_resource_route(params):
                            'values' : OrNone([{'value' : _good_string,
                                                'caption' : OrNone(_good_string)}])})
 @typical_json_responder(execute_create_resource_parameter, httplib.CREATED)
-def create_activity_resource_parameter(params):
+def create_activity_resource_parameter_route(params):
     """
     **Добавить праметр ресурса мероприятия**
 
@@ -1425,7 +1429,7 @@ def create_activity_resource_parameter(params):
                            'uuid' : _good_string,
                            'default' : _good_string})
 @typical_json_responder(execute_create_resource_parameter_from_default, httplib.CREATED)
-def create_activity_resource_parameter_from_default(params):
+def create_activity_resource_parameter_from_default_route(params):
     """
     **Добавить типовой параметр ресурса**
 
@@ -1457,7 +1461,7 @@ def create_activity_resource_parameter_from_default(params):
                            'activity' : _good_string,
                            'uuid' : _good_string})
 @typical_json_responder(execute_list_activity_resource_parameters, httplib.OK)
-def list_activity_resources_parameters(params):
+def list_activity_resources_parameters_route(params):
     """
     **Просмотр перечня параметров ресурса**
 
@@ -1503,7 +1507,7 @@ def list_activity_resources_parameters(params):
                            'caption' : OrNone(_good_string),
                            'comment' : OrNone(_good_string)})
 @typical_json_responder(execute_change_resource_parameter, httplib.CREATED)
-def change_resource_parameter(params):
+def change_resource_parameter_route(params):
     """
     **Изменить значение параметра ресурса**
 
@@ -1526,11 +1530,13 @@ def change_resource_parameter(params):
     """
     pass
 
+
+
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
                            'uuid' : _good_string})
 @typical_json_responder(execute_conform_resource_parameter, httplib.CREATED)
-def conform_resource_parameter(params):
+def conform_resource_parameter_route(params):
     """
     **Согласование параметра ресурса**
 
