@@ -16,7 +16,8 @@ from services.app import execute_create_project, execute_list_projects, execute_
     execute_change_activity_parameter, execute_conform_activity_parameter, execute_list_activity_parameters, \
     execute_create_project_resource, execute_include_personal_resource, execute_list_activity_resources, \
     execute_create_project_resource, execute_include_activity_resource, execute_exclude_activity_resource, \
-    execute_conform_activity_resource, execute_create_resource_parameter
+    execute_conform_activity_resource, execute_create_resource_parameter, execute_create_resource_parameter_from_default, \
+    execute_list_activity_resource_parameters, execute_change_resource_parameter, execute_conform_resource_parameter
 
 from services.common import getencdec, standard_request_handler, typical_json_responder
 from services.models import Project, Resource
@@ -1385,7 +1386,7 @@ def conform_activity_resource_route(params):
                            'values' : OrNone([{'value' : _good_string,
                                                'caption' : OrNone(_good_string)}])})
 @typical_json_responder(execute_create_resource_parameter, httplib.CREATED)
-def add_activity_resource_parameter(params):
+def create_activity_resource_parameter(params):
     """
     **Добавить праметр ресурса мероприятия**
 
@@ -1418,4 +1419,134 @@ def add_activity_resource_parameter(params):
     """
     pass
 
+@transaction.commit_on_success
+@standard_request_handler({'psid' : _good_string,
+                           'activity' : _good_string,
+                           'uuid' : _good_string,
+                           'default' : _good_string})
+@typical_json_responder(execute_create_resource_parameter_from_default, httplib.CREATED)
+def create_activity_resource_parameter_from_default(params):
+    """
+    **Добавить типовой параметр ресурса**
 
+    путь запроса: **/ativity/resource/parameter/create/from_default**
+
+    Параметры запроса:
+
+    - `psid`: ключ доступа
+    - `activity`: ид мероприятия
+    - `uuid`: ид ресурса
+    - `default`: ид типового ресурса
+
+    Возвращает JSON словарь:
+
+    - `uuid`: ид параметра ресурса
+
+    Статусы возврата:
+
+    - `201`: ok
+    - `412`: не верные данные с описанием в теле ответа
+    - `501`: если управление проектом != 'despot'
+    - `500`: ошибка сервера
+    """
+    pass
+
+
+@transaction.commit_on_success
+@standard_request_handler({'psid' : _good_string,
+                           'activity' : _good_string,
+                           'uuid' : _good_string})
+@typical_json_responder(execute_list_activity_resource_parameters, httplib.OK)
+def list_activity_resources_parameters(params):
+    """
+    **Просмотр перечня параметров ресурса**
+
+    путь запроса: **/activity/resource/parameter/list**
+
+    Параметры запроса:
+
+    - `psid`: ключ доступа
+    - `activity`: ид мероприятия
+    - `uuid`: ид ресурса
+
+    Возвращает JSON список словарей
+
+    - `uuid`: uuid параметра ресурса
+    - `name`: имя ресурса
+    - `descr`: описание ресурса
+    - `tp`: тип ресурса
+    - `enum`: Boolean, параметр имеет ограниченный набор значений
+    - `values`: список возможных значений в виде списка словарей
+       - `value`: значение
+       - `caption`: описание
+    - `value`: значение параметра
+    - `caption`: описание значения, если нет занчения то тоже пустой
+    - `votes`: список предложений по параметру, список словарей:
+       - `uuid`: uuid предложившего участника
+       - `value`: предложенное значение параметра
+       - `caption`: описание параметра
+       - `comment`: комментарий предложившего
+       - `dt`: дата время предложения
+
+    Статусы возврата:
+
+    - `200`: ok
+    - `412`: не верные данные с описанием в теле ответа
+    - `500`: ошибка сервера
+    """
+    pass
+
+@transaction.commit_on_success
+@standard_request_handler({'psid' : _good_string,
+                           'uuid' : _good_string,
+                           'value' : _good_string,
+                           'caption' : OrNone(_good_string),
+                           'comment' : OrNone(_good_string)})
+@typical_json_responder(execute_change_resource_parameter, httplib.CREATED)
+def change_resource_parameter(params):
+    """
+    **Изменить значение параметра ресурса**
+
+    путь запроса: **/activity/resource/parameter/change**
+
+    Параметры запроса:
+
+    - `psid`: ключ доступа
+    - `uuid`: uuid параметра ресурса
+    - `value`: новое значение
+    - `caption`: не обязательное пояснение для значения
+    - `comment`: комментарий пользователя
+    
+    Статусы возврата:
+
+    - `201`: ok
+    - `412`: не верные данные с описанием в теле ответа
+    - `501`: если управление проектом != 'despot'
+    - `500`: ошибка сервера
+    """
+    pass
+
+@transaction.commit_on_success
+@standard_request_handler({'psid' : _good_string,
+                           'uuid' : _good_string})
+@typical_json_responder(execute_conform_resource_parameter, httplib.CREATED)
+def conform_resource_parameter(params):
+    """
+    **Согласование параметра ресурса**
+
+    путь запроса: **/activity/resource/parameter/change**
+
+    Параметры запроса:
+
+    - `psid`: ключ доступа
+    - `uuid`: ид параметра ресурса мероприяти
+    
+    Статусы возврата:
+
+    - `201`: ok
+    - `412`: не верные данные с описанием в теле ответа
+    - `501`: если управление проектом != 'despot'
+    - `500`: ошибка сервера
+    
+    """
+    pass

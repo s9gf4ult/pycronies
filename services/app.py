@@ -1119,3 +1119,21 @@ def despot_conform_activity_resource(params, actres, res, act, user):
 @check_activity_resource_status
 def execute_create_resource_parameter(params, ares, res, act, user):
     pass
+
+@get_user
+@get_activity_from_uuid('activity')
+@get_resource_from_uuid()
+@get_activity_resource_from_parameter
+@check_activity_resource_status
+def execute_create_resource_parameter_from_default(params, ares, res, act, user):
+    pass
+
+
+def execute_list_activity_resource_parameters(params):
+    pass
+
+def execute_change_resource_parameter(params):
+    pass
+
+def execute_conform_resource_parameter(params):
+    pass
