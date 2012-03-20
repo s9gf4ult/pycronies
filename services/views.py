@@ -1467,7 +1467,7 @@ def create_activity_resource_parameter_from_default_route(params):
                            'activity' : _good_string,
                            'uuid' : _good_string})
 @typical_json_responder(execute_list_activity_resource_parameters, httplib.OK)
-def list_activity_resources_parameters_route(params):
+def list_activity_resource_parameters_route(params):
     """
     **Просмотр перечня параметров ресурса**
 
@@ -1558,7 +1558,7 @@ def conform_resource_parameter_route(params):
     """
     **Согласование параметра ресурса**
 
-    путь запроса: **/activity/resource/parameter/change**
+    путь запроса: **/activity/resource/parameter/conform**
 
     Параметры запроса:
 

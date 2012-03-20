@@ -1125,7 +1125,7 @@ def execute_create_resource_parameter(params, ares, res, act, user):
     if res.usage == 'common':
         return create_common_resource_parameter(params, ares, res, apar, act, user)
     else:
-        return create_personal_resource_parameter(parmas, ares, res, apar, act, user)
+        return create_personal_resource_parameter(params, ares, res, apar, act, user)
     
 def create_common_resource_parameter(params, ares, res, apar, act, user):
     try:
@@ -1199,7 +1199,7 @@ def create_personal_resource_parameter_from_default(params, default, ares, res, 
         return {'code' : PERSONAL_RESOURCE_NOT_FOUND,
                 'caption' : 'You are not using this resource now'}, httplib.PRECONDITION_FAILED
     try:
-        prmt = create_object_parameter_from_default(artres, default)
+        prmt = create_object_parameter_from_default(aprtres, default)
     except IntegrityError:
         return {'code' : RESOURCE_PARAMETER_ALREADY_EXISTS,
                 'caption' : 'This resource parameter is already exists'}
@@ -1214,7 +1214,44 @@ def create_personal_resource_parameter_from_default(params, default, ares, res, 
 @get_activity_resource_from_parameter
 @check_activity_resource_status
 def execute_list_activity_resource_parameters(params, ares, res, act, user):
+    if res.usage == 'common':
+        return list_common_activity_resource_parameters(params, ares, res, act, user)
+    else:
+        return list_personal_activity_resource_parameters(params, ares, res, act, user)
 
+def list_personal_activity_resource_parameters(params, ares, res, act, user):
+    apar = get_authorized_activity_participant(user, act)
+    if apar == None or apar == False:
+        return [], httplib.OK
+    try:
+        pres = apar.participantresource_set.filter(resource = ares).all()[0]
+    except IndexError:
+        return [], httplib.OK
+    ret = []
+    for prmt in pres.participantresourceparameter_set.filter(tpclass = 'user').all():
+        p = {'uuid' : prmt.uuid,
+             'name' : prmt.name,
+             'descr' : prmt.descr,
+             'tp' : prmt.tp,
+             'enum' : prmt.enum}
+        vls = []
+        for vl in prmt.participantresourceparametervl_set.all():
+            vls.append({'value' : vl.value,
+                        'caption' : vl.caption})
+        p['values'] = vls
+        try:
+            vl = prmt.participantresourceparameterval_set.filter(status = 'accepted').all()[0]
+        except IndexError:
+            pass
+        else:
+            p['value'] = vl.value,
+            p['caption'] = vl.caption
+        p['votes'] = []
+        ret.append(p)
+    return ret
+
+
+def list_common_activity_resource_parameters(params, ares, res, act, user):
     ret = []
     for prmt in ares.activityresourceparameter_set.filter(tpclass = 'user').all():
         p = {'uuid' : prmt.uuid,
@@ -1249,12 +1286,11 @@ def execute_list_activity_resource_parameters(params, ares, res, act, user):
         ret.append(p)
     return ret, httplib.PRECONDITION_FAILED
     
-    
-
 @get_user
 @get_resource_parameter_from_uuid()
 def execute_change_resource_parameter(params, resp , user):
     return change_resource_parameter(params, resp, user)
+
 
 def change_resource_parameter(params, aresp, user):
     ares = aresp.obj
