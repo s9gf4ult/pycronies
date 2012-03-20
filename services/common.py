@@ -11,8 +11,9 @@ import json
 from functools import wraps
 from svalidate import Validate
 from services.statuses import PARAMETERS_BROKEN, ACCESS_DENIED, ACTIVITY_PARAMETER_NOT_FOUND, ACTIVITY_IS_NOT_ACCEPTED, \
-    ACTIVITY_NOT_FOUND, RESOURCE_NOT_FOUND, ACTIVITY_RESOURCE_NOT_FOUND, ACTIVITY_RESOURCE_NOT_ACCEPTED
-from services.models import Participant, Activity, ActivityParameter, parameter_class_map, DefaultParameterVl, Resource
+    ACTIVITY_NOT_FOUND, RESOURCE_NOT_FOUND, ACTIVITY_RESOURCE_NOT_FOUND, ACTIVITY_RESOURCE_IS_NOT_ACCEPTED, RESOURCE_PARAMETER_NOT_FOUND
+from services.models import Participant, Activity, ActivityParameter, parameter_class_map, DefaultParameterVl, Resource, \
+    ActivityResourceParameter, ParticipantParameter
 
 yearmonthdayhour = ['year', 'month', 'day', 'hour', 'minute', 'second']
 formats = ['%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d', '%Y-%m-%dT%H:%M:%S.%f', '%Y-%m-%d %H:%M:%S.%f']
@@ -613,7 +614,7 @@ def check_activity_resource_status(fnc):
         if st == 'accepted':
             return fnc(*args, **kargs)
         else:
-            return {'code' : ACTIVITY_RESOURCE_NOT_ACCEPTED,
+            return {'code' : ACTIVITY_RESOURCE_IS_NOT_ACCEPTED,
                     'caption' : 'This resource is not accepted on this activity'}, httplib.PRECONDITION_FAILED
     return ret
 
@@ -627,3 +628,47 @@ def get_authorized_activity_participant(user, activ):
         return ap
     else:
         return False
+
+class get_resource_parameter_from_uuid(object):
+    """
+    Decorator gets activity resource parameter from parameters in (as first
+    argument of decorated function) and insert it as second parameter of
+    decorated function. Resource parameter may be the parameter of
+    ActivityResource or ParticipantResource as well, depending on type of
+    resource usage
+    Check authorization of activity participant too
+    """
+    def __init__(self, param = 'uuid'):
+        self._param = param
+
+    def __call__(self, fnc):
+        @wraps(fnc)
+        def ret(*args, **kargs):
+            params, user = args[:2]
+            try:
+                aresp = ActivityResourceParameter.objects.filter(Q(uuid=params[self._param])).all()[0]
+            except IndexError:
+                try:
+                    aresp = ParticipantParameter.objects.filter(uuid = params[self._param]).all()[0]
+                except IndexError:
+                    return {'code' : RESOURCE_PARAMETER_NOT_FOUND,
+                            'caption' : 'There is no such resource parameter'}, httplib.PRECONDITION_FAILED
+            
+            if isinstance(aresp, ActivityResourceParameter):
+                ares = aresp.obj
+            else:
+                ares = aresp.obj.resource
+                
+            if get_object_status(ares) != 'accepted':
+                return {'code' : ACTIVITY_RESOURCE_IS_NOT_ACCEPTED,
+                        'caption' : 'This resource is not accepted on this activity'}, httplib.PRECONDITION_FAILED
+            act = ares.activity
+            if get_object_status(act) != 'accepted':
+                return {'code' : ACTIVITY_IS_NOT_ACCEPTED,
+                        'caption' : 'This activity is not accepted'}, httplib.PRECONDITION_FAILED
+            ap = get_authorized_activity_participant(user, act)
+            if ap == None or ap == False:
+                return {'code' : ACCESS_DENIED,
+                        'caption' : 'You are not acvitity participant'}, httplib.PRECONDITION_FAILED
+            return fnc(*tuple([params, aresp, user] + args[2:]), **kargs)
+        return ret

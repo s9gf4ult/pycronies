@@ -364,10 +364,10 @@ class ParticipantResource(BaseModel):
         unique_together = (("participant", "resource"), )
 
 class ParticipantResourceParameter(BaseParameter):
-    resource = models.ForeignKey(ParticipantResource, on_delete = models.CASCADE)
+    obj = models.ForeignKey(ParticipantResource, on_delete = models.CASCADE)
     class Meta:
-        unique_together = (('resource', 'name'),
-                           ('resource', 'tpclass', 'unique'))
+        unique_together = (('obj', 'name'),
+                           ('obj', 'tpclass', 'unique'))
 
 class ParticipantResourceParameterVal(BaseParameterVal):
     parameter = models.ForeignKey(ParticipantResourceParameter, on_delete = models.CASCADE)
