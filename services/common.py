@@ -13,7 +13,7 @@ from svalidate import Validate
 from services.statuses import PARAMETERS_BROKEN, ACCESS_DENIED, ACTIVITY_PARAMETER_NOT_FOUND, ACTIVITY_IS_NOT_ACCEPTED, \
     ACTIVITY_NOT_FOUND, RESOURCE_NOT_FOUND, ACTIVITY_RESOURCE_NOT_FOUND, ACTIVITY_RESOURCE_IS_NOT_ACCEPTED, RESOURCE_PARAMETER_NOT_FOUND
 from services.models import Participant, Activity, ActivityParameter, parameter_class_map, DefaultParameterVl, Resource, \
-    ActivityResourceParameter, ParticipantParameter
+    ActivityResourceParameter, ParticipantResourceParameter
 
 yearmonthdayhour = ['year', 'month', 'day', 'hour', 'minute', 'second']
 formats = ['%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d', '%Y-%m-%dT%H:%M:%S.%f', '%Y-%m-%d %H:%M:%S.%f']
@@ -649,7 +649,7 @@ class get_resource_parameter_from_uuid(object):
                 aresp = ActivityResourceParameter.objects.filter(Q(uuid=params[self._param])).all()[0]
             except IndexError:
                 try:
-                    aresp = ParticipantParameter.objects.filter(uuid = params[self._param]).all()[0]
+                    aresp = ParticipantResourceParameter.objects.filter(uuid = params[self._param]).all()[0]
                 except IndexError:
                     return {'code' : RESOURCE_PARAMETER_NOT_FOUND,
                             'caption' : 'There is no such resource parameter'}, httplib.PRECONDITION_FAILED
@@ -670,5 +670,5 @@ class get_resource_parameter_from_uuid(object):
             if ap == None or ap == False:
                 return {'code' : ACCESS_DENIED,
                         'caption' : 'You are not acvitity participant'}, httplib.PRECONDITION_FAILED
-            return fnc(*tuple([params, aresp, user] + args[2:]), **kargs)
+            return fnc(*tuple([params, aresp, user] + list(args[2:])), **kargs)
         return ret

@@ -1137,9 +1137,10 @@ def create_common_resource_parameter(params, ares, res, apar, act, user):
                 'caption' : 'This parameter is already exist'}, httplib.PRECONDITION_FAILED
 
     if isinstance(params.get('value'), basestring):
-        return change_resource_parameter(params, prm, user)
-    else:
-        return 'Created', httplib.CREATED
+        ret, st =  change_resource_parameter(params, prm, user)
+        if st != httplib.CREATED:
+            return ret, st
+    return {'uuid' : prm.uuid}, httplib.CREATED
 
 def create_personal_resource_parameter(params, ares, res, apar, act, user):
     try:
@@ -1157,8 +1158,7 @@ def create_personal_resource_parameter(params, ares, res, apar, act, user):
     if isinstance(params.get('value'), basestring):
         set_object_parameter(pres, user, params['value'], uuid = prm.uuid,
                              caption = params['caption'], comment = params['comment'])
-    return 'Created', httplib.CREATED
-    
+    return {'uuid' : prm.uuid}, httplib.CREATED
 
 @get_user
 @get_activity_from_uuid('activity')
@@ -1188,9 +1188,10 @@ def create_common_resource_parameter_from_default(params, default, ares, res, ac
         return {'code' : RESOURCE_PARAMETER_ALREADY_EXISTS,
                 'caption' : 'This parameter is already exists'}, httplib.PRECONDITION_FAILED
     if default.default_value != None:
-        return change_resource_parameter(params, prm, user)
-    else:
-        return 'Created', httplib.CREATED
+        ret, st = change_resource_parameter(params, prm, user)
+        if st != httplib.CREATED:
+            return ret, st
+    return {'uuid' : prm.uuid}, httplib.CREATED
 
 def create_personal_resource_parameter_from_default(params, default, ares, res, apar, act, user):
     try:
@@ -1205,7 +1206,7 @@ def create_personal_resource_parameter_from_default(params, default, ares, res, 
                 'caption' : 'This resource parameter is already exists'}
     if default.default_value != None:
         set_object_parameter(aprtres, user, params['value'], uuid = prmt)
-    return 'Created', httplib.CREATED
+    return {'uuid' : prmt.uuid}, httplib.CREATED
     
     
 @get_user
@@ -1248,7 +1249,7 @@ def list_personal_activity_resource_parameters(params, ares, res, act, user):
             p['caption'] = vl.caption
         p['votes'] = []
         ret.append(p)
-    return ret
+    return ret, httplib.OK
 
 
 def list_common_activity_resource_parameters(params, ares, res, act, user):
@@ -1275,16 +1276,16 @@ def list_common_activity_resource_parameters(params, ares, res, act, user):
             p['value'] = val.value
             p['caption'] = val.caption
         vts = []
-        for pval in prmt.activityparameterval_set.filter(status='voted').all():
+        for pval in prmt.activityresourceparameterval_set.filter(status='voted').all():
             for vote in pval.activityresourceparametervote_set.all():
                 vts.append({'uuid' : vote.voter.uuid,
                             'value' : pval.value,
                             'caption' : pval.caption,
                             'comment' : vote.comment,
-                            'dt' : vote.create_date})
+                            'dt' : vote.create_date.isoformat()})
         p['votes'] = vts
         ret.append(p)
-    return ret, httplib.PRECONDITION_FAILED
+    return ret, httplib.OK
     
 @get_user
 @get_resource_parameter_from_uuid()

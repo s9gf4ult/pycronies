@@ -1592,7 +1592,7 @@ class mytest(TestCase):
                       httplib.CREATED)
 
         # Создаем общий ресурс
-        r = self.srequest(c, '/create/resource', {'psid' : psid,
+        r = self.srequest(c, '/resource/create', {'psid' : psid,
                                                   'name' : 'common',
                                                   'units' : 'kg',
                                                   'use' : 'common',
@@ -1673,7 +1673,8 @@ class mytest(TestCase):
         r = self.srequest(c, '/activity/resource/parameter/list',
                           {'psid' : psid,
                            'activity' : auuid,
-                           'uuid' : common})
+                           'uuid' : common},
+                          httplib.OK)
         d = dec.decode(r)
         self.assertEqual(2, len(d))
         cp2 = [a for a in d if a['uuid'] == commp2][0]
@@ -1698,7 +1699,7 @@ class mytest(TestCase):
                           {'psid' : psid,
                            'activity' : auuid,
                            'uuid' : common},
-                          httplib.CREATED)
+                          httplib.OK)
         d = dec.decode(r)
         p2 = [a for a in d if a['uuid'] == commp2][0]
         for a, b in [(set([commp, commp2]), set([a['uuid'] for a in d])),
@@ -1710,7 +1711,7 @@ class mytest(TestCase):
         
         # ======================================
         # второй добавляет личный ресурс
-        r = self.srequest(c, '/activity/resource/create',
+        r = self.srequest(c, '/resource/create',
                           {'psid' : psid2,
                            'name' : 'resourc2',
                            'descr' : 'personal resource',
@@ -1734,7 +1735,26 @@ class mytest(TestCase):
                        'uuid' : personal,
                        'activity' : auuid}) 
         
-        # второй добавляет параметр в ресурс
+        # второй добавляет параметр в ресурс и фейлится ибо еще не задействовал
+        # личный ресурс
+        r = self.srequest(c, '/activity/resource/parameter/create',
+                          {'psid' : psid2,
+                           'activity' : auuid,
+                           'uuid' : personal,
+                           'name' : 'personal',
+                           'tp' : 'float',
+                           'enum' : enc.encode(False)},
+                          httplib.PRECONDITION_FAILED)
+
+        # второй задействует личный ресрус
+        self.srequest(c, '/participant/resource/use',
+                      {'psid' : psid2,
+                       'uuid' : personal,
+                       'activity' : auuid,
+                       'amount' : 10},
+                      httplib.CREATED)
+
+        # второй добавляет в личный ресурс параметр
         r = self.srequest(c, '/activity/resource/parameter/create',
                           {'psid' : psid2,
                            'activity' : auuid,
@@ -1743,6 +1763,7 @@ class mytest(TestCase):
                            'tp' : 'float',
                            'enum' : enc.encode(False)},
                           httplib.CREATED)
+        
         persp = dec.decode(r)['uuid']
         
         # второй выставлет значение параметра для личного ресурса
@@ -1751,7 +1772,7 @@ class mytest(TestCase):
                        'uuid' : persp,
                        'value' : 100,
                        'caption' : 'just caption'},
-                      httplib.CREATED)
+                      httplib.CREATED, True)
         
         # просматривает значение параметра видит что оно изменилось
         r = self.srequest(c, '/activity/resource/parameter/list',
@@ -1772,27 +1793,47 @@ class mytest(TestCase):
                      ('just caption', pp['caption'])]:
             self.assertEqual(a, b)
         
-        # инициатор не видит этого изменения
+        # инициатор не видит даже параметра
         r = self.srequest(c, '/activity/resource/parameter/list',
                           {'psid' : psid,
                            'activity' : auuid,
                            'uuid' : personal},
                           httplib.CREATED)
-        pp = dec.decode(r)[0]
-        for a, b in [(persp, pp['uuid']),
-                     ('personal', pp['name']),
-                     ('float', pp['tp']),
-                     (False, pp['enum']),
-                     ([], pp['values']),
-                     (None, pp['value']),
-                     ([], pp['votes']),
-                     ('just caption', pp['caption'])]:
-            self.assertEqual(a, b)
+        self.assertEqual(0, len(dec.decode(r)))
+        # pp = dec.decode(r)[0]
+        # for a, b in [(persp, pp['uuid']),
+        #              ('personal', pp['name']),
+        #              ('float', pp['tp']),
+        #              (False, pp['enum']),
+        #              ([], pp['values']),
+        #              (None, pp['value']),
+        #              ([], pp['votes']),
+        #              ('just caption', pp['caption'])]:
+        #     self.assertEqual(a, b)
         
+        # инициатор добавляет ресурс как личный
+        self.srequest(c, '/participant/resource/use',
+                      {'psid' : psid,
+                       'uuid' : personal,
+                       'activity' : auuid},
+                      httplib.CREATED)
+        
+        # инициатор добавляет такой же параметр личного ресурса
+        r = self.srequest(c, '/activity/resource/parameter/create',
+                          {'psid' : psid,
+                           'activity' : auuid,
+                           'uuid' : personal,
+                           'name' : 'personal',
+                           'tp' : 'float',
+                           'enum' : enc.encode(False)},
+                          httplib.CREATED)
+        persp2 = dec.decode(r)['uuid']
+        
+
         # инициатор меняет значение этого ресурса
         self.srequest(c, '/activity/resource/parameter/change',
                       {'psid' : psid,
-                       'uuid' : persp,
+                       'uuid' : persp2,
                        'value' : 200},
                       httplib.CREATED)
 
@@ -1802,7 +1843,7 @@ class mytest(TestCase):
                            'uuid' : personal},
                           httplib.OK)
         pp = dec.decode(r)[0]
-        for a, b in [(persp, pp['uuid']),
+        for a, b in [(persp2, pp['uuid']),
                      ('personal', pp['name']),
                      ('float', pp['tp']),
                      (False, pp['enum']),

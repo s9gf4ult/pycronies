@@ -240,8 +240,8 @@ def list_default_parameters_route(request): # ++TESTED
                            'tp' : _good_string,
                            'enum' : JsonString(True),
                            'value' : _good_string,
-                           'values' : OrNone(JsonString([{'value' : _good_string,
-                                                          'caption' : OrNone(_good_string)}])),
+                           # 'values' : OrNone(JsonString([{'value' : _good_string,
+                           #                                'caption' : OrNone(_good_string)}])),
                            'caption' : OrNone(_good_string),
                            'comment' : OrNone(_good_string)})
 def create_project_parameter_route(params): # ++TESTED
@@ -274,12 +274,19 @@ def create_project_parameter_route(params): # ++TESTED
     """
     enc, dec = getencdec()
     pp = copy(params)
-    if params.get('values') != None:
-        pp['values'] = dec.decode(params['values']) # decode from json
     pp['enum'] = dec.decode(params['enum'])
-
-    if pp['enum'] and (pp.get('values') == None):
-        return http.HttpResponse(u'if "enum" is true then "values" key must exist', status=httplib.PRECONDITION_FAILED)
+    if pp['enum']:
+        v = Validate()
+        r = v.validate(JsonString([{'value' : _good_string,
+                                    'caption' : OrNone(_good_string)}]),
+                       pp['values'])
+        if r != None:
+            return http.HttpResponse(enc.encode({'code' : PARAMETERS_BROKEN,
+                                                 'error' : r,
+                                                 'caption' : 'You must give valid "values" if "enum" is true'}),
+                                     status = httplib.PRECONDITION_FAILED,
+                                     content_type = 'application/json')
+        pp['values'] = dec.decode(pp['values'])
 
     ret, stat = execute_create_project_parameter(pp)
     if stat != httplib.CREATED:
@@ -1168,9 +1175,11 @@ def include_personal_resource_route(params):
 
     Поведение:
 
-       Если количество ресурса указано меньше чем 0.001 то ресурс исключается из
-       личного использования участником. Чтобы добавить ресурс снова, нужно
-       вызывать этот метод и указать колчиество большее чем 0.001
+       Если количество ресурса указано меньше чем 0.001
+       то ресурс исключается из личного использования
+       участником. Чтобы добавить ресурс снова, нужно
+       вызывать этот метод и указать колчиество большее
+       чем 0.001
 
     Статусы возврата:
 
@@ -1386,10 +1395,9 @@ def conform_activity_resource_route(params):
                            'descr' : OrNone(_good_string),
                            'tp' : _good_string,
                            'enum' : JsonString(True),
-                           'value' : OrNone(_good_string),
-                           'values' : OrNone([{'value' : _good_string,
-                                               'caption' : OrNone(_good_string)}])})
-@typical_json_responder(execute_create_resource_parameter, httplib.CREATED)
+                           'value' : OrNone(_good_string)})
+                           # 'values' : OrNone([{'value' : _good_string,
+                           #                     'caption' : OrNone(_good_string)}])})
 def create_activity_resource_parameter_route(params):
     """
     **Добавить праметр ресурса мероприятия**
@@ -1406,7 +1414,7 @@ def create_activity_resource_parameter_route(params):
     - `tp`: тип ресурса
     - `enum`: JSON кодированный Boolean, параметр имеет ограниченный набор значений
     - `value`: не обязательное значение параметра (если пусто то параметра не существует)
-    - `values`: не обязательный набор возможных значений, список словарей с ключами
+    - `values`: не обязательный набор возможных значений, JSON список словарей с ключами
        - `value`:
        - `caption`: не обязательный параметр
 
@@ -1427,7 +1435,26 @@ def create_activity_resource_parameter_route(params):
     - `501`: если управление проектом != 'despot'
     - `500`: ошибка сервера
     """
-    pass
+    enc, dec = getencdec()
+    pp = copy(params)
+    pp['enum'] = dec.decode(pp['enum'])
+    if pp['enum']:
+        v = Validate()
+        r = v.validate(JsonString([{'value' : _good_string,
+                                    'caption' : OrNone(_good_string)}]),
+                       pp['values'])
+        if r != None:
+            return http.HttpResponse(enc.encode({ 'code' : PARAMETERS_BROKEN,
+                                                  'error' : r,
+                                                  'caption' : 'You must give proper "values" if "enum" field is true'}),
+                                     status = httplib.PRECONDITION_FAILED,
+                                     content_type='application/json')
+        pp['values'] = dec.decode(pp['values'])
+    ret, st = execute_create_resource_parameter(pp)
+    if st != httplib.CREATED:
+        transaction.rollback()
+    return http.HttpResponse(enc.encode(ret), status=st, content_type = 'application/json')
+                                                
 
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
