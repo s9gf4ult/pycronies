@@ -1127,7 +1127,7 @@ def execute_create_resource_parameter(params, ares, res, act, user):
                 'caption' : 'This parameter is already exist'}, httplib.PRECONDITION_FAILED
 
     if isinstance(params.get('value'), basestring):
-        return change_resource_parameter(params, prm, ares, res, act, user)
+        return change_resource_parameter(params, prm, user)
     else:
         return 'Created', httplib.CREATED
     
@@ -1149,16 +1149,50 @@ def execute_create_resource_parameter_from_default(params, ares, res, act, user)
         return {'code' : RESOURCE_PARAMETER_ALREADY_EXISTS,
                 'caption' : 'This parameter is already exists'}, httplib.PRECONDITION_FAILED
     if default.default_value != None:
-        return change_resource_parameter(params, prm, ares, res, act, user)
+        return change_resource_parameter(params, prm, user)
     else:
         return 'Created', httplib.CREATED
 
-
+@get_user
+@get_activity_from_uuid('activity')
+@get_resource_from_uuid()
+@check_resource_status()
 def execute_list_activity_resource_parameters(params):
-    pass
+    
 
-def execute_change_resource_parameter(params):
-    pass
+@get_user
+@get_resource_parameter_from_uuid()
+def execute_change_resource_parameter(params, resp , user):
+    return change_resource_parameter(params, resp, user)
 
-def execute_conform_resource_parameter(params):
-    pass
+def change_resource_parameter(params, aresp, user):
+    ares = aresp.obj
+    set_vote_for_object_parameter(ares,
+                                  user,
+                                  params['value'],
+                                  uuid=aresp.uuid,
+                                  comment = params.get('comment'),
+                                  caption = params.get('caption'))
+    return conform_resource_parameter(params, aresp, user)
+    
+@get_user
+@get_resource_parameter_from_uuid()
+def execute_conform_resource_parameter(params, aresp, user):
+    return conform_resource_parameter(params, aresp, user)
+
+def conform_resource_parameter(params, aresp, user):
+    prj = user.project
+    if prj.ruleset == 'despot':
+        return despot_conform_resource_parameter(params, aresp, user)
+    else:
+        return 'Conform parmameter is not implemented for project ruleset {0}'.format(prj.ruleset), httplib.NOT_IMPLEMENTED
+
+
+def despot_conform_resource_parameter(params, aresp, user):
+    if not user.is_initiator:
+        return 'Not initiator - ignore', httplib.CREATED
+    vtv = get_vote_value_for_object_parameter(aresp.obj, user, uuid = aresp.uuid)
+    if vtv == None:
+        return 'Nothing to conform', httplib.PRECONDITION_FAILED
+    set_as_accepted_value_of_object_parameter(vtv)
+    return 'Created', httplib.CREATED
