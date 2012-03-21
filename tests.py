@@ -1772,7 +1772,7 @@ class mytest(TestCase):
                        'uuid' : persp,
                        'value' : 100,
                        'caption' : 'just caption'},
-                      httplib.CREATED, True)
+                      httplib.CREATED)
         
         # просматривает значение параметра видит что оно изменилось
         r = self.srequest(c, '/activity/resource/parameter/list',
@@ -1798,7 +1798,7 @@ class mytest(TestCase):
                           {'psid' : psid,
                            'activity' : auuid,
                            'uuid' : personal},
-                          httplib.CREATED)
+                          httplib.OK)
         self.assertEqual(0, len(dec.decode(r)))
         # pp = dec.decode(r)[0]
         # for a, b in [(persp, pp['uuid']),
@@ -1815,7 +1815,8 @@ class mytest(TestCase):
         self.srequest(c, '/participant/resource/use',
                       {'psid' : psid,
                        'uuid' : personal,
-                       'activity' : auuid},
+                       'activity' : auuid,
+                       'amount' : 200},
                       httplib.CREATED)
         
         # инициатор добавляет такой же параметр личного ресурса
@@ -1834,7 +1835,9 @@ class mytest(TestCase):
         self.srequest(c, '/activity/resource/parameter/change',
                       {'psid' : psid,
                        'uuid' : persp2,
-                       'value' : 200},
+                       'value' : 200,
+                       'caption' : 'just caption',
+                       'comment' : 'just comment'},
                       httplib.CREATED)
 
         r = self.srequest(c, '/activity/resource/parameter/list',

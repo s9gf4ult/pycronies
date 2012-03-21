@@ -112,6 +112,43 @@
 
   При попытке изменения параметра мероприятия с ограниченным набором значений на
   значение не из этого набора
+
+- RESOURCE_ALREADY_EXISTS = 121
+
+  При попытке повторного создания существующего ресурса
+
+- RESOURCE_NOT_FOUND = 122
+
+  При попытке изменения ресурса который не существует
+
+- ACTIVITY_RESOURCE_NOT_FOUND = 123
+
+  При попытке работы с ресурсом мероприятия, который не существет
+
+- ACTIVITY_RESOURCE_IS_NOT_ACCEPTED = 124
+
+  При попытке работы с ресурсом мероприяти, статус которого не позволяет
+  использовать этот ресурс
+
+- RESOURCE_WRONG_USAGE = 125
+
+  При попытке работать с персональным ресурсом как с общим или наоборот
+  (например попытка использовать общий ресурс как личный)
+
+- RESOURCE_PARAMETER_ALREADY_EXISTS = 126
+
+  При попытке созданиа параметра ресурса имя которого совпадает с уже
+  существующим параметром данного ресурса
+
+- RESOURCE_PARAMETER_NOT_FOUND = 127
+
+  При попытке работы с не существующим ресурсом параметра
+
+- PERSONAL_RESOURCE_NOT_FOUND = 128
+
+  При попытке работы с персональным ресурсом, который не используется как
+  персональный данным участником (то есть не используется участником выполнившим
+  запрос)
   
 
 ^^^^^^^^^^^^^^^^^^^
@@ -141,6 +178,15 @@ JavaSctip копипаста
   var ACTIVITY_PARAMETER_ALREADY_EXISTS = 118;
   var ACTIVITY_PARAMETER_NOT_FOUND = 119;
   var ACTIVITY_PARAMETER_ERROR = 120;
+  var RESOURCE_ALREADY_EXISTS = 121;
+  var RESOURCE_NOT_FOUND = 122;
+  var ACTIVITY_RESOURCE_NOT_FOUND = 123;
+  var ACTIVITY_RESOURCE_IS_NOT_ACCEPTED = 124;
+  var RESOURCE_WRONG_USAGE = 125;
+  var RESOURCE_PARAMETER_ALREADY_EXISTS = 126;
+  var RESOURCE_PARAMETER_NOT_FOUND = 127;
+  var PERSONAL_RESOURCE_NOT_FOUND = 128;
+
 
 -------------------
 Формат поля `error`

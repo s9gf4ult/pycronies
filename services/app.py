@@ -10,7 +10,8 @@ from services.common import get_or_create_object, get_user, get_authorized_user,
 from services.models import Project, Participant, hex4, ProjectParameter, ProjectParameterVl, ProjectParameterVal, \
     DefaultParameter,  DefaultParameterVl, ProjectRulesetDefaults, ProjectParameterVote, ActivityParticipant, \
     Activity, ActivityParameter, ActivityParameterVal, ActivityParameterVl, ActivityParameterVote, ParticipantParameterVal, \
-    Resource, MeasureUnits, ActivityResourceParameterVote, ParticipantResource, ActivityResource
+    Resource, MeasureUnits, ActivityResourceParameterVote, ParticipantResource, ActivityResource, ActivityResourceParameter, \
+    ParticipantResourceParameter
 from services.statuses import *
 from django.db import transaction, IntegrityError
 from django.db.models import Q
@@ -1245,7 +1246,7 @@ def list_personal_activity_resource_parameters(params, ares, res, act, user):
         except IndexError:
             pass
         else:
-            p['value'] = vl.value,
+            p['value'] = vl.value
             p['caption'] = vl.caption
         p['votes'] = []
         ret.append(p)
@@ -1294,6 +1295,14 @@ def execute_change_resource_parameter(params, resp , user):
 
 
 def change_resource_parameter(params, aresp, user):
+    if isinstance(aresp, ActivityResourceParameter):
+        return change_common_resource_parameter(params, aresp, user)
+    elif isinstance(aresp, ParticipantResourceParameter):
+        return change_personal_resouce_parameter(params, aresp, user)
+    else:
+        return 'Tryed to change resource parameter of wrong type {0}'.format(type(aresp)), httplib.INTERNAL_SERVER_ERROR
+
+def change_common_resource_parameter(params, aresp, user):
     ares = aresp.obj
     set_vote_for_object_parameter(ares,
                                   user,
@@ -1302,6 +1311,12 @@ def change_resource_parameter(params, aresp, user):
                                   comment = params.get('comment'),
                                   caption = params.get('caption'))
     return conform_resource_parameter(params, aresp, user)
+
+def change_personal_resouce_parameter(params, aresp, user):
+    pres = aresp.obj
+    set_object_parameter(pres, user, params['value'], uuid = aresp.uuid,
+                         caption = params.get('caption'), comment = params.get('comment'))
+    return 'Created', httplib.CREATED
     
 @get_user
 @get_resource_parameter_from_uuid()

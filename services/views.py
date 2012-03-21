@@ -279,7 +279,7 @@ def create_project_parameter_route(params): # ++TESTED
         v = Validate()
         r = v.validate(JsonString([{'value' : _good_string,
                                     'caption' : OrNone(_good_string)}]),
-                       pp['values'])
+                       pp.get('values'))
         if r != None:
             return http.HttpResponse(enc.encode({'code' : PARAMETERS_BROKEN,
                                                  'error' : r,

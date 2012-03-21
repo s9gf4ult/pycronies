@@ -77,4 +77,15 @@
              include_activity_resource_route,
              exclude_activity_resource_route,
              conform_activity_resource_route,
-             
+
+------------------
+Параметры ресурсов
+------------------
+
+.. automodule:: services.views
+   :members: create_activity_resource_parameter_route,
+             create_activity_resource_parameter_from_default_route,
+             list_activity_resource_parameters_route,
+             change_resource_parameter_route,
+             conform_resource_parameter_route,
+

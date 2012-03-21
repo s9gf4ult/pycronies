@@ -377,9 +377,15 @@ class ParticipantResourceParameterVl(BaseParameterVl):
     class Meta:
         unique_together = (('parameter', 'value'), )
 
+class ParticipantResourceParameterVote(BaseVote):
+    parameter_val = models.ForeignKey(ParticipantResourceParameterVal, on_delete = models.CASCADE)
+    class Meta:
+        unique_together = (('parameter_val', 'voter'), )
+
 parameter_class_map[ParticipantResource] = {'param' : ParticipantResourceParameter,
                                             'val' : ParticipantResourceParameterVal,
-                                            'vl' : ParticipantResourceParameterVl}
+                                            'vl' : ParticipantResourceParameterVl,
+                                            'vote' : ParticipantResourceParameterVote}
 
 class ProjectRulesetDefaults(BaseModel): # соответствия свойств проекта дефолтным параметрам
     parameter = models.ForeignKey(DefaultParameter)
