@@ -400,6 +400,33 @@ class ParticipantContact(BaseModel):
     tp = models.CharField(max_length = 40)
     contact = SafeTextField()
 
+class Contractor(BaseModel):
+    """Поставщик
+    """
+    name = SafeTextField()
+    user_id = SafeTextField()
+    class Meta:
+        unique_together = (('name',),
+                           ('user_id',))
+
+class ContractorContact(BaseModel):
+    contractor = models.ForeignKey(Contractor, on_delete = models.CASCADE)
+    tp = models.CharField(max_length = 40)
+    value = SafeTextField()
+
+class ContractorOffer(BaseModel):
+    contractor = models.ForeignKey(Contractor, on_delete = models.CASCADE)
+    resource = models.ForeignKey(Resource, on_delete = models.CASCADE)
+    amount = models.DecimalField(max_digits = 20, decimal_places = 2, null=True)
+    cost = models.DecimalField(max_digits = 20, decimal_places = 2, null=False)
+    class Meta:
+        unique_together = (('contractor', 'resource'), )
+
+class ContractorUsage(BaseModel):
+    contractor = models.ForeignKey(Contractor, on_delete = models.CASCADE)
+    resource = models.ForeignKey(Resource, on_delete = models.CASCADE)
+    
+
 # class Vote(BaseModel):
 #     """Голос участника
 #     """

@@ -1245,11 +1245,13 @@ def list_activity_resources_route(params):
        - `name`: имя поставщика
        - `user`: user_id поставщика
        - `cost`: предложенная цена по ресурсу
+       - `amount`: количетсво ресурса, согласованное для поставки данным поставщиком
+       - `offer_amount`: количество ресурса, которое поставщик может поаставить
        - `votes`: предложения по этому поставщику
-         - `uuid`: uuid пользователя
-         - `include`: использовть это поставщика для ресурса
-         - `exclude`: не использовать этого поставщика для ресурса
-    - `contractor`: uuid выбранного поставщика #  FIXME: добавить
+          - `uuid`: uuid пользователя
+          - `amount`: количество ресурса предложенное участником проекта
+            для поставки данным поставщиком. То есть сколько ресурса взять
+            у данного поставщика.
     - `used`: Boolean, признако того, что ресурс используется
       на этом мероприятии
     - `amount`: количество ресурса, Float строкой
@@ -1616,6 +1618,31 @@ def conform_resource_parameter_route(params):
     """
     pass
 
+@transaction.commit_on_success
+@standard_request_handler({'psid' : _good_string,
+                           'resource' : _good_string,
+                           'contractor' : _good_string,
+                           'amount' : OrNone(Able(float))})
+@typical_json_responder(execute_use_contractor, httplib.CREATED)
+def use_contractor_route(params):
+    """
+    **Воспользоваться предложением поставщика**
+
+    путь запроса: **/resource/contractor/use**
+
+    Параметры запроса
+
+    - `psid`: ключ доступа
+    - `resource` : uuid ресурса
+    - `contractor`: user_id поставщика
+    - `amount`: не обязательный параметр количества ресурса, которое
+      будет взято у этого поставщика если не указано, то будет взято все
+      свободное количество ресурса которое еще не поставляется ни одним
+      поставщиком на проекте, Если указан 0, то использование поставщика
+      снимается
+    """
+    pass
+
 
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string})
@@ -1826,7 +1853,6 @@ def contractor_list_project_resources_route(params): #  FIXME: implement
     - `product`: ид продукта (для связи с таблицей продуктов от поставщиков)
     - `amount`: суммарное количество ресурса использованное на проекте
     - `free_amount`: количевто ресурса доступное для предложения
-    - `min_cost`: минимальная цена предложенная по ресурсу другими поставщиками
     - `name`: имя ресурса
     - `descr`: описание ресурса
     - `units' : название еденицы измерения ресурса
@@ -1890,7 +1916,10 @@ def create_contractor_route(params):    #  FIXME: implement
 
     - `user`: user_id поставщика
     - `name`: имя поствщика
-    - `contacts`: не обязательный параметр контакты поставщика
+    - `contacts`: не обязательный параметр контакты поставщика,
+      JSON список словарей
+       - `type` : строка с типом контакта
+       - `value` : строка со значением
 
     Статусы возврата:
 

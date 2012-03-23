@@ -985,6 +985,7 @@ def list_activity_resources(params, act, user):
         res = ar.resource
         p = {'uuid' : res.uuid,
              'name' : res.name,
+             'product' : res.product,
              'descr' : res.descr,
              'units' : res.measure.name,
              'status' : get_object_status(ar),
