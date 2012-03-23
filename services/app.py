@@ -11,7 +11,7 @@ from services.models import Project, Participant, hex4, ProjectParameter, Projec
     DefaultParameter,  DefaultParameterVl, ProjectRulesetDefaults, ProjectParameterVote, ActivityParticipant, \
     Activity, ActivityParameter, ActivityParameterVal, ActivityParameterVl, ActivityParameterVote, ParticipantParameterVal, \
     Resource, MeasureUnits, ActivityResourceParameterVote, ParticipantResource, ActivityResource, ActivityResourceParameter, \
-    ParticipantResourceParameter
+    ParticipantResourceParameter, Contractor, ContractorUsagePrmtVote
 from services.statuses import *
 from django.db import transaction, IntegrityError
 from django.db.models import Q
@@ -118,13 +118,13 @@ def execute_list_projects(props):
 def execute_list_user_projects(user_id):
     """return tuple of response and status
     response is json encodable answer, list of projects assigned to given user_id
-    
+
     Arguments:
-    
+
     - `user_id`:
-    
+
     Return:
-    
+
     (`response`, `answer`)
     """
     # берем список участников с указанным user_id
@@ -991,8 +991,8 @@ def list_activity_resources(params, act, user):
              'status' : get_object_status(ar),
              'use' : res.usage,
              'site' : res.site}
-            
-        
+
+
         vts = []
         for vt in ActivityResourceParameterVote.objects.filter(Q(parameter_val__parameter__obj = ar) &
                                                                Q(parameter_val__parameter__tpclass = 'status') &
@@ -1016,6 +1016,8 @@ def list_activity_resources(params, act, user):
                     p['amount'] = float(pres.amount)
                 except IndexError:
                     pass
+        p['contractors'] = []
+
         ret.append(p)
     return ret, httplib.OK
 
@@ -1025,6 +1027,7 @@ def list_project_resources(params, user):
     for res in prj.resource_set.all():
         p = {'uuid' : res.uuid,
              'name' : res.name,
+             'product' : res.product,
              'descr' : res.descr,
              'units' : res.measure.name,
              'status' : 'accepted',
@@ -1033,6 +1036,38 @@ def list_project_resources(params, user):
              'votes' : [],
              'used' : False,
              'amount' : 0}
+        
+        cnt = []
+        for c in Contractor.objects.filter(Q(contractoroffer__resource = res) |
+                                           Q(contractorusage__resource = res)):
+            cc = {'name' : c.name,
+                  'user' : c.user_id}
+            try:
+                cof = c.contractoroffer_set.filter(resource = res).all()[0]
+            except IndexError:
+                pass
+            else:
+                cc['cost'] = cof.cost
+                cc['offer_amount'] = cof.amount
+            try:
+                cus = c.contractorusage_set.filter(resource = res).all()[0]
+            except IndexError:
+                cc['amount'] = 0
+                cc['votes'] = []
+            else:
+                v = get_object_parameter(cus, 'amount')
+                cc['amount'] = v if v != None else 0
+                vts = []
+                for pp in ContractorUsagePrmtVote.objects.filter(Q(parameter_val__status = 'voted')&
+                                                                 Q(parameter_val__parameter__tpclass = 'amount')&
+                                                                 Q(parameter_val__parameter__obj=cus)).distinct().all():
+                    vts.append({'uuid' : pp.voter.uuid,
+                                'amount' : pp.parameter_val.value})
+                cc['votes'] = vts
+            cnt.append(cc)
+        p['contractors'] = cnt
+        
+        
         ret.append(p)
     return ret, httplib.OK
 
@@ -1045,7 +1080,7 @@ def execute_include_activity_resource(params, res, act, user):
     if ap == None or ap == False:
         return {'code' : ACCESS_DENIED,
                 'caption' : 'You are not activity participant'}, httplib.PRECONDITION_FAILED
-                
+
     try:
         ap = ActivityResource.objects.filter(resource = res, activity = act).all()[0]
     except IndexError:
@@ -1060,7 +1095,7 @@ def execute_include_activity_resource(params, res, act, user):
         set_vote_for_object_parameter(ap, user, 'accepted', uuid = p.uuid,
                                       comment = params.get('comment'))
         return conform_activity_resource(params, ap, res, act, user)
-    
+
     st = get_object_status(ap)
     if st == 'accepted':
         return "Has already", httplib.CREATED
@@ -1086,7 +1121,7 @@ def execute_exclude_activity_resource(params, res, act, user):
     set_vote_for_object_parameter(ap, user, 'denied', tpclass = 'status',
                                   comment = params.get('comment'))
     return conform_activity_resource(params, ap, res, act, user)
-    
+
 
 @get_user
 @get_activity_from_uuid('activity')
@@ -1129,7 +1164,7 @@ def execute_create_resource_parameter(params, ares, res, act, user):
         return create_common_resource_parameter(params, ares, res, apar, act, user)
     else:
         return create_personal_resource_parameter(params, ares, res, apar, act, user)
-    
+
 def create_common_resource_parameter(params, ares, res, apar, act, user):
     try:
         prm = create_object_parameter(ares, 'user', False, tp = params['tp'],
@@ -1174,7 +1209,7 @@ def execute_create_resource_parameter_from_default(params, ares, res, act, user)
         return {'code' : ACCESS_DENIED,
                 'caption' : 'You are not activity participant'}, httplib.PRECONDITION_FAILED
     try:
-        default = DefaultParameter.objects.filter(uuid=params['default']).all()[0] 
+        default = DefaultParameter.objects.filter(uuid=params['default']).all()[0]
     except IndexError:
         return {'code' : DEFAULT_PARAMETER_NOT_FOUND,
                 'caption' : 'There is no such default parameter'}, httplib.PRECONDITION_FAILED
@@ -1210,8 +1245,8 @@ def create_personal_resource_parameter_from_default(params, default, ares, res, 
     if default.default_value != None:
         set_object_parameter(aprtres, user, params['value'], uuid = prmt)
     return {'uuid' : prmt.uuid}, httplib.CREATED
-    
-    
+
+
 @get_user
 @get_activity_from_uuid('activity')
 @get_resource_from_uuid()
@@ -1289,7 +1324,7 @@ def list_common_activity_resource_parameters(params, ares, res, act, user):
         p['votes'] = vts
         ret.append(p)
     return ret, httplib.OK
-    
+
 @get_user
 @get_resource_parameter_from_uuid()
 def execute_change_resource_parameter(params, resp , user):
@@ -1319,7 +1354,7 @@ def change_personal_resouce_parameter(params, aresp, user):
     set_object_parameter(pres, user, params['value'], uuid = aresp.uuid,
                          caption = params.get('caption'), comment = params.get('comment'))
     return 'Created', httplib.CREATED
-    
+
 @get_user
 @get_resource_parameter_from_uuid()
 def execute_conform_resource_parameter(params, aresp, user):

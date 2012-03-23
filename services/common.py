@@ -432,7 +432,9 @@ def get_object_status(obj):
 
 def get_object_parameter(obj, tpclass, name = None):
     """
-    Return None if there is no one parameter found
+    Return None if there is no one parameter found or if there is no one
+    "accepted" value for found parameter, otherwise reurn "accepted" value of
+    parameter.
 
     Arguments:
     - `obj`:
@@ -442,6 +444,7 @@ def get_object_parameter(obj, tpclass, name = None):
     Raises:
 
     - `TypeError`: if `obj` has wrong class
+    - `Exception`: if `tpclass` == "user" and name is not defined
     """
     t = type(obj)
     if t not in parameter_class_map:

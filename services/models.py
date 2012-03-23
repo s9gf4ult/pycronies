@@ -425,7 +425,32 @@ class ContractorOffer(BaseModel):
 class ContractorUsage(BaseModel):
     contractor = models.ForeignKey(Contractor, on_delete = models.CASCADE)
     resource = models.ForeignKey(Resource, on_delete = models.CASCADE)
+    class Meta:
+        unique_together = (('contractor', 'resource'),)
+
+class ContractorUsagePrmt(BaseParameter):
+    obj = models.ForeignKey(ContractorUsage, on_delete = models.CASCADE)
+    class Meta:
+        unique_together = (('obj', 'name'),
+                           ('obj', 'tpclass', 'unique'))
+
+class ContractorUsagePrmtVl(BaseParameterVl):
+    parameter = models.ForeignKey(ContractorUsagePrmt, on_delete = models.CASCADE)
+    class Meta:
+        unique_together = (('parameter', 'value'), )
+
+class ContractorUsagePrmtVal(BaseParameterVal):
+    parameter = models.ForeignKey(ContractorUsagePrmt, on_delete = models.CASCADE)
     
+class ContractorUsagePrmtVote(BaseVote):
+    parameter_val = models.ForeignKey(ContractorUsagePrmtVal, on_delete = models.CASCADE)
+    class Meta:
+        unique_together = (('parameter_val', 'voter'), )
+
+parameter_class_map[ContractorUsage] = {'param' : ContractorUsagePrmt,
+                                        'val' : ContractorUsagePrmtVal,
+                                        'vl' : ContractorUsagePrmtVl,
+                                        'vote' : ContractorUsagePrmtVote}
 
 # class Vote(BaseModel):
 #     """Голос участника
