@@ -112,7 +112,8 @@ def execute_list_projects(props):
             'projects' : [{'uuid' : a.uuid,
                            'name' : a.name,
                            'descr' : a.descr,
-                           'begin_date' : a.begin_date.isoformat()} for a in ret]}
+                           'begin_date' : a.begin_date.isoformat() if a.begin_date != None else None,
+                           'end_date' : a.end_date.isoformat() if a.end_date != None else None} for a in ret]}
 
 def execute_list_user_projects(user_id):
     """return tuple of response and status
