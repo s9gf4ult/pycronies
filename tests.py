@@ -952,7 +952,8 @@ class mytest(TestCase):
         # просатриваем список участников мероприятий: смотрим чтобы было два
         # участника
 
-        r = self.srequest(c, '/activity/participant/list', {'uuid' : auuid1},
+        r = self.srequest(c, '/activity/participant/list', {'psid' : psid,
+                                                            'uuid' : auuid1},
                           httplib.OK)
         resp = dec.decode(r)
         self.assertEqual(set([p['uuid'] for p in prts]), set(resp))
