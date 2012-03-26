@@ -1849,7 +1849,7 @@ def contractor_list_project_resources_route(params): #  FIXME: implement
     """
     **Просмотр ресурсов проекта для поставщика**
 
-    путь запроса: **/contractor/project/list**
+    путь запроса: **/contractor/project/resource/list**
 
     Параметры запроса:
 
