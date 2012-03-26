@@ -923,9 +923,10 @@ def activity_deny_route(params):
     pass
 
 @transaction.commit_on_success
-@standard_request_handler({'uuid' : _good_string})
+@standard_request_handler({'psid' : _good_string,
+                           'uuid' : _good_string})
 @typical_json_responder(execute_activity_list_participants, httplib.OK)
-def activity_list_participants_route(params):
+def list_activity_participants_route(params):
     """
     **Просмотр списка участников**
 
@@ -933,10 +934,15 @@ def activity_list_participants_route(params):
 
     Параметры запроса:
 
+    - `psid`: ключ доступа
     - `uuid`: uuid мероприятия
 
     Возвращает JSON список строк с UUID участников проекта, учавствующих в
     данном мероприятии
+
+    Поведение:
+    
+    Если мероприятие в данный момент не активно, возвращает пустой список
 
     Статусы возврата:
 

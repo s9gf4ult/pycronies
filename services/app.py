@@ -757,11 +757,11 @@ def despot_conform_activity(prj, user, activity):
     set_as_accepted_value_of_object_parameter(astv)
     return 'Status changed', httplib.CREATED
 
-@get_object_by_uuid(Activity, ACTIVITY_NOT_FOUND, 'There is no such activity')
-def execute_activity_list_participants(params, act):
+@get_user
+@get_activity_from_uuid()
+def execute_activity_list_participants(params, act, user):
     if get_object_status(act) != 'accepted':
-        return {'code' : ACTIVITY_IS_NOT_ACCEPTED,
-                'caption' : 'Status of this is activity is not "accepted"'}, httplib.PRECONDITION_FAILED
+        return [], httplib.OK
     ret = []
     for p in Participant.objects.filter(Q(activityparticipant__activity=act) &
                                         Q(activityparticipant__activityparticipantparameter__tpclass = 'status') &
