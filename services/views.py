@@ -1626,7 +1626,7 @@ def conform_resource_parameter_route(params):
                            'contractor' : _good_string,
                            'amount' : OrNone(Able(float))})
 @typical_json_responder(execute_use_contractor, httplib.CREATED)
-def use_contractor_route(params):
+def use_contractor_route(params): #  FIXME: implement
     """
     **Воспользоваться предложением поставщика**
 

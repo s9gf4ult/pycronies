@@ -1017,6 +1017,7 @@ def list_activity_resources(params, act, user):
                 except IndexError:
                     pass
         p['contractors'] = []
+        p['cost'] = None
 
         ret.append(p)
     return ret, httplib.OK
@@ -1066,6 +1067,7 @@ def list_project_resources(params, user):
                 cc['votes'] = vts
             cnt.append(cc)
         p['contractors'] = cnt
+        p['cost'] = sum([x['cost'] * x['amount'] for x in cnt])
         
         
         ret.append(p)
