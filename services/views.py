@@ -17,7 +17,8 @@ from services.app import execute_create_project, execute_list_projects, execute_
     execute_create_project_resource, execute_include_personal_resource, execute_list_activity_resources, \
     execute_create_project_resource, execute_include_activity_resource, execute_exclude_activity_resource, \
     execute_conform_activity_resource, execute_create_resource_parameter, execute_create_resource_parameter_from_default, \
-    execute_list_activity_resource_parameters, execute_change_resource_parameter, execute_conform_resource_parameter
+    execute_list_activity_resource_parameters, execute_change_resource_parameter, execute_conform_resource_parameter, \
+    execute_create_contractor
 
 from services.common import getencdec, standard_request_handler, typical_json_responder
 from services.models import Project, Resource
@@ -1253,7 +1254,7 @@ def list_activity_resources_route(params):
        - `user`: user_id поставщика
        - `cost`: предложенная цена по ресурсу
        - `amount`: количетсво ресурса, согласованное для поставки данным поставщиком
-       - `offer_amount`: количество ресурса, которое поставщик может поаставить
+       - `offer_amount`: количество ресурса, которое поставщик может поаставить, если None значит поставщик не ограничен в количестве ресурса
        - `votes`: предложения по этому поставщику
           - `uuid`: uuid пользователя
           - `amount`: количество ресурса предложенное участником проекта
@@ -1859,7 +1860,7 @@ def contractor_list_project_resources_route(params): #  FIXME: implement
 
     - `uuid`: uuid ресурса
     - `product`: ид продукта (для связи с таблицей продуктов от поставщиков)
-    - `amount`: суммарное количество ресурса использованное на проекте
+    - `amount`: суммарное количество ресурса требуемое на проекте
     - `free_amount`: количевто ресурса доступное для предложения
     - `name`: имя ресурса
     - `descr`: описание ресурса
@@ -1938,3 +1939,25 @@ def create_contractor_route(params):    #  FIXME: implement
     pass
 
 
+def list_contractors(params):
+    """
+    **Список поставщиков**
+
+    путь запроса: **/contractor/list**
+
+    Параметров нет, возвращает JSON список словарей
+
+    - `user`: user_id поставщика
+    - `name`: имя поставщика
+    - `contacts`: список контактов поставщика
+       - `type`: тип контакта (mail, telephone, ...
+       - `value`: значение контакта
+       
+    Статусы возврата:
+
+    - `200`: ok
+    - `412`: не верные данные с описанием в теле ответа
+    - `500`: ошибка сервера
+    
+    """
+    pass

@@ -1950,7 +1950,7 @@ class mytest(TestCase):
         # ресурса
 
         self.srequest(c, '/contractor/create', {'user' : 'contr1',
-                                                    'name' : 'contr1'},
+                                                'name' : 'contr1'},
                           httplib.CREATED)
         cont1 = 'contr1'
 
@@ -1983,79 +1983,337 @@ class mytest(TestCase):
                       httplib.CREATED)
 
         # в списке ресурсов проекта видно предложение поставщика
+        r = self.srequest(c, '/activity/resource/list',
+                          {'psid' : psid},
+                          httplib.OK)
+        d = dec.decode(r)
+        self.assertEqual(1, len(d))
+        rr = d[0]
+        for a, b in [('uuid', res1),
+                     ('name', 'res1'),
+                     ('units', 'kg'),
+                     ('used', 'true'),
+                     ('amount', '100'),
+                     ('cost', '0'),
+                     ]:
+            self.assertEqual(rr[a], b)
+        cc = rr['contractors']
+        self.assertEqual(1, len(cc))
+        c1 = cc[0]
+        for a, b in [('name', 'contr1'),
+                     ('user', 'contr1'),
+                     ('cost', '10'),
+                     ('amount', '0'),
+                     ('offer_amount', None),
+                     ]:
+            self.assertEqual(c1[a], b)
+        self.assertEqual(0, len(c1['votes']))
 
         # подключается второй поставщик
+        self.srequest(c, '/contractor/create',
+                      {'user' : 'contr2',
+                       'name' : 'contr2',
+                       'contacts' : [{'type' : 'email',
+                                      'value' : 'mail@mail.ru'}]},
+                      httplib.CREATED)
 
         # в списке поставщиков видно 2 поставщика
-
-        # видит в списке ресуров цену предложенную поставщиком 1 и предлагает
-        # цену 9
-
-        # в списке ресурсом участники проекта наблюдают два предложения по
+        r = self.srequest(c, '/contractor/list', {}, httplib.OK)
+        d = dec.decode(r)
+        self.assertEqual(2, len(d))
+        self.assertEqual(set(['contr1', 'contr2']), set([a['user'] for a in d]))
+        self.assertEqual(set(['contr1', 'contr2']), set([a['name'] for a in d]))
+        snd = [a for a in d if d['user'] == 'contr1'][0]
+        self.assertEqual([{'type' : 'email',
+                           'value' : 'mail@mail.ru'}], snd['contacts'])
+        
+        # предлагает цену 9
+        self.srequest(c, '/contractor/resource/offer',
+                      {'user' : 'contr2',
+                       'uuid' : res1,
+                       'cost' : 9},
+                      httplib.CREATED)
+        
+        # в списке ресурсов участники проекта наблюдают два предложения по
         # ресурсу
-
+        r = self.srequest(c, '/activity/resource/list',
+                          {'psid' : psid},
+                          httplib.OK)
+        d = dec.decode(r)
+        self.assertEqual(1, len(d))
+        ccs = d[0]['contractors']
+        self.assertEqual(set(['contr1', 'contr2']), set([a['name'] for a in ccs]))
+        self.assertEqual(set(['contr1', 'contr2']), set([a['user'] for a in ccs]))
+        cr1 = [a for a in ccs if a['user'] == 'contr1'][0]
+        cr2 = [a for a in ccs if a['user'] == 'contr2'][0]
+        self.assertEqual(cr1['cost'], '10')
+        self.assertEqual(cr2['cost'], '9')
+        
         # участники проекта создают второй ресурс в количестве 200
+        r = self.srequest(c, '/resource/create',
+                          {'psid' : psid,
+                           'name' : 'res2',
+                           'units' : 'kg',
+                           'site' : 'external',
+                           'use' : 'common'},
+                          httplib.CREATED)
+        d = dec.decode(r)
+        res2 = d['uuid']
+
+        self.srequest(c, '/activity/resource/include',
+                      {'psid' : psid,
+                       'uuid' : res2,
+                       'activity' : auuid,
+                       'need' : enc.encode(False),
+                       'amount' : 200},
+                      httplib.CREATED)
 
         # первый поставщик предлагает цену 20 за второй ресурс
+        self.srequest(c, '/contractor/resource/offer',
+                      {'user' : 'contr1',
+                       'uuid' : res2,
+                       'cost' : 20},
+                      httplib.CREATED)
 
         # второй поставщик предлагает цену 15 за второй ресурс в количестве 100
+        self.srequest(c, '/contractor/resource/offer',
+                      {'user' : 'contr2',
+                       'uuid' : res2,
+                       'cost' : 15,
+                       'amount' : 100},
+                      httplib.CREATED)
 
         # в списке ресурсов видно, что по второму ресурсу 2 предложения
-
+        r = self.srequest(c, '/activity/resource/list',
+                          {'psid' : psid},
+                          httplib.OK)
+        d = dec.decode(r)
+        rs2 = [a for a in d if a['uuid'] == res2][0]
+        self.assertEqual(2, len(rs2['contractors']))
+        cr1 = [a for a in rs2['contractors'] if a['user'] == 'contr1'][0]
+        cr2 = [a for a in rs2['contractors'] if a['user'] == 'contr2'][0]
+        for a, b in [('name', 'contr1'),
+                     ('cost', '20'),
+                     ('amount', '0'),
+                     ('offer_amount', None)
+                     ]:
+            self.assertEqual(cr1[a], b)
+        for a, b in [('name', 'contr2'),
+                     ('cost', '15'),
+                     ('amount', '0'),
+                     ('offer_amount', '100')
+                     ]:
+            self.assertEqual(cr2[a], b)
+        
         # первый поставщик снимает свое предложение
+        self.srequest(c, '/contractor/resource/offer',
+                      {'user' : 'contr1',
+                       'uuid' : res2,
+                       'cost' : 0,
+                       'amount' : 0},
+                      httplib.CREATED)
 
         # проект переводится в режим contractor
+        self.srequest(c, '/project/status/change',
+                      {'psid' : psid,
+                       'status' : 'contractor'},
+                      httplib.CREATED)
 
         # второй участник предлагает использовать первого поставщика для первого
         # ресурса в количестве 50
+        self.srequest(c, '/resource/contractor/use',
+                      {'psid' : psid2,
+                       'resource' : res1,
+                       'contractor' : 'contr1',
+                       'amount' : 50},
+                      httplib.CREATED)
 
         # в списке ресурсов в первом ресурсе в первом поставщике видно
         # предложение на использование от второго пользователя
+        r = self.srequest(c, '/activity/resource/list',
+                          {'psid' : psid}, httplib.OK)
+        d = dec.decode(r)
+        rs1 = [a for a in d if a['uuid'] == res1][0]
+        cr1 = [a for a in rs1['contractors'] if a['user'] == 'contr1'][0]
+        self.assertEqual(1, len(cr1['votes']))
+        self.assertEqual(cr1['votes'][0]['amount'], '50')
 
         # инициатор подтверждает использование второго поставщика для 50 едениц
         # ресурса
+        self.srequest(c, '/resource/contractor/use',
+                      {'psid' : psid,
+                       'resource' : res1,
+                       'contractor' : 'contr1',
+                       'amount' : 50},
+                      httplib.OK)
 
         # поставщик в списке ресурсов видит что проекту требуется уже только 50
         # едениц первого ресурса
+        r = self.srequest(c, '/contractor/project/resource/list',
+                          {'uuid' : puuid},
+                          httplib.OK)
+        d = dec.decode(r)
+        rs1 = [a for a in d if a['uuid'] == res1][0]
+        self.assertEqual(rs1['amount'], '100')
+        self.assertEqual(rs1['free_amount'], '50')
 
         # инициатор использует второго поставщика для остатка ресурса
+        self.srequest(c, '/resource/contractor/use',
+                      {'psid' : psid,
+                       'resource' : res1,
+                       'contractor' : 'contr2'},
+                      httplib.CREATED)
 
         # второй участник предлагает второго поставщика для первого второго
         # ресурса
+        self.srequest(c, '/resource/contractor/use',
+                      {'psid' : psid2,
+                       'resource' : res2,
+                       'contractor' : 'contr2'},
+                      httplib.CREATED)
 
         # в списке поставщиков второго ресурса видно 1 предложение и по этому
         # предложению в количестве 100 (минимум между доступным от поставщика и
         # необходимым на проекте
+        r = self.srequest(c, '/activity/resource/list',
+                          {'psid' : psid},
+                          httplib.OK)
+        d = dec.decode(r)
+        rc2 = [a for a in d if a['uuid'] == res2][0]
+        self.assertEqual(1, len(rc2['contractors']))
+        c1 = rs2['contractors']
+        self.assertEqual(1, len(c1['votes']))
+        self.assertEqual('100', c1['votes'][0]['amount'])
 
         # инициатор подтверждает
-
+        self.srequest(c, '/resource/contractor/use',
+                      {'psid' : psid,
+                       'resource' : res2,
+                       'contractor' : 'contr2'},
+                      httplib.CREATED)
+        
         # в списке ресурсов видно что второй ресурс доставляется вторым
         # поставщиком в количестве 100 из 200 необходимых на проекте, видно, что
         # цена за первый ресурс = 50 * 10 + 50 * 9 = 950 денег, за второй ресурс
         # 100 * 15 = 1500 денег.
+        r = self.srequest(c, '/activity/resource/list',
+                          {'psid' : psid},
+                          httplib.OK)
+        d = dec.decode(r)
+        rs1 = [a for a in d if a['uuid'] == res1][0]
+        rs2 = [a for a in d if a['uuid'] == res2][0]
+        self.assertEqual(rs1['cost'], '950')
+        self.assertEqual(rs2['cost'], '1500')
+        cr1 = rs1['contractors'][0]
+        self.assertEqual(cr1['amount'], '100')
+        self.assertEqual(cr1['offer_amount'], '100')
+        self.assertEqual(cr1['votes'], [])
 
         # перевод проекта в режим planning
+        self.srequest(c, '/project/status/change',
+                      {'psid' : psid,
+                       'status' : 'planning'},
+                      httplib.CREATED)
+        
 
         # добавляется второе мероприятие и в него входят оба участника
+        r = self.srequest(c, '/activity/create',
+                          {'psid' : psid,
+                           'name' : 'activity2',
+                           'begin' : '2010-10-10',
+                           'end' : '2010-10-10'},
+                          httplib.CREATED)
+        auuid2 = dec.decode(r)['uuid']
+        self.srequest(c, '/activity/public',
+                      {'psid' : psid,
+                       'uuid' : auuid2},
+                      httplib.CREATED)
+        self.srequest(c, '/activity/participation',
+                      {'psid' : psid,
+                       'action' : 'include',
+                       'uuid' : auuid2},
+                      httplib.CREATED)
+        self.srequest(c, '/activity/participation',
+                      {'psid' : psid2,
+                       'action' : 'include',
+                       'uuid' : auuid2},
+                      httplib.CREATED)
 
         # во втором мероприятии создается личный ресурс 3
+        r = self.srequest(c, '/resource/create',
+                          {'psid' : psid,
+                           'name' : 'res3',
+                           'units' : 'kg',
+                           'use' : 'personal',
+                           'site' : 'external'},
+                          httplib.CREATED)
+        res3 = dec.decode(r)['uuid']
+        self.srequest(c, '/activity/resource/include',
+                      {'psid' : psid,
+                       'uuid' : res3,
+                       'activity' : auuid2,
+                       'need' : enc.encode(True)},
+                      httplib.CREATED)
 
         # первый участник использует 10 едениц 3 ресурса на втором мероприятии
+        self.srequest(c, '/participant/resource/use',
+                      {'psid' : psid,
+                       'uuid' : res3,
+                       'activity' : auuid2,
+                       'amount' : 10},
+                      httplib.CREATED)
 
         # второй участник использует 10 едениц 3 ресурса на втором мероприятии
+        self.srequest(c, '/participant/resource/use',
+                      {'psid' : psid2,
+                       'uuid' : res3,
+                       'activity' : auuid2,
+                       'amount' : 10},
+                      httplib.CREATED)
 
         # первый участник использует 15 едениц 3 ресурса на первом мероприятии
+        self.srequest(c, '/participant/resource/use',
+                      {'psid' : psid,
+                       'uuid' : res3,
+                       'activity' : auuid,
+                       'amount' : 15},
+                      httplib.CREATED)
 
         # первый поставщик предлагает цену 5 денег за еденицу 3 ресурса но в
         # количестве только 20 из необходимых участникам 35
+        self.srequest(c, '/contractor/resource/offer',
+                      {'user' : 'contr1',
+                       'uuid' : res3,
+                       'cost' : 5,
+                       'amount' : 20},
+                      httplib.CREATED)
 
         # второй поставщик предлгаает 3 ресурс в неограниченном количестве, но
         # цена 20 денег за еденицу несурса
+        self.srequest(c, '/contractor/resource/offer',
+                      {'user' : 'contr2',
+                       'uuid' : res3,
+                       'cost' : 20},
+                      httplib.CREATED)
 
         # инициаотр переводит проект в режим contractor
+        self.srequest(c, '/project/status/change',
+                      {'psid' : psid,
+                       'status' : 'contractor'},
+                      httplib.CREATED)
 
         # инициатор решает заказать 3 ресурс у первого поставщика полностью а
         # остальное докупить у второго поставщика
+        self.srequest(c, '/resource/contractor/use',
+                      {'psid' : psid,
+                       'resource' : res3,
+                       'contractor' : 'contr1'},
+                      httplib.CREATED)
+        self.srequest(c, '/resource/contractor/use',
+                      {'psid' : psid,
+                       'resource' : res3,
+                       'contractor' : 'contr2'},
+                      httplib.CREATED)
 
         ## ============== просмотр старистики ================
 

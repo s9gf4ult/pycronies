@@ -1378,3 +1378,21 @@ def despot_conform_resource_parameter(params, aresp, user):
         return 'Nothing to conform', httplib.PRECONDITION_FAILED
     set_as_accepted_value_of_object_parameter(vtv)
     return 'Created', httplib.CREATED
+
+def execute_create_contractor(params):
+    c = Contractor(name = params['user'],
+                   user_id = params['user'])
+    try:
+        c.save(force_insert=True)
+    except IntegrityError:
+        return {'code' : CONTRACTOR_ALREADY_EXISTS,
+                'caption' : 'There is at least one contractor with such name or user_id exists'}, httplib.PRECONDITION_FAILED
+    for cnt in params['contacts']:
+        cc = ContractorContact(contractor = c,
+                               tp = cnt['type'],
+                               value = cnt['value'])
+        try:
+            cc.save(force_insert=True)
+        except IntegrityError:
+            pass
+    return 'OK', httplib.CREATED
