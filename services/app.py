@@ -978,15 +978,14 @@ def execute_list_activity_resources(params, user):
 @get_activity_from_uuid()
 def list_activity_resources(params, act, user):
     ret = []
-    for ar in act.activityresource_set.filter(Q(activityresourceparameter__tpclass = 'status') &
-                                              Q(activityresourceparameter__activityresourceparameterval__status = 'accepted') &
-                                              Q(activityresourceparameter__activityresourceparameterval__value__in = ['accepted', 'voted'])).all():
+    for ar in act.activityresource_set.all():
         res = ar.resource
+        stt = get_object_status(ar)
         p = {'uuid' : res.uuid,
              'name' : res.name,
              'descr' : res.descr,
              'units' : res.measure.name,
-             'status' : get_object_status(ar),
+             'status' : stt if stt != None else 'voted',
              'use' : res.usage,
              'site' : res.site}
             
