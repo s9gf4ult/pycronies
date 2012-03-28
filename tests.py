@@ -1352,11 +1352,17 @@ class mytest(TestCase):
                            'comment' : 'test'},
                           httplib.CREATED)
 
-        # проверяем что он не на мероприятии
+        # проверяем что он запрещен
         r = self.srequest(c, '/activity/resource/list', {'psid' : psid,
                                                          'uuid' : auuid},
                           httplib.OK)
-        self.assertEqual(0, len(dec.decode(r)))
+        self.assertEqual(1, len(dec.decode(r)))
+        rs = dec.decode(r)[0]
+        for a, b in [('personal', rs['use']),
+                     (False, rs['used']),
+                     (0, len(rs['votes']))]:
+            self.assertEqual(a, b)
+
         r = self.srequest(c, '/activity/resource/list', {'psid' : psid},
                           httplib.OK)
         rs = dec.decode(r)[0]
@@ -1400,7 +1406,8 @@ class mytest(TestCase):
         personal2 = dec.decode(r)['uuid']
 
 
-        # второй участник предлагает ресурс на мероприятие и фелится потому что еще не вошел на мероприятие
+        # второй участник предлагает ресурс на мероприятие и фелится потому что
+        # еще не вошел на мероприятие
         self.srequest(c, '/activity/resource/include',
                       {'psid' : psid2,
                        'uuid' : personal2,
@@ -1529,7 +1536,7 @@ class mytest(TestCase):
                            'uuid' : auuid},
                           httplib.OK)
         rsrs = dec.decode(r)
-        self.assertEqual(2, len(rsrs))
+        self.assertEqual(3, len(rsrs))
         rs = [a for a in rsrs if a['use'] == 'common'][0]
         for a, b in [(True, rs['used']),
                      (10, rs['amount'])]:
@@ -2328,7 +2335,6 @@ class mytest(TestCase):
 
         for p in psids:
             self._delete_project(p)
-
 
 if __name__ == '__main__':
     main()
