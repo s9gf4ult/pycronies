@@ -413,6 +413,8 @@ class ContractorContact(BaseModel):
     contractor = models.ForeignKey(Contractor, on_delete = models.CASCADE)
     tp = models.CharField(max_length = 40)
     value = SafeTextField()
+    class Meta:
+        unique_together = (('contractor', 'tp', 'value'), )
 
 class ContractorOffer(BaseModel):
     contractor = models.ForeignKey(Contractor, on_delete = models.CASCADE)

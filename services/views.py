@@ -18,7 +18,9 @@ from services.app import execute_create_project, execute_list_projects, execute_
     execute_create_project_resource, execute_include_activity_resource, execute_exclude_activity_resource, \
     execute_conform_activity_resource, execute_create_resource_parameter, execute_create_resource_parameter_from_default, \
     execute_list_activity_resource_parameters, execute_change_resource_parameter, execute_conform_resource_parameter, \
-    execute_create_contractor
+    execute_create_contractor, execute_use_contractor, execute_report_project_statistics, execute_activity_statistics, \
+    execute_participant_statistics, execute_contractor_offer_resource, execute_contractor_list_project_resources, \
+    execute_list_contractors
 
 from services.common import getencdec, standard_request_handler, typical_json_responder
 from services.models import Project, Resource
@@ -1631,7 +1633,8 @@ def conform_resource_parameter_route(params):
 @standard_request_handler({'psid' : _good_string,
                            'resource' : _good_string,
                            'contractor' : _good_string,
-                           'amount' : OrNone(Able(float))})
+                           'amount' : OrNone(Able(float)),
+                           'comment' : OrNone(_good_string)})
 @typical_json_responder(execute_use_contractor, httplib.CREATED)
 def use_contractor_route(params): #  FIXME: implement
     """
@@ -1649,6 +1652,8 @@ def use_contractor_route(params): #  FIXME: implement
       свободное количество ресурса которое еще не поставляется ни одним
       поставщиком на проекте, Если указан 0, то использование поставщика
       снимается
+    - `comment`: не обязательный комментарий пользователя, почему именно
+      этот поставщик, ну или типа того
     """
     pass
 
@@ -1938,7 +1943,8 @@ def create_contractor_route(params):    #  FIXME: implement
     """
     pass
 
-
+@transaction.commit_on_success
+@typical_json_responder(execute_list_contractors, httplib.OK)
 def list_contractors(params):
     """
     **Список поставщиков**

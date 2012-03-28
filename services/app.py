@@ -11,7 +11,7 @@ from services.models import Project, Participant, hex4, ProjectParameter, Projec
     DefaultParameter,  DefaultParameterVl, ProjectRulesetDefaults, ProjectParameterVote, ActivityParticipant, \
     Activity, ActivityParameter, ActivityParameterVal, ActivityParameterVl, ActivityParameterVote, ParticipantParameterVal, \
     Resource, MeasureUnits, ActivityResourceParameterVote, ParticipantResource, ActivityResource, ActivityResourceParameter, \
-    ParticipantResourceParameter, Contractor, ContractorUsagePrmtVote
+    ParticipantResourceParameter, Contractor, ContractorUsagePrmtVote, ContractorContact
 from services.statuses import *
 from django.db import transaction, IntegrityError
 from django.db.models import Q
@@ -1395,4 +1395,71 @@ def execute_create_contractor(params):
             cc.save(force_insert=True)
         except IntegrityError:
             pass
-    return 'OK', httplib.CREATED
+    return 'Created', httplib.CREATED
+
+@get_user
+@get_resource_from_uuid('resource')
+def execute_use_contractor(params, res, user):
+    try:
+        cnt = Contractor.objects.filter(user=prams['contractor']).all()[0]
+    except IndexError:
+        return {'code' : CONTRACTOR_NOT_FOUND,
+                'caption' : 'There is no contractor with such user_id'}, httplib.PRECONDITION_FAILED
+    try:
+        off = ContractorOffer.objects.filter(Q(contractor=cnt) & Q(resource = res)).all()[0]
+    except IndexError:
+        return {'code' : RESOURCE_IS_NOT_OFFERED,
+                'caption' : 'This contractor does not offer this resource'}, httplib.PRECONDITION_FAILED
+    am = float(params['amount'])
+    try:
+        cntu = ContractorUsage.objects.filter(Q(contractor = cnt) & Q(resource = res)).all()[0]
+    except IndexError:
+        if am < 0.001:
+            return 'Not using already', httplib.CREATED
+        else:
+            cntu = ContractorUsage(contractor = cnt, resource = res)
+            cntu.save(force_insert=True)
+    prmt = get_or_create_object_parameter(cntu, 'amount', True, descr = 'amount of resource to use with contractor')
+    set_vote_for_object_parameter(cntu, user, min(am, float(off.amount)), uuid = prmt.uuid)
+    return conform_use_contractor(params, res, user)
+    
+def conform_use_contractor(params, cntu, res, user):
+    prj = user.project
+    if prj.ruleset == 'despot' :
+        return despot_conform_use_contractor(params, cntu, res, user)
+    else:
+        return 'Conform contractor usage is not implemented for project ruleset = {0}'.format(prj.ruleset), httplib.NOT_IMPLEMENTED
+        
+def despot_conform_use_contractor(params, cntu, res, user):
+    if not user.is_initiator:
+        return 'You are not initiator, ignore conforming', httplib.CREATED
+    vt = get_vote_value_for_object_parameter(cntu, user, tpclass = 'amount')
+    if vt == None:
+        return 'Nothing to conform', httplib.CREATED
+    am = float(vt.vote)
+    if am < 0.001:
+        cntu.delete()
+    else:
+        set_as_accepted_value_of_object_parameter(vt)
+    return 'Created', httplib.CREATED
+
+@get_user
+def execute_report_project_statistics(params, user):
+    pass
+
+@get_user
+def execute_activity_statistics(params, user):
+    pass
+
+@get_user
+def execute_participant_statistics(params, user):
+    pass
+
+def execute_contractor_offer_resource(params):
+    pass
+
+def execute_contractor_list_project_resources(params):
+    pass
+
+def execute_list_contractors(params):
+    pass
