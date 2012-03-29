@@ -10,6 +10,7 @@ import re
 import json
 from functools import wraps
 from svalidate import Validate
+from copy import copy
 from services.statuses import PARAMETERS_BROKEN, ACCESS_DENIED, ACTIVITY_PARAMETER_NOT_FOUND, ACTIVITY_IS_NOT_ACCEPTED, \
     ACTIVITY_NOT_FOUND, RESOURCE_NOT_FOUND, ACTIVITY_RESOURCE_NOT_FOUND, ACTIVITY_RESOURCE_IS_NOT_ACCEPTED, RESOURCE_PARAMETER_NOT_FOUND
 from services.models import Participant, Activity, ActivityParameter, parameter_class_map, DefaultParameterVl, Resource, \
@@ -675,3 +676,22 @@ class get_resource_parameter_from_uuid(object):
                         'caption' : 'You are not acvitity participant'}, httplib.PRECONDITION_FAILED
             return fnc(*tuple([params, aresp, user] + list(args[2:])), **kargs)
         return ret
+
+class translate_parameters(object):
+    def __init__(self, phash):
+        self._phash = phash
+
+    def __call__(self, fnc):
+        @wraps(fnc)
+        def ret(*args, **kargs):
+            params = args[0]
+            pp = copy(params)
+            for k, fn in self._phash.items():
+                if pp.get(k) != None:
+                    pp[k] = fn(pp[k])
+            return fnc(*tuple([pp] + list(args[1:])), **kargs)
+        return ret
+
+def parse_json(data):
+    dec = json.JSONDecoder()
+    return dec.decode(data)

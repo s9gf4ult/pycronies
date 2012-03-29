@@ -22,7 +22,7 @@ from services.app import execute_create_project, execute_list_projects, execute_
     execute_participant_statistics, execute_contractor_offer_resource, execute_contractor_list_project_resources, \
     execute_list_contractors
 
-from services.common import getencdec, standard_request_handler, typical_json_responder
+from services.common import getencdec, standard_request_handler, typical_json_responder, translate_parameters, parse_json
 from services.models import Project, Resource
 from services.statuses import PARAMETERS_BROKEN
 from svalidate import OrNone, Any, DateTimeString, RegexpMatch, Equal, JsonString, Able, Validate
@@ -944,7 +944,7 @@ def list_activity_participants_route(params):
     данном мероприятии
 
     Поведение:
-    
+
     Если мероприятие в данный момент не активно, возвращает пустой список
 
     Статусы возврата:
@@ -1230,7 +1230,7 @@ def list_activity_resources_route(params):
 
     - `uuid`: uuid ресурса
     - `name`: имя ресурса
-    - `product`: ид продукта    #  FIXME: добавить
+    - `product`: ид продукта                                                     #  FIXME: добавить
     - `descr`: описание ресурса
     - `units`: еденица измерения (строка с названием)
     - `status`: статус ресурса на мероприятии
@@ -1251,20 +1251,29 @@ def list_activity_resources_route(params):
        - `comment`: комментарий участника
        - `dt`: дата создания предложения
     - `contractors`: список поставщиков, содержит пустой список
-      если просматриваем список ресурсов по мероприятию а не по проекту #  FIXME: добавить
+      если просматриваем список ресурсов по мероприятию а не по проекту          #  FIXME: добавить
        - `name`: имя поставщика
        - `user`: user_id поставщика
        - `cost`: предложенная цена по ресурсу
        - `amount`: количетсво ресурса, согласованное для поставки данным поставщиком
-       - `offer_amount`: количество ресурса, которое поставщик может поаставить, если None значит поставщик не ограничен в количестве ресурса
+       - `offer_amount`: количество ресурса, которое поставщик может поаставить, если None значит
+         поставщик не ограничен в количестве ресурса
        - `votes`: предложения по этому поставщику
           - `uuid`: uuid пользователя
           - `amount`: количество ресурса предложенное участником проекта
             для поставки данным поставщиком. То есть сколько ресурса взять
             у данного поставщика.
     - `used`: Boolean, признак того, что ресурс используется
-      на этом мероприятии
-    - `amount`: количество ресурса, Float строкой
+      на этом мероприятии, если просмотр не по мероприятию а по проекту, то
+      возвращает True если общий ресурс использутся хотя бы на одном мероприятии
+      либо персональный ресурс хотя бы одним участником в мероприятии
+    - `amount`: количество ресурса, задействоавнное на мероприятии, для общего ресурса
+      показывает сколько ресурса задействовано на конкретном мероприятии, для
+      персонального ресура - суммарное количество задействованного всеми
+      участниками мероприятия. Если просмотр по ресурсов по всему проекту, то то
+      же самое но по всем мероприятиям проекта, то есть для общих ресурсов
+      суммароное количество задействованное на всех мероприятиях, а для
+      персональных - количество, задействованное всеми участниками мероприятий
     - `cost`: цена, если выбран поставщик, не возвращается для просмотра по
       мероприятию, ибо не однозначно количество ресурса, которое надо отобразить #  FIXME: добавить
 
@@ -1635,6 +1644,7 @@ def conform_resource_parameter_route(params):
                            'contractor' : _good_string,
                            'amount' : OrNone(Able(float)),
                            'comment' : OrNone(_good_string)})
+@translate_parameters({'amount' : float})
 @typical_json_responder(execute_use_contractor, httplib.CREATED)
 def use_contractor_route(params): #  FIXME: implement
     """
@@ -1654,6 +1664,13 @@ def use_contractor_route(params): #  FIXME: implement
       снимается
     - `comment`: не обязательный комментарий пользователя, почему именно
       этот поставщик, ну или типа того
+
+    Статусы возврата:
+
+    - `201`: ok
+    - `412`: не верные данные с описанием в теле ответа
+    - `501`: если управление проектом != "despot"
+    - `500`: ошибка сервера
     """
     pass
 
@@ -1665,7 +1682,7 @@ def project_statistics_route(params): #  FIXME: заимплементить
     """
     **Отчет о пректе**
 
-    путь запроса: **/report/project**
+    путь запроса: **/project/report**
 
     Параметры запроса:
 
@@ -1716,12 +1733,13 @@ def project_statistics_route(params): #  FIXME: заимплементить
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
                            'uuids' : OrNone(JsonString([_good_string]))})
+@translate_parameters({'uuids' : parse_json})
 @typical_json_responder(execute_activity_statistics, httplib.OK)
 def activity_statistics_route(params):  #  FIXME: заимплементить
     """
     **Отчет по мероприятию / мероприятиям**
 
-    путь запроса: **/report/activity**
+    путь запроса: **/activity/report**
 
     Параметры запроса:
 
@@ -1792,12 +1810,13 @@ def activity_statistics_route(params):  #  FIXME: заимплементить
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
                            'uuids' : OrNone(JsonString([_good_string]))})
+@translate_parameters({'uuids' : parse_json})
 @typical_json_responder(execute_participant_statistics, httplib.OK)
 def participant_statistics_route(params): #  FIXME: заимплементить
     """
     **Отчет по пользователю / пользователям**
 
-    путь запроса: **/report/participant**
+    путь запроса: **/participant/report**
 
     Параметры запроса:
 
@@ -1890,6 +1909,8 @@ def contractor_list_project_resources_route(params): #  FIXME: implement
                            'uuid' : _good_string,
                            'cost' : Able(float),
                            'amount' : OrNone(Able(float))})
+@translate_parameters({'amount' : float,
+                       'cost' : float})
 @typical_json_responder(execute_contractor_offer_resource, httplib.CREATED)
 def contractor_offer_resource_route(params): #  FIXME: implement
     """
@@ -1919,6 +1940,7 @@ def contractor_offer_resource_route(params): #  FIXME: implement
                            'name' : _good_string,
                            'contacts' : OrNone(JsonString([{'type' : _good_string,
                                                             'value' : _good_string}]))})
+@translate_parameters({'contacts' : parse_json})
 @typical_json_responder(execute_create_contractor, httplib.CREATED)
 def create_contractor_route(params):    #  FIXME: implement
     """
@@ -1941,11 +1963,19 @@ def create_contractor_route(params):    #  FIXME: implement
     - `412`: не верные данные с описанием в теле ответа
     - `500`: ошибка сервера
     """
+    # enc, dec = getencdec()
+    # pp = copy(params)
+    # if pp.get('contacts') != None:
+    #     pp['contacts'] = dec.decode(pp['contacts'])
+    # ret, st = execute_create_contractor(pp)
+    # if st != httplib.CREATED:
+    #     transaction.rollback()
+    # return http.HttpResponse(enc.encode(ret), status=st, content_type = 'application/json')
     pass
-
+    
 @transaction.commit_on_success
 @typical_json_responder(execute_list_contractors, httplib.OK)
-def list_contractors(params):
+def list_contractors(params):   #  FIXME: implement
     """
     **Список поставщиков**
 
@@ -1958,12 +1988,12 @@ def list_contractors(params):
     - `contacts`: список контактов поставщика
        - `type`: тип контакта (mail, telephone, ...
        - `value`: значение контакта
-       
+
     Статусы возврата:
 
     - `200`: ok
     - `412`: не верные данные с описанием в теле ответа
     - `500`: ошибка сервера
-    
+
     """
     pass

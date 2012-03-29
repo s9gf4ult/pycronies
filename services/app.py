@@ -11,10 +11,10 @@ from services.models import Project, Participant, hex4, ProjectParameter, Projec
     DefaultParameter,  DefaultParameterVl, ProjectRulesetDefaults, ProjectParameterVote, ActivityParticipant, \
     Activity, ActivityParameter, ActivityParameterVal, ActivityParameterVl, ActivityParameterVote, ParticipantParameterVal, \
     Resource, MeasureUnits, ActivityResourceParameterVote, ParticipantResource, ActivityResource, ActivityResourceParameter, \
-    ParticipantResourceParameter, Contractor, ContractorUsagePrmtVote, ContractorContact
+    ParticipantResourceParameter, Contractor, ContractorUsagePrmtVote, ContractorContact, ContractorOffer, ContractorUsage
 from services.statuses import *
 from django.db import transaction, IntegrityError
-from django.db.models import Q
+from django.db.models import Q, Sum
 from datetime import datetime
 from math import ceil
 import httplib
@@ -1021,6 +1021,20 @@ def list_activity_resources(params, act, user):
         ret.append(p)
     return ret, httplib.OK
 
+def get_full_resource_amount(res):
+    if res.usage == 'common':
+        x = res.activityresource_set.filter(Q(activityresourceparameter__tpclass = 'status')&
+                                            Q(activityresourceparameter__activityresourceparameterval__status = 'accepted')&
+                                            Q(activityresourceparameter__activityresourceparameterval__value = 'accepted')).aggregate(Sum('amount'))
+        return float(x['amount__sum'])
+    else:
+        x = ParticipantResource.objects.filter(Q(resource__resource=res)&
+                                               Q(resource__activityresourceparameter__tpclass = 'status')&
+                                               Q(resource__activityresourceparameter__activityresourceparameterval__status = 'accepted')&
+                                               Q(resource__activityresourceparameter__activityresourceparameterval__value = 'accepted')).aggregate(Sum('amount'))
+        return float(x['amount__sum'])
+
+
 def list_project_resources(params, user):
     prj = user.project
     ret = []
@@ -1033,13 +1047,17 @@ def list_project_resources(params, user):
              'status' : 'accepted',
              'use' : res.usage,
              'site' : res.site,
-             'votes' : [],
-             'used' : False,
-             'amount' : 0}
+             'votes' : []}
+        q = (Q(activityresourceparameter__tpclass='status')&
+             Q(activityresourceparameter__activityresourceparameterval__status = 'accepted')&
+             Q(activityresourceparameter__activityresourceparameterval__value = 'accepted'))
+        if res.usage == 'personal':
+            q &= Q(participantresource__amount__gt = 0)
+        p['used'] = res.activityresource_set.filter(q).count() > 0
+        p['amount'] = get_full_resource_amount(res)
         
         cnt = []
-        for c in Contractor.objects.filter(Q(contractoroffer__resource = res) |
-                                           Q(contractorusage__resource = res)):
+        for c in Contractor.objects.filter(Q(contractoroffer__resource = res)).distinct().all():
             cc = {'name' : c.name,
                   'user' : c.user_id}
             try:
@@ -1047,26 +1065,26 @@ def list_project_resources(params, user):
             except IndexError:
                 pass
             else:
-                cc['cost'] = cof.cost
-                cc['offer_amount'] = cof.amount
-            try:
-                cus = c.contractorusage_set.filter(resource = res).all()[0]
-            except IndexError:
-                cc['amount'] = 0
-                cc['votes'] = []
-            else:
-                v = get_object_parameter(cus, 'amount')
-                cc['amount'] = v if v != None else 0
-                vts = []
-                for pp in ContractorUsagePrmtVote.objects.filter(Q(parameter_val__status = 'voted')&
-                                                                 Q(parameter_val__parameter__tpclass = 'amount')&
-                                                                 Q(parameter_val__parameter__obj=cus)).distinct().all():
-                    vts.append({'uuid' : pp.voter.uuid,
-                                'amount' : pp.parameter_val.value})
-                cc['votes'] = vts
-            cnt.append(cc)
+                cc['cost'] = float(cof.cost)
+                cc['offer_amount'] = float(cof.amount) if cof.amount != None else None # если поставщик не предложил ничего
+                try:
+                    cus = c.contractorusage_set.filter(resource = res).all()[0]
+                except IndexError:
+                    cc['amount'] = 0
+                    cc['votes'] = []
+                else:
+                    v = get_object_parameter(cus, 'amount')
+                    cc['amount'] = float(v) if v != None else 0
+                    vts = []
+                    for pp in ContractorUsagePrmtVote.objects.filter(Q(parameter_val__status = 'voted')&
+                                                                     Q(parameter_val__parameter__tpclass = 'amount')&
+                                                                     Q(parameter_val__parameter__obj=cus)).distinct().all():
+                        vts.append({'uuid' : pp.voter.uuid,
+                                    'amount' : float(pp.parameter_val.value)})
+                    cc['votes'] = vts
+                cnt.append(cc)
         p['contractors'] = cnt
-        p['cost'] = sum([x['cost'] * x['amount'] for x in cnt])
+        p['cost'] = sum([x['cost'] * x['amount'] if (x['cost'] != None and x['amount'] != None) else 0 for x in cnt])
         
         
         ret.append(p)
@@ -1386,21 +1404,30 @@ def execute_create_contractor(params):
     except IntegrityError:
         return {'code' : CONTRACTOR_ALREADY_EXISTS,
                 'caption' : 'There is at least one contractor with such name or user_id exists'}, httplib.PRECONDITION_FAILED
-    for cnt in params['contacts']:
-        cc = ContractorContact(contractor = c,
-                               tp = cnt['type'],
-                               value = cnt['value'])
-        try:
-            cc.save(force_insert=True)
-        except IntegrityError:
-            pass
+    if params.get('contacts') != None:
+        for cnt in params['contacts']:
+            cc = ContractorContact(contractor = c,
+                                   tp = cnt['type'],
+                                   value = cnt['value'])
+            try:
+                cc.save(force_insert=True)
+            except IntegrityError:
+                pass
     return 'Created', httplib.CREATED
 
 @get_user
-@get_resource_from_uuid('resource')
-def execute_use_contractor(params, res, user):
+def execute_use_contractor(params, user):
+    prj = user.project
+    if get_object_status(prj) != 'contractor':
+        return {'code' : PROJECT_STATUS_MUST_BE_CONTRACTOR,
+                'caption' : 'Project status must be "contractor" for this'}, httplib.PRECONDITION_FAILED
     try:
-        cnt = Contractor.objects.filter(user=prams['contractor']).all()[0]
+        res = Resource.objects.filter(uuid=params['resource']).all()[0]
+    except IndexError:
+        return {'code' : RESOURCE_NOT_FOUND,
+                'caption' : 'There is no such resource'}, httplib.PRECONDITION_FAILED
+    try:
+        cnt = Contractor.objects.filter(user_id=params['contractor']).all()[0]
     except IndexError:
         return {'code' : CONTRACTOR_NOT_FOUND,
                 'caption' : 'There is no contractor with such user_id'}, httplib.PRECONDITION_FAILED
@@ -1409,7 +1436,12 @@ def execute_use_contractor(params, res, user):
     except IndexError:
         return {'code' : RESOURCE_IS_NOT_OFFERED,
                 'caption' : 'This contractor does not offer this resource'}, httplib.PRECONDITION_FAILED
-    am = float(params['amount'])
+    if params.get('amount') == None:
+        am = get_full_resource_amount(res)
+    else:
+        am = min(get_full_resource_amount(res), params['amount'])
+    if off.amount != None:
+        am = min(am, off.amount)
     try:
         cntu = ContractorUsage.objects.filter(Q(contractor = cnt) & Q(resource = res)).all()[0]
     except IndexError:
@@ -1419,8 +1451,8 @@ def execute_use_contractor(params, res, user):
             cntu = ContractorUsage(contractor = cnt, resource = res)
             cntu.save(force_insert=True)
     prmt = get_or_create_object_parameter(cntu, 'amount', True, descr = 'amount of resource to use with contractor')
-    set_vote_for_object_parameter(cntu, user, min(am, float(off.amount)), uuid = prmt.uuid)
-    return conform_use_contractor(params, res, user)
+    set_vote_for_object_parameter(cntu, user, am, uuid = prmt.uuid)
+    return conform_use_contractor(params, cntu, res, user)
     
 def conform_use_contractor(params, cntu, res, user):
     prj = user.project
@@ -1435,7 +1467,7 @@ def despot_conform_use_contractor(params, cntu, res, user):
     vt = get_vote_value_for_object_parameter(cntu, user, tpclass = 'amount')
     if vt == None:
         return 'Nothing to conform', httplib.CREATED
-    am = float(vt.vote)
+    am = float(vt.value)
     if am < 0.001:
         cntu.delete()
     else:
@@ -1455,10 +1487,69 @@ def execute_participant_statistics(params, user):
     pass
 
 def execute_contractor_offer_resource(params):
-    pass
+    try:
+        res = Resource.objects.filter(uuid=params['uuid']).all()[0]
+    except IndexError:
+        return {'code' : RESOURCE_NOT_FOUND,
+                'caption' : 'Resource is not found'}, httplib.PRECONDITION_FAILED
+    
+    try:
+        cnt = Contractor.objects.filter(user_id = params['user']).all()[0]
+    except IndexError:
+        return {'code' : CONTRACTOR_NOT_FOUND,
+                'caption' : 'Contractor is not found'}, httplib.PRECONDITION_FAILED
+    am = params.get('amount')
+    if am == None or am > 0.001:
+        get_or_create_object(ContractorOffer, {'contractor' : cnt,
+                                               'resource' : res},
+                             {'amount' : params.get('amount'),
+                              'cost' : params.get('cost')})
+    else:
+        ContractorOffer.objects.filter(Q(contractor=cnt) & Q(resource=res)).delete()
+    return 'Created', httplib.CREATED
+                                                 
 
 def execute_contractor_list_project_resources(params):
-    pass
+    try:
+        prj = Project.objects.filter(uuid = params['uuid']).all()[0]
+    except IndexError:
+        return {'code' : PROJECT_NOT_FOUND,
+                'caption' : 'Project is not found'}, httplib.PRECONDITION_FAILED
+    ret = []
+    for res in prj.resource_set.all():
+        p = {'uuid' : res.uuid,
+             'product' : res.product,
+             'name' : res.name,
+             'descr' : res.descr,
+             'units' : res.measure.name,
+             'use' : res.usage,
+             'site' : res.site}
+        ares = res.activityresource_set.filter(Q(activityresourceparameter__tpclass = 'status') &
+                                                Q(activityresourceparameter__activityresourceparameterval__status = 'accepted') &
+                                                Q(activityresourceparameter__activityresourceparameterval__value = 'accepted')).all()
+        if res.usage == 'common':
+            amount = sum([float(a.amount) for a in ares])
+        else:
+            amount = sum([sum([float(b.amount) for b in a.participantresource_set.filter(Q(participant__activityparticipantparameter__tpclass = 'status')&
+                                                                            Q(participant__activityparticipantparameter__activityparticipantparameterval__status = 'accepted') &
+                                                                            Q(participant__activityparticipantparameter__activityparticipantparameterval__value = 'accepted')).all()]) for a in ares])
+        if amount <= 0.001:
+            continue
+        p['amount'] = amount
+        us = sum([float(get_object_parameter(a, tpclass = 'amount')) for a in res.contractorusage_set.all()])
+        p['free_amount'] = p['amount'] - us
+        ret.append(p)
+    return ret, httplib.OK
 
 def execute_list_contractors(params):
-    pass
+    ret = []
+    for cnt in Contractor.objects.all():
+        p = {'user' : cnt.user_id,
+             'name' : cnt.name}
+        pp = []
+        for cntct in cnt.contractorcontact_set.all():
+            pp.append({'type' : cntct.tp,
+                       'value' : cntct.value})
+        p['contacts'] = pp
+        ret.append(p)
+    return ret, httplib.OK
