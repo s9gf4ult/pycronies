@@ -430,7 +430,7 @@ def conform_project_parameter_route(params): # ++TESTED на прямую не �
 
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string})
-def delete_project_route(params): #  FIXME: метод для тестов
+def delete_project_route(params): #  NOTE: метод для тестов
     """
     get string with psid
 
@@ -702,7 +702,7 @@ def conform_participant_route(params): # ++TESTED на прямую не выз�
                            'uuid' : OrNone(_good_string),
                            'comment' : OrNone(_good_string)})
 @typical_json_responder(execute_exclude_participant, httplib.CREATED)
-def exclude_participant_route(params):
+def exclude_participant_route(params): # ++TESTED
     """
     **Исключить участника**
 
@@ -728,7 +728,7 @@ def exclude_participant_route(params):
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string})
 @typical_json_responder(execute_list_activities, httplib.OK)
-def list_activities_route(params):
+def list_activities_route(params): # ++TESTED
     """
     **Просмотр мероприятий проекта**
 
@@ -780,7 +780,7 @@ def list_activities_route(params):
                            'uuid' : _good_string,
                            'comment' : OrNone(_good_string)})
 @typical_json_responder(execute_activity_participation, httplib.CREATED)
-def activity_participation_route(params):
+def activity_participation_route(params): # ++TESTED
     """
     **Участие в мероприятии**
 
@@ -808,7 +808,7 @@ def activity_participation_route(params):
                            'begin' : DateTimeString(),
                            'end' : DateTimeString()})
 @typical_json_responder(execute_create_activity, httplib.CREATED)
-def create_activity_route(params):
+def create_activity_route(params): # ++TESTED
     """
     **Создание мероприятия**
 
@@ -840,7 +840,7 @@ def create_activity_route(params):
                            'uuid' : _good_string,
                            'comment' : OrNone(_good_string)})
 @typical_json_responder(execute_public_activity, httplib.CREATED)
-def public_activity_route(params):
+def public_activity_route(params): # ++TESTED
     """
     **Публикация мероприятия**
 
@@ -871,7 +871,7 @@ def public_activity_route(params):
 @standard_request_handler({'psid' : _good_string,
                            'uuid' : _good_string})
 @typical_json_responder(execute_activity_delete, httplib.CREATED)
-def activity_delete_route(params):
+def activity_delete_route(params): # ++TESTED
     """
     **Удаление мероприятия**
 
@@ -901,7 +901,7 @@ def activity_delete_route(params):
                            'uuid' : _good_string,
                            'comment' : OrNone(_good_string)})
 @typical_json_responder(execute_activity_deny, httplib.CREATED)
-def activity_deny_route(params):
+def activity_deny_route(params): # ++TESTED
     """
     **Исключение мероприятия**
 
@@ -931,7 +931,7 @@ def activity_deny_route(params):
 @standard_request_handler({'psid' : _good_string,
                            'uuid' : _good_string})
 @typical_json_responder(execute_activity_list_participants, httplib.OK)
-def list_activity_participants_route(params):
+def list_activity_participants_route(params): # ++TESTED
     """
     **Просмотр списка участников**
 
@@ -981,10 +981,6 @@ def conform_activity_route(params):
     """
     pass
 
-# @transaction.commit_on_success
-# @standard_request_handler({'psid' : _good_string})
-# @typical_j
-
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
                            'uuid' : _good_string,
@@ -993,7 +989,7 @@ def conform_activity_route(params):
                            'tp' : _good_string,
                            'enum' : JsonString(True),
                            'value' : OrNone(_good_string)})
-def create_activity_parameter_route(params):
+def create_activity_parameter_route(params): # ++TESTED
     """
     **Создание параметра мероприятия**
 
@@ -1049,7 +1045,7 @@ def create_activity_parameter_route(params):
                            'uuid' : _good_string,
                            'default' : _good_string})
 @typical_json_responder(execute_create_activity_parameter_from_default, httplib.CREATED)
-def create_activity_parameter_from_default_route(params):
+def create_activity_parameter_from_default_route(params): # ++TESTED
     """
     **Содание параметра мероприятия из типового**
 
@@ -1078,7 +1074,7 @@ def create_activity_parameter_from_default_route(params):
 @standard_request_handler({'psid' : _good_string,
                            'uuid' : _good_string})
 @typical_json_responder(execute_list_activity_parameters, httplib.OK)
-def list_activity_parameters_route(params):
+def list_activity_parameters_route(params): # ++TESTED
     """
     **Получение перечня параметров мероприятия**
 
@@ -1123,7 +1119,7 @@ def list_activity_parameters_route(params):
                            'value' : _good_string,
                            'comment' : OrNone(_good_string)})
 @typical_json_responder(execute_change_activity_parameter, httplib.CREATED)
-def change_activity_parameter_route(params):
+def change_activity_parameter_route(params): # ++TESTED
     """
     **Изененеие параметра мероирятия**
 
@@ -1174,7 +1170,7 @@ def conform_activity_parameter_route(params):
                            'uuid' : _good_string,
                            'activity': _good_string,
                            'amount' : _good_float})
-def include_personal_resource_route(params):
+def include_personal_resource_route(params): # ++TESTED
     """
     **Добавление/удаление личного ресурса**
 
@@ -1215,7 +1211,7 @@ def include_personal_resource_route(params):
 @standard_request_handler({'psid' : _good_string,
                            'uuid' : OrNone(_good_string)})
 @typical_json_responder(execute_list_activity_resources, httplib.OK)
-def list_activity_resources_route(params):
+def list_activity_resources_route(params): # ++TESTED
     """
     **Просмотр ресурсов на мероприятии**
 
@@ -1232,7 +1228,7 @@ def list_activity_resources_route(params):
 
     - `uuid`: uuid ресурса
     - `name`: имя ресурса
-    - `product`: ид продукта                                                     #  FIXME: добавить
+    - `product`: ид продукта
     - `descr`: описание ресурса
     - `units`: еденица измерения (строка с названием)
     - `status`: статус ресурса на мероприятии
@@ -1253,7 +1249,7 @@ def list_activity_resources_route(params):
        - `comment`: комментарий участника
        - `dt`: дата создания предложения
     - `contractors`: список поставщиков, содержит пустой список
-      если просматриваем список ресурсов по мероприятию а не по проекту          #  FIXME: добавить
+      если просматриваем список ресурсов по мероприятию а не по проекту
        - `name`: имя поставщика
        - `user`: user_id поставщика
        - `cost`: предложенная цена по ресурсу
@@ -1277,7 +1273,7 @@ def list_activity_resources_route(params):
       суммароное количество задействованное на всех мероприятиях, а для
       персональных - количество, задействованное всеми участниками мероприятий
     - `cost`: цена, если выбран поставщик, не возвращается для просмотра по
-      мероприятию, ибо не однозначно количество ресурса, которое надо отобразить #  FIXME: добавить
+      мероприятию, ибо не однозначно количество ресурса, которое надо отобразить
 
     Статусы возврата:
 
@@ -1295,7 +1291,7 @@ def list_activity_resources_route(params):
                            'use' : Any(*[Equal(a[0]) for a in Resource.RESOURCE_USAGE]),
                            'site' : Any(*[Equal(a[0]) for a in Resource.RESOURCE_SITE])})
 @typical_json_responder(execute_create_project_resource, httplib.CREATED)
-def create_project_resource_route(params):
+def create_project_resource_route(params): # ++TESTED
     """
     **Создать ресурс в проекте**
 
@@ -1335,7 +1331,7 @@ def create_project_resource_route(params):
                            'need' : OrNone(JsonString(True)),
                            'amount' : OrNone(_good_float),
                            'comment' : OrNone(_good_string)})
-def include_activity_resource_route(params):
+def include_activity_resource_route(params): # ++TESTED
     """
     **Добавление ресурса мероприятия**
 
@@ -1379,7 +1375,7 @@ def include_activity_resource_route(params):
                            'activity' : _good_string,
                            'comment' : OrNone(_good_string)})
 @typical_json_responder(execute_exclude_activity_resource, httplib.CREATED)
-def exclude_activity_resource_route(params):
+def exclude_activity_resource_route(params): # ++TESTED
     """
     **Исключить ресурс из мероприятия**
 
@@ -1436,7 +1432,7 @@ def conform_activity_resource_route(params):
                            'value' : OrNone(_good_string)})
                            # 'values' : OrNone([{'value' : _good_string,
                            #                     'caption' : OrNone(_good_string)}])})
-def create_activity_resource_parameter_route(params):
+def create_activity_resource_parameter_route(params): # ++TESTED
     """
     **Добавить праметр ресурса мероприятия**
 
@@ -1500,7 +1496,7 @@ def create_activity_resource_parameter_route(params):
                            'uuid' : _good_string,
                            'default' : _good_string})
 @typical_json_responder(execute_create_resource_parameter_from_default, httplib.CREATED)
-def create_activity_resource_parameter_from_default_route(params):
+def create_activity_resource_parameter_from_default_route(params): # ++TESTED
     """
     **Добавить типовой параметр ресурса**
 
@@ -1532,7 +1528,7 @@ def create_activity_resource_parameter_from_default_route(params):
                            'activity' : _good_string,
                            'uuid' : _good_string})
 @typical_json_responder(execute_list_activity_resource_parameters, httplib.OK)
-def list_activity_resource_parameters_route(params):
+def list_activity_resource_parameters_route(params): # ++TESTED
     """
     **Просмотр перечня параметров ресурса**
 
@@ -1583,7 +1579,7 @@ def list_activity_resource_parameters_route(params):
                            'caption' : OrNone(_good_string),
                            'comment' : OrNone(_good_string)})
 @typical_json_responder(execute_change_resource_parameter, httplib.CREATED)
-def change_resource_parameter_route(params):
+def change_resource_parameter_route(params): # ++TESTED
     """
     **Изменить значение параметра ресурса**
 
@@ -1619,7 +1615,7 @@ def change_resource_parameter_route(params):
 @standard_request_handler({'psid' : _good_string,
                            'uuid' : _good_string})
 @typical_json_responder(execute_conform_resource_parameter, httplib.CREATED)
-def conform_resource_parameter_route(params):
+def conform_resource_parameter_route(params): # ++TESTED
     """
     **Согласование параметра ресурса**
 
@@ -1648,7 +1644,7 @@ def conform_resource_parameter_route(params):
                            'comment' : OrNone(_good_string)})
 @translate_parameters({'amount' : float})
 @typical_json_responder(execute_use_contractor, httplib.CREATED)
-def use_contractor_route(params): #  FIXME: implement
+def use_contractor_route(params): # ++TESTED
     """
     **Воспользоваться предложением поставщика**
 
@@ -1680,7 +1676,7 @@ def use_contractor_route(params): #  FIXME: implement
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string})
 @typical_json_responder(execute_report_project_statistics, httplib.OK)
-def project_statistics_route(params): #  FIXME: заимплементить
+def project_statistics_route(params): 
     """
     **Отчет о пректе**
 
@@ -1737,7 +1733,7 @@ def project_statistics_route(params): #  FIXME: заимплементить
                            'uuids' : OrNone(JsonString([_good_string]))})
 @translate_parameters({'uuids' : parse_json})
 @typical_json_responder(execute_activity_statistics, httplib.OK)
-def activity_statistics_route(params):  #  FIXME: заимплементить
+def activity_statistics_route(params):
     """
     **Отчет по мероприятию / мероприятиям**
 
@@ -1814,7 +1810,7 @@ def activity_statistics_route(params):  #  FIXME: заимплементить
                            'uuids' : OrNone(JsonString([_good_string]))})
 @translate_parameters({'uuids' : parse_json})
 @typical_json_responder(execute_participant_statistics, httplib.OK)
-def participant_statistics_route(params): #  FIXME: заимплементить
+def participant_statistics_route(params):
     """
     **Отчет по пользователю / пользователям**
 
@@ -1872,7 +1868,7 @@ def participant_statistics_route(params): #  FIXME: заимплементить
 @transaction.commit_on_success
 @standard_request_handler({'uuid' : _good_string})
 @typical_json_responder(execute_contractor_list_project_resources, httplib.OK)
-def contractor_list_project_resources_route(params): #  FIXME: implement
+def contractor_list_project_resources_route(params): # ++TESTED
     """
     **Просмотр ресурсов проекта для поставщика**
 
@@ -1914,7 +1910,7 @@ def contractor_list_project_resources_route(params): #  FIXME: implement
 @translate_parameters({'amount' : float,
                        'cost' : float})
 @typical_json_responder(execute_contractor_offer_resource, httplib.CREATED)
-def contractor_offer_resource_route(params): #  FIXME: implement
+def contractor_offer_resource_route(params): # ++TESTED
     """
     **Предложение цены на проекте для поставщика**
 
@@ -1944,7 +1940,7 @@ def contractor_offer_resource_route(params): #  FIXME: implement
                                                             'value' : _good_string}]))})
 @translate_parameters({'contacts' : parse_json})
 @typical_json_responder(execute_create_contractor, httplib.CREATED)
-def create_contractor_route(params):    #  FIXME: implement
+def create_contractor_route(params): # ++TESTED
     """
     **Создание поставщика**
 
@@ -1965,19 +1961,11 @@ def create_contractor_route(params):    #  FIXME: implement
     - `412`: не верные данные с описанием в теле ответа
     - `500`: ошибка сервера
     """
-    # enc, dec = getencdec()
-    # pp = copy(params)
-    # if pp.get('contacts') != None:
-    #     pp['contacts'] = dec.decode(pp['contacts'])
-    # ret, st = execute_create_contractor(pp)
-    # if st != httplib.CREATED:
-    #     transaction.rollback()
-    # return http.HttpResponse(enc.encode(ret), status=st, content_type = 'application/json')
     pass
     
 @transaction.commit_on_success
 @typical_json_responder(execute_list_contractors, httplib.OK)
-def list_contractors(params):   #  FIXME: implement
+def list_contractors(params):   # ++TESTED
     """
     **Список поставщиков**
 

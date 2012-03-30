@@ -1525,15 +1525,6 @@ def execute_contractor_list_project_resources(params):
              'units' : res.measure.name,
              'use' : res.usage,
              'site' : res.site}
-        # ares = res.activityresource_set.filter(Q(activityresourceparameter__tpclass = 'status') &
-        #                                         Q(activityresourceparameter__activityresourceparameterval__status = 'accepted') &
-        #                                         Q(activityresourceparameter__activityresourceparameterval__value = 'accepted')).all()
-        # if res.usage == 'common':
-        #     amount = sum([float(a.amount) for a in ares])
-        # else:
-        #     amount = sum([sum([float(b.amount) for b in a.participantresource_set.filter(Q(participant__activityparticipantparameter__tpclass = 'status')&
-        #                                                                     Q(participant__activityparticipantparameter__activityparticipantparameterval__status = 'accepted') &
-        #                                                                     Q(participant__activityparticipantparameter__activityparticipantparameterval__value = 'accepted')).all()]) for a in ares])
         amount = get_full_resource_amount(res)
         if amount <= 0.001:
             continue
