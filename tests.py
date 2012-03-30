@@ -2353,15 +2353,99 @@ class mytest(TestCase):
 
         ## ============== просмотр старистики ================
 
+        r = self.srequest(c, '/project/report',
+                          {'psid' : psid},
+                          httplib.OK)
+        d = dec.decode(r)
+        for a, b in [('uuid', puuid),
+                     ('name', 'someprojname'),
+                     ('sharing', 'open'),
+                     ('ruleset', 'despot'),
+                     ('cost', 2850),
+                     ]:
+            self.assertEqual(d[a], b)
+        resources = d['resources']
+        self.assertEqual(len(resources), 3)
+        resource1 = [a for a in resources if a['uuid'] == res1][0]
+        resource2 = [a for a in resources if a['uuid'] == res2][0]
+        resource3 = [a for a in resources if a['uuid'] == res3][0]
+        for a, b in [('amount', 100),
+                     ('available', 100),
+                     ('cost', 950),
+                     ('name', 'res1'),
+                     ('units', 'kg'),
+                     ('use', 'common'),
+                     ('site', 'external'),
+                     ]:
+            self.assertEqual(resource1[a], b)
+        for a, b in [('amount', 200),
+                     ('available', 100),
+                     ('cost', 1500),
+                     ('name', 'res2'),
+                     ('units', 'kg'),
+                     ('use', 'common'),
+                     ('site', 'external'),
+                     ]:
+            self.assertEqual(resource2[a], b)
+        for a, b in [('amount', 35),
+                     ('available', 35),
+                     ('cost', 400),
+                     ('name', 'res3'),
+                     ('units', 'kg'),
+                     ('use', 'personal'),
+                     ('site', 'external'),
+                     ]:
+            self.assertEqual(resource3[a], b)
 
-        #  FIXME: дописать
+        # r = self.srequest(c, '/activity/report',
+        #                   {'psid' : psid},
+        #                   httplib.OK)
+        # d = dec.decode(r)
+        # self.assertEqual(len(d), 2)
+        # activ1 = [a for a in d if a['uuid'] == auuid][0]
+        # activ2 = [a for a in d if a['uuid'] == auuid2][0]
+        # self.assertEqual(len(activ1['resources']), 3)
+        # a1res1 = [a for a in activ1['resources'] if a['uuid'] == res1][0]
+        # for a, b in [('amount', 100),
+        #              ('name', 'res1'),
+        #              ('units', 'kg'),
+        #              ('use', 'common'),
+        #              ('site', 'external'),
+        #              ]:
+        #     self.assertEqual(a1res1[a], b)
+        # a1res2 = [a for a in activ1['resources'] if a['uuid'] == res2][0]
+        # for a, b in
+            
+            
+        # a1p1res = [a for a in activ1['participants'] if a['name'] == 'root'][0]['resources']
+        # self.assertEqual(len(a1p1res), 3)
+        # a1p1res1 = [a for a in a1p1res if a['uuid'] == res1][0]
+        # for a, b in [('amount', 50),
+        #              ('cost', 475), # 950 / 2
+        #              ('name', 'res1'),
+        #              ('units', 'kg'),
+        #              ('use', 'common'),
+        #              ('site', 'external')
+        #              ]:
+        #     self.assertEqual(a1p1res1[a], b)
+        # a1p1res2 = [a for a in a1p1res if a['uuid'] == res2][0]
+        # for a, b in [('amount',
 
-
-
-
-
-
-
+        r = self.srequest(c, '/participant/report',
+                          {'psid' : psid},
+                          httplib.OK)
+        d = dec.decode(r)
+        self.assertEqual(len([a for a in d if a['is_initiator']]), 1)
+        self.assertEqual(len(d), 2)
+        partic1 = [a for a in d if a['name'] == 'root'][0]
+        partic2 = [a for a in d if a['name'] == 'user1'][0]
+        self.assertEqual(True, partic1['is_initiator'])
+        p1re1 = [a for a in partic1['resources'] if a['uuid'] == res1][0]
+        for a, b in [('amount', 50),
+                     ('
+            
+        
+        
         for p in psids:
             self._delete_project(p)
 
