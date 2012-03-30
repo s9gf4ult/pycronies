@@ -25,10 +25,12 @@ from services.app import execute_create_project, execute_list_projects, execute_
 from services.common import getencdec, standard_request_handler, typical_json_responder, translate_parameters, parse_json
 from services.models import Project, Resource
 from services.statuses import PARAMETERS_BROKEN
-from svalidate import OrNone, Any, DateTimeString, RegexpMatch, Equal, JsonString, Able, Validate
+from svalidate import OrNone, Any, DateTimeString, RegexpMatch, Equal, JsonString, Able, Validate, Checkable, Each
 from copy import copy
 
 _good_string = RegexpMatch(r'^[^;:"''|\\/#&><]*$')
+_good_float = Each(Able(float), Checkable(lambda a: float(a) >=0, 'Value must not be >= 0'))
+_good_int = Each(Able(int), Checkable(lambda a: int(a) >= 0, 'Value must be >= 0'))
 
 @transaction.commit_on_success
 @standard_request_handler({'name' : _good_string,
@@ -79,8 +81,8 @@ def create_project_route(prs):  # ++TESTED
     pass
 
 @transaction.commit_on_success
-@standard_request_handler({'page_number' : OrNone(Able(int)),
-                           'projects_per_page' : OrNone(Able(int)),
+@standard_request_handler({'page_number' : OrNone(_good_int),
+                           'projects_per_page' : OrNone(_good_int),
                            'status' : OrNone(Any(*[Equal(a[0]) for a in Project.PROJECT_STATUS])),
                            'begin_date' : OrNone(DateTimeString()),
                            'search' : OrNone(_good_string)})
@@ -1171,7 +1173,7 @@ def conform_activity_parameter_route(params):
 @standard_request_handler({'psid' : _good_string,
                            'uuid' : _good_string,
                            'activity': _good_string,
-                           'amount' : Able(float)})
+                           'amount' : _good_float})
 def include_personal_resource_route(params):
     """
     **Добавление/удаление личного ресурса**
@@ -1331,7 +1333,7 @@ def create_project_resource_route(params):
                            'uuid' : _good_string,
                            'activity' : _good_string,
                            'need' : OrNone(JsonString(True)),
-                           'amount' : OrNone(Able(float)),
+                           'amount' : OrNone(_good_float),
                            'comment' : OrNone(_good_string)})
 def include_activity_resource_route(params):
     """
@@ -1642,7 +1644,7 @@ def conform_resource_parameter_route(params):
 @standard_request_handler({'psid' : _good_string,
                            'resource' : _good_string,
                            'contractor' : _good_string,
-                           'amount' : OrNone(Able(float)),
+                           'amount' : OrNone(_good_float),
                            'comment' : OrNone(_good_string)})
 @translate_parameters({'amount' : float})
 @typical_json_responder(execute_use_contractor, httplib.CREATED)
@@ -1907,8 +1909,8 @@ def contractor_list_project_resources_route(params): #  FIXME: implement
 @transaction.commit_on_success
 @standard_request_handler({'user' : _good_string,
                            'uuid' : _good_string,
-                           'cost' : Able(float),
-                           'amount' : OrNone(Able(float))})
+                           'cost' : _good_float,
+                           'amount' : OrNone(_good_float)})
 @translate_parameters({'amount' : float,
                        'cost' : float})
 @typical_json_responder(execute_contractor_offer_resource, httplib.CREATED)

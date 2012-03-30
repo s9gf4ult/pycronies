@@ -1026,13 +1026,13 @@ def get_full_resource_amount(res):
         x = res.activityresource_set.filter(Q(activityresourceparameter__tpclass = 'status')&
                                             Q(activityresourceparameter__activityresourceparameterval__status = 'accepted')&
                                             Q(activityresourceparameter__activityresourceparameterval__value = 'accepted')).aggregate(Sum('amount'))
-        return float(x['amount__sum'])
+        return float(x['amount__sum']) if x['amount__sum'] != None else 0
     else:
         x = ParticipantResource.objects.filter(Q(resource__resource=res)&
                                                Q(resource__activityresourceparameter__tpclass = 'status')&
                                                Q(resource__activityresourceparameter__activityresourceparameterval__status = 'accepted')&
                                                Q(resource__activityresourceparameter__activityresourceparameterval__value = 'accepted')).aggregate(Sum('amount'))
-        return float(x['amount__sum'])
+        return float(x['amount__sum']) if x['amount__sum'] != None else 0
 
 
 def list_project_resources(params, user):
@@ -1436,10 +1436,11 @@ def execute_use_contractor(params, user):
     except IndexError:
         return {'code' : RESOURCE_IS_NOT_OFFERED,
                 'caption' : 'This contractor does not offer this resource'}, httplib.PRECONDITION_FAILED
+    allowerd = get_full_resource_amount(res) - get_full_resource_usage(res)
     if params.get('amount') == None:
-        am = get_full_resource_amount(res)
+        am = allowerd
     else:
-        am = min(get_full_resource_amount(res), params['amount'])
+        am = min(allowerd, params['amount'])
     if off.amount != None:
         am = min(am, off.amount)
     try:
@@ -1524,22 +1525,31 @@ def execute_contractor_list_project_resources(params):
              'units' : res.measure.name,
              'use' : res.usage,
              'site' : res.site}
-        ares = res.activityresource_set.filter(Q(activityresourceparameter__tpclass = 'status') &
-                                                Q(activityresourceparameter__activityresourceparameterval__status = 'accepted') &
-                                                Q(activityresourceparameter__activityresourceparameterval__value = 'accepted')).all()
-        if res.usage == 'common':
-            amount = sum([float(a.amount) for a in ares])
-        else:
-            amount = sum([sum([float(b.amount) for b in a.participantresource_set.filter(Q(participant__activityparticipantparameter__tpclass = 'status')&
-                                                                            Q(participant__activityparticipantparameter__activityparticipantparameterval__status = 'accepted') &
-                                                                            Q(participant__activityparticipantparameter__activityparticipantparameterval__value = 'accepted')).all()]) for a in ares])
+        # ares = res.activityresource_set.filter(Q(activityresourceparameter__tpclass = 'status') &
+        #                                         Q(activityresourceparameter__activityresourceparameterval__status = 'accepted') &
+        #                                         Q(activityresourceparameter__activityresourceparameterval__value = 'accepted')).all()
+        # if res.usage == 'common':
+        #     amount = sum([float(a.amount) for a in ares])
+        # else:
+        #     amount = sum([sum([float(b.amount) for b in a.participantresource_set.filter(Q(participant__activityparticipantparameter__tpclass = 'status')&
+        #                                                                     Q(participant__activityparticipantparameter__activityparticipantparameterval__status = 'accepted') &
+        #                                                                     Q(participant__activityparticipantparameter__activityparticipantparameterval__value = 'accepted')).all()]) for a in ares])
+        amount = get_full_resource_amount(res)
         if amount <= 0.001:
             continue
         p['amount'] = amount
-        us = sum([float(get_object_parameter(a, tpclass = 'amount')) for a in res.contractorusage_set.all()])
+        us = get_full_resource_usage(res)
         p['free_amount'] = p['amount'] - us
         ret.append(p)
     return ret, httplib.OK
+
+def get_full_resource_usage(res):
+    ret = 0
+    for a in res.contractorusage_set.all():
+        x = get_object_parameter(a, tpclass = 'amount')
+        if x != None:
+            ret += float(x)
+    return ret
 
 def execute_list_contractors(params):
     ret = []

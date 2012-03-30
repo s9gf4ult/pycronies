@@ -2130,7 +2130,6 @@ class mytest(TestCase):
                           httplib.OK)
         d = dec.decode(r)
         rs2 = [a for a in d if a['uuid'] == res2][0]
-        print(rs2['contractors'])
         self.assertEqual(1, len(rs2['contractors']))
 
         # проект переводится в режим contractor
@@ -2158,8 +2157,8 @@ class mytest(TestCase):
         self.assertEqual(1, len(cr1['votes']))
         self.assertEqual(cr1['votes'][0]['amount'], 50)
 
-        # инициатор подтверждает использование второго поставщика для 50 едениц
-        # ресурса
+        # инициатор подтверждает использование первого поставщика для 50 едениц
+        # первого ресурса
         self.srequest(c, '/resource/contractor/use',
                       {'psid' : psid,
                        'resource' : res1,
@@ -2167,7 +2166,16 @@ class mytest(TestCase):
                        'amount' : 50},
                       httplib.CREATED)
 
-        # поставщик в списке ресурсов видит что проекту требуется уже только 50
+        # в списке ресурсов видно, что первый ресурс поставляется первым
+        # поставщиком в количестве 50 по цене 10, цена за ресурс составляет 500
+        # r = self.srequest(c, '/activity/resource/list',
+        #                   {'psid' : psid}, httplib.OK)
+        # d = dec.decode(r)
+        # rs1 = [a for a in d if a['uuid'] == res1][0]
+        
+        
+
+        # второй поставщик в списке ресурсов видит что проекту требуется уже только 50
         # едениц первого ресурса
         r = self.srequest(c, '/contractor/project/resource/list',
                           {'uuid' : puuid},
@@ -2184,7 +2192,7 @@ class mytest(TestCase):
                        'contractor' : 'contr2'},
                       httplib.CREATED)
 
-        # второй участник предлагает второго поставщика для первого второго
+        # второй участник предлагает второго поставщика для второго
         # ресурса
         self.srequest(c, '/resource/contractor/use',
                       {'psid' : psid2,
@@ -2194,7 +2202,7 @@ class mytest(TestCase):
 
         # в списке поставщиков второго ресурса видно 1 предложение по
         # второму поставщику в количестве 100 (минимум между доступным от поставщика и
-        # необходимым на проекте
+        # необходимым на проекте)
         r = self.srequest(c, '/activity/resource/list',
                           {'psid' : psid},
                           httplib.OK)
@@ -2225,7 +2233,8 @@ class mytest(TestCase):
         rs2 = [a for a in d if a['uuid'] == res2][0]
         self.assertEqual(rs1['cost'], 950)
         self.assertEqual(rs2['cost'], 1500)
-        cr1 = rs1['contractors'][0]
+        self.assertEqual(rs2['amount'], 200)
+        cr1 = rs2['contractors'][0]
         self.assertEqual(cr1['amount'], 100)
         self.assertEqual(cr1['offer_amount'], 100)
         self.assertEqual(cr1['votes'], [])
@@ -2274,6 +2283,12 @@ class mytest(TestCase):
                        'uuid' : res3,
                        'activity' : auuid2,
                        'need' : enc.encode(True)},
+                      httplib.CREATED)
+        self.srequest(c, '/activity/resource/include',
+                      {'psid' : psid,
+                       'uuid' : res3,
+                       'activity' : auuid,
+                       'need' : enc.encode(False)},
                       httplib.CREATED)
 
         # первый участник использует 10 едениц 3 ресурса на втором мероприятии
