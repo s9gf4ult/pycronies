@@ -6,7 +6,7 @@ from services.common import get_or_create_object, get_user, get_authorized_user,
     set_object_status, set_object_parameter, get_object_status, get_object_parameter, create_object_parameter_from_default, \
     set_vote_for_object_parameter, get_vote_value_for_object_parameter, set_as_accepted_value_of_object_parameter, \
     get_or_create_object_parameter, get_resource_from_uuid, get_activity_resource_from_parameter, check_activity_resource_status, \
-    get_authorized_activity_participant, get_resource_parameter_from_uuid
+    get_authorized_activity_participant, get_resource_parameter_from_uuid, get_parameter_voter
 from services.models import Project, Participant, hex4, ProjectParameter, ProjectParameterVl, ProjectParameterVal, \
     DefaultParameter,  DefaultParameterVl, ProjectRulesetDefaults, ProjectParameterVote, ActivityParticipant, \
     Activity, ActivityParameter, ActivityParameterVal, ActivityParameterVl, ActivityParameterVote, ParticipantParameterVal, \
@@ -117,13 +117,13 @@ def execute_list_projects(props):
 def execute_list_user_projects(user_id):
     """return tuple of response and status
     response is json encodable answer, list of projects assigned to given user_id
-    
+
     Arguments:
-    
+
     - `user_id`:
-    
+
     Return:
-    
+
     (`response`, `answer`)
     """
     # берем список участников с указанным user_id
@@ -647,9 +647,16 @@ def execute_list_activities(params, user):
 @get_user
 @get_activity_from_uuid()
 def execute_activity_participation(params, act, user):
-    if get_object_status(act) != 'accepted':
-        return {'code' : ACTIVITY_IS_NOT_ACCEPTED,
-                'caption' : 'Activity must be accepted join in'}, httplib.PRECONDITION_FAILED
+
+    iam_creator = get_object_status(act) == 'created' and user in get_parameter_voter(act, 'accepted', 'created', tpclass = 'status')
+    if not iam_creator:
+        # ap = get_authorized_activity_participant(user, act)
+        # if ap == None or ap == False:
+        #     return {'code' : ACCESS_DENIED,
+        #             'caption' : 'You are not activity participant'}, httplib.PRECONDITION_FAILED
+        if get_object_status(act) != 'accepted':
+            return {'code' : ACTIVITY_IS_NOT_ACCEPTED,
+                    'caption' : 'Activity must be accepted join in'}, httplib.PRECONDITION_FAILED
     prj = user.project
     ap = get_or_create_object(ActivityParticipant,
                               {'activity' : act,
@@ -754,7 +761,20 @@ def despot_conform_activity(prj, user, activity):
     if astv == None:
         return 'No one vote found, nothing to conform', httplib.CREATED
     set_as_accepted_value_of_object_parameter(astv)
+    conform_all_activity_resouces(activity, user)
+    conform_all_activity_parameters(activity, user)
     return 'Status changed', httplib.CREATED
+
+def conform_all_activity_resouces(act, user):
+    for ares in act.activityresource_set.filter(Q(activityresourceparameter__tpclass = 'status') &
+                                                Q(activityresourceparameter__activityresourceparameterval__status = 'voted')&
+                                                Q(activityresourceparameter__activityresourceparameterval__activityresourceparametervote__voter = user)).distinct().all():
+        conform_activity_resource(None, ares, None, act, user)
+        
+def conform_all_activity_parameters(act, user):
+    for aparam in act.activityparameter_set.filter(Q(activityparameterval__status = 'voted') &
+                                                   Q(activityparameterval__activityparametervote__voter = user)).distinct().all():
+        conform_activity_parameter(None, aparam, user)
 
 @get_user
 @get_activity_from_uuid()
@@ -913,6 +933,10 @@ def execute_conform_activity_parameter(params, ap, user):
     conform_activity_parameter(params, ap, user)
 
 def conform_activity_parameter(params, ap, user):
+    act = ap.obj
+    iam_creator = get_object_status(act) == 'created' and user in get_parameter_voter(act, 'accepted', 'created', tpclass = 'status')
+    if iam_creator:
+        return 'Activity status is "created" so just create an offer', httplib.CREATED
     prj = user.project
     if prj.ruleset == 'despot' :
         return despot_conform_activity_parameter(params, ap, user)
@@ -922,11 +946,15 @@ def conform_activity_parameter(params, ap, user):
 def despot_conform_activity_parameter(params, ap, user):
     if not user.is_initiator:
         return 'You are not initiator, just ignore', httplib.CREATED
+    return just_change_activity_parameter(params, ap, user)
+    
+def just_change_activity_parameter(params, ap, user):
     apvt = get_vote_value_for_object_parameter(ap.obj, user, uuid=ap.uuid)
     if apvt == None:
         return 'Nothing to conform', httplib.CREATED
     set_as_accepted_value_of_object_parameter(apvt)
     return 'Value changed', httplib.CREATED
+    
 
 @get_user
 def execute_create_project_resource(params, user):
@@ -988,8 +1016,8 @@ def list_activity_resources(params, act, user):
              'status' : stt if stt != None else 'voted',
              'use' : res.usage,
              'site' : res.site}
-            
-        
+
+
         vts = []
         for vt in ActivityResourceParameterVote.objects.filter(Q(parameter_val__parameter__obj = ar) &
                                                                Q(parameter_val__parameter__tpclass = 'status') &
@@ -1038,11 +1066,13 @@ def list_project_resources(params, user):
 @get_activity_from_uuid('activity')
 @get_resource_from_uuid()
 def execute_include_activity_resource(params, res, act, user):
-    ap = get_authorized_activity_participant(user, act)
-    if ap == None or ap == False:
-        return {'code' : ACCESS_DENIED,
-                'caption' : 'You are not activity participant'}, httplib.PRECONDITION_FAILED
-                
+    iam_creator = get_object_status(act) == 'created' and user in get_parameter_voter(act, 'accepted', 'created', tpclass = 'status')
+    if not iam_creator:
+        ap = get_authorized_activity_participant(user, act)
+        if ap == None or ap == False:
+            return {'code' : ACCESS_DENIED,
+                    'caption' : 'You are not activity participant'}, httplib.PRECONDITION_FAILED
+
     try:
         ap = ActivityResource.objects.filter(resource = res, activity = act).all()[0]
     except IndexError:
@@ -1057,13 +1087,14 @@ def execute_include_activity_resource(params, res, act, user):
         set_vote_for_object_parameter(ap, user, 'accepted', uuid = p.uuid,
                                       comment = params.get('comment'))
         return conform_activity_resource(params, ap, res, act, user)
-    
+
     st = get_object_status(ap)
     if st == 'accepted':
         return "Has already", httplib.CREATED
     elif st == 'denied':
-        return {'code' : ACTIVITY_RESOURCE_IS_NOT_ACCEPTED,
-                'caption' : 'This resource is denied on this activity'}, httplib.PRECONDITION_FAILED
+        if not iam_creator:
+            return {'code' : ACTIVITY_RESOURCE_IS_NOT_ACCEPTED,
+                    'caption' : 'This resource is denied on this activity'}, httplib.PRECONDITION_FAILED
     set_vote_for_object_parameter(ap, user, 'accepted', tpclass = 'status',
                                   comment = params.get('comment'))
     return conform_activity_resource(params, ap, res, act, user)
@@ -1072,6 +1103,11 @@ def execute_include_activity_resource(params, res, act, user):
 @get_activity_from_uuid('activity')
 @get_resource_from_uuid()
 def execute_exclude_activity_resource(params, res, act, user):
+    if not (get_object_status(act) == 'created' and (user in get_parameter_voter(act, 'accepted', 'created', tpclass = 'status'))):
+        ap = get_authorized_activity_participant(user, act)
+        if ap == None or ap == False:
+            return {'code' : ACCESS_DENIED,
+                    'caption' : 'You are not activity participant'}, httplib.PRECONDITION_FAILED
     try:
         ap = ActivityResource.objects.filter(resource = res, activity = act).all()[0]
     except IndexError:
@@ -1083,7 +1119,7 @@ def execute_exclude_activity_resource(params, res, act, user):
     set_vote_for_object_parameter(ap, user, 'denied', tpclass = 'status',
                                   comment = params.get('comment'))
     return conform_activity_resource(params, ap, res, act, user)
-    
+
 
 @get_user
 @get_activity_from_uuid('activity')
@@ -1100,6 +1136,12 @@ def conform_activity_resource(params, actres, res, act, user):
         return 'conform activity resource is not implemented for project ruleset {0}'.format(prj.ruleset), httplib.NOT_IMPLEMENTED
 
 def despot_conform_activity_resource(params, actres, res, act, user):
+    iam_creator = get_object_status(act) == 'created' and user in get_parameter_voter(act, 'accepted', 'created', tpclass = 'status')
+    if iam_creator:
+        return 'Status of this activity is "created" so you just offer resources', httplib.CREATED
+    if get_object_status(act) != "accepted":
+        return {'code' : ACTIVITY_IS_NOT_ACCEPTED,
+                'caption' : 'This activity is not "accepted"'}, httplib.PRECONDITION_FAILED
     if not user.is_initiator:
         return 'You are not initiator, ignore', httplib.CREATED
 
@@ -1126,7 +1168,7 @@ def execute_create_resource_parameter(params, ares, res, act, user):
         return create_common_resource_parameter(params, ares, res, apar, act, user)
     else:
         return create_personal_resource_parameter(params, ares, res, apar, act, user)
-    
+
 def create_common_resource_parameter(params, ares, res, apar, act, user):
     try:
         prm = create_object_parameter(ares, 'user', False, tp = params['tp'],
@@ -1171,7 +1213,7 @@ def execute_create_resource_parameter_from_default(params, ares, res, act, user)
         return {'code' : ACCESS_DENIED,
                 'caption' : 'You are not activity participant'}, httplib.PRECONDITION_FAILED
     try:
-        default = DefaultParameter.objects.filter(uuid=params['default']).all()[0] 
+        default = DefaultParameter.objects.filter(uuid=params['default']).all()[0]
     except IndexError:
         return {'code' : DEFAULT_PARAMETER_NOT_FOUND,
                 'caption' : 'There is no such default parameter'}, httplib.PRECONDITION_FAILED
@@ -1207,8 +1249,8 @@ def create_personal_resource_parameter_from_default(params, default, ares, res, 
     if default.default_value != None:
         set_object_parameter(aprtres, user, params['value'], uuid = prmt)
     return {'uuid' : prmt.uuid}, httplib.CREATED
-    
-    
+
+
 @get_user
 @get_activity_from_uuid('activity')
 @get_resource_from_uuid()
@@ -1286,7 +1328,7 @@ def list_common_activity_resource_parameters(params, ares, res, act, user):
         p['votes'] = vts
         ret.append(p)
     return ret, httplib.OK
-    
+
 @get_user
 @get_resource_parameter_from_uuid()
 def execute_change_resource_parameter(params, resp , user):
@@ -1316,7 +1358,7 @@ def change_personal_resouce_parameter(params, aresp, user):
     set_object_parameter(pres, user, params['value'], uuid = aresp.uuid,
                          caption = params.get('caption'), comment = params.get('comment'))
     return 'Created', httplib.CREATED
-    
+
 @get_user
 @get_resource_parameter_from_uuid()
 def execute_conform_resource_parameter(params, aresp, user):

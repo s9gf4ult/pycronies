@@ -1582,7 +1582,6 @@ def change_resource_parameter_route(params):
     pass
 
 
-
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
                            'uuid' : _good_string})

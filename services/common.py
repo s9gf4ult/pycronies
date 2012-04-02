@@ -672,3 +672,47 @@ class get_resource_parameter_from_uuid(object):
                         'caption' : 'You are not acvitity participant'}, httplib.PRECONDITION_FAILED
             return fnc(*tuple([params, aresp, user] + list(args[2:])), **kargs)
         return ret
+
+def get_parameter_voter(obj, status, value, tpclass = None, name = None ,uuid = None):
+    """
+    Return list of voters, which voted for specified value with specified status
+    of specified parameter
+    
+    Arguments:
+    
+    - `obj`:
+    - `status`:
+    - `value`:
+    - `tpclass`:
+    - `name`:
+    - `uuid`:
+
+    Raises:
+
+    - `TypeError`: if obj has wrong type
+    - `ValueError`: if something wrong with parameters
+    """
+    t = type(obj)
+    if t not in parameter_class_map:
+        raise TypeError("obj must be model object with parameters, not {0}".format(t))
+    vote = parameter_class_map[t]['vote']
+    q = (Q(parameter_val__parameter__obj = obj)&
+         Q(parameter_val__status = status)&
+         Q(parameter_val__value = value))
+    if uuid != None:
+        q &= Q(parameter_val__parameter__uuid = uuid)
+    else:
+        if tpclass == 'user':
+            if not isinstance(name, basestring):
+                raise ValueError('You must specify `name` of parameter, if tpclass == "user"')
+        elif not isinstance(tpclass, basestring):
+            raise ValueError('You must specify `tpclass` if `uuid` is not specified')
+        q &= Q(parameter_val__parameter__tpclass = tpclass)
+        if name != None:
+            q &= Q(parameter_val__parameter__name = name)
+    
+    ret = []
+    for vt in vote.filter(q).distinct().all():
+        ret.append(vt.voter)
+    return ret
+    
