@@ -2440,11 +2440,49 @@ class mytest(TestCase):
         partic1 = [a for a in d if a['name'] == 'root'][0]
         partic2 = [a for a in d if a['name'] == 'user1'][0]
         self.assertEqual(True, partic1['is_initiator'])
-        p1re1 = [a for a in partic1['resources'] if a['uuid'] == res1][0]
-        for a, b in [('amount', 50),
-                     ('
+        for partic in [partic1, partic2]:
+            partre1 = [a for a in partic['resources'] if a['uuid'] == res1][0]
+            for a, b in [('amount', 50),
+                         ('available', 50),
+                         ('cost', 475), # 950 / 2
+                         ('name', 'res1'),
+                         ('units', 'kg'),
+                         ('use', 'common'),
+                         ('site', 'external')
+                         ]:
+                self.assertEqual(partre1[a], b)
+            partre2 = [a for a in partic['resources'] if a ['uuid'] == res2][0]
+            for a, b in [('amount', 100),
+                         ('available', 50),
+                         ('cost', 750), # 1500 / 2
+                         ('name', 'res2'),
+                         ('units', 'kg'),
+                         ('use', 'common'),
+                         ('site', 'external')
+                         ]:
+                self.assertEqual(partre2[a], b)
             
-        
+        p1re3 = [a for a in partic1['resources'] if a['uuid'] == res3][0]
+        for a, b in [('amount', 25),
+                     ('available', 25),
+                     ('cost', 400. / 35. * 25.),
+                     ('name', 'res3'),
+                     ('units', 'kg'),
+                     ('use', 'common'),
+                     ('site', 'external')
+                     ]:
+            self.assertEqual(p1re3[a], b)
+        p2re3 = [a for a in partic2['resources'] if a['uuid'] == res3][0]
+        for a, b in [('amount', 10),
+                     ('available', 10),
+                     ('cost', 400. / 35. * 10.),
+                     ('name', 'res3'),
+                     ('units', 'kg'),
+                     ('use', 'common'),
+                     ('site', 'external'),
+                     ]:
+            self.assertEqual(p2re3[a], b)
+ 
         
         for p in psids:
             self._delete_project(p)

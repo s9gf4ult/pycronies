@@ -18,9 +18,8 @@ from services.app import execute_create_project, execute_list_projects, execute_
     execute_create_project_resource, execute_include_activity_resource, execute_exclude_activity_resource, \
     execute_conform_activity_resource, execute_create_resource_parameter, execute_create_resource_parameter_from_default, \
     execute_list_activity_resource_parameters, execute_change_resource_parameter, execute_conform_resource_parameter, \
-    execute_create_contractor, execute_use_contractor, execute_report_project_statistics, execute_activity_statistics, \
-    execute_participant_statistics, execute_contractor_offer_resource, execute_contractor_list_project_resources, \
-    execute_list_contractors
+    execute_create_contractor, execute_use_contractor, execute_report_project_statistics, execute_participant_statistics, \
+    execute_contractor_offer_resource, execute_contractor_list_project_resources, execute_list_contractors
 
 from services.common import getencdec, standard_request_handler, typical_json_responder, translate_parameters, parse_json
 from services.models import Project, Resource
@@ -1710,7 +1709,6 @@ def project_statistics_route(params):
        - `product`: ид продукта (для связи с таблицей продуктов от поставщиков)
        - `amount`: суммарное количество ресурса использованное на проекте
        - `available`: количество ресурса заказанное на поставку
-       - `need`: Boolean ресурс необходим
        - `cost`: цена ресурса, если есть поставщик, None если поставщика нет
        - `name`: имя ресурса
        - `descr`: описание ресурса
@@ -1811,7 +1809,7 @@ def participant_statistics_route(params):
       список словарей с ключами:
        - `uuid`: uuid ресурса
        - `product`: ид продукта (для связи с таблицей продуктов от поставщиков)
-       - `amount`: суммарное количество ресурса использованное данным участником,
+       - `amount`: суммарное количество ресурса затребованное данным участником,
          персональные ресурсы просто складываются, тогда как для общих ресурсов
          вычисляется среднее значение количества ресурса использованное данным
          участником на данном мероприятии. Например пользователь учавствует в 2х
@@ -1821,15 +1819,15 @@ def participant_statistics_route(params):
          каждым участником мероприятия в количестве 100 / 10 = 10, а ресурс Б
          30 / 15 = 2. Потому что каждый участник в равной степени использует общий
          ресурс каждого мероприятия
-       - `available`: колечество ресурса поставленное поставщиками,
-         для общего ресурса вычисляется общее пропорциональное количество
-         поставленного ресурса для всех мероприятий на которых данный участник
-         учавствует, деленное на количество людей в каждом из этих мероприятий, для персонального ресурса возвращает
-         суммарное количество ресурса взятное на мероприятии 
-       - `cost`: цена ресурса, если есть поставщик, None если поставщика нет
+       - `available`: то же что `amount` но помноженное на процент поставки, то есть
+         на отношение общего необходимого количества товара к общему количеству
+         поставленного товара
+       - `cost`: общая цена товара умноженная на отношение общего количества
+         поставленного товара к количеству поставленного этому участнику товара
+         `available`
        - `name`: имя ресурса
        - `descr`: описание ресурса
-       - `units' : название еденицы измерения ресурса
+       - `units` : название еденицы измерения ресурса
        - `use` : способ использования ресурса, одно из возможных значений:
           - `common`: общий ресурс для мероприятия
           - `personal`: ресурс персональный
@@ -1842,7 +1840,7 @@ def participant_statistics_route(params):
     - `200`: ok
     - `412`: не верные данные с описанием в теле ответа
     - `500`: ошибка сервера
-
+    
     """
     pass
 

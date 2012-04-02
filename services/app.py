@@ -1477,11 +1477,31 @@ def despot_conform_use_contractor(params, cntu, res, user):
 
 @get_user
 def execute_report_project_statistics(params, user):
-    pass
+    prj = user.project
+    ret = {'uuid' : prj.uuid,
+           'name' : prj.name,
+           'descr' : prj.descr,
+           'sharing' : prj.sharing,
+           'ruleset' : prj.ruleset,
+           'begin_date' : prj.begin_date.isoformat(),
+           'end_date' : prj.end_date.isoformat()}
+    res = []
+    for res in prj.resource_set.all():
+        p = {'uuid' : res.uuid,
+             'product' : res.product,
+             'amount' : get_full_resource_amount(res),
+             'available' : get_full_resource_usage(res),
+             'cost' : get_full_resource_,
+             'name' : res.name,
+             'descr' : res.descr,
+             'units' : res.measure.name,
+             'use' : res.usage,
+             'site' : res.site}
+        
 
-@get_user
-def execute_activity_statistics(params, user):
-    pass
+# @get_user
+# def execute_activity_statistics(params, user):
+#     pass
 
 @get_user
 def execute_participant_statistics(params, user):
