@@ -568,7 +568,7 @@ def invite_participant_route(params): # ++TESTED
 
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
-                           'uuid' : _good_string,
+                           'uuid' : OrNone(_good_string),
                            'vote' : Any(Equal('include'), Equal('exclude')),
                            'comment' : OrNone(_good_string)})
 @typical_json_responder(execute_conform_participant_vote, httplib.CREATED)
@@ -581,7 +581,7 @@ def conform_participant_vote_route(params):
     Параметры запроса:
 
     - `psid`: ключ доступа
-    - `uuid`: uuid участника
+    - `uuid`: не обязательный uuid участника
     - `vote`: "include" или "exclude", подтверждаем приглашение или
       исключение участника соответственно
     - `comment`: комментарий по приглашению, не обязательный
@@ -592,6 +592,8 @@ def conform_participant_vote_route(params):
        Если предложение на удаление или включение участника от имени вызывавшего
        сервис уже есть, то согласуем это предложение. Иначе создаем предложение
        и согласуем его.
+
+       Если `uuid` не указан, то применяем действия к самому себе
 
     Статусы возврата:
 
@@ -699,6 +701,9 @@ def exclude_participant_route(params):
     **Исключить участника**
     
     **NOTE: ** функция устаревшая, дублирует функциональность
+    **/participant/vote/conform**
+
+    **NOTE: ** дублиреут функциональность
     **/participant/vote/conform**
 
     путь запроса: **/participant/exclude**
@@ -852,6 +857,10 @@ def public_activity_route(params):
        Если мероприятие имеет статус 'created' и создано оно участником, то
        меняем статус на 'voted', далее предлагаем мероприятие на добавление и
        вызываем согласование мероприятия
+
+       Если имеются голоса против мероприятия, то public работает как голос "за"
+       мероприяте в проекте, инициатор в "despot" проектах сразу закрывает
+       голоса против если вызовет public
 
     Статусы возврата:
 

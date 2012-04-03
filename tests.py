@@ -794,15 +794,17 @@ class mytest(TestCase):
             self.assertEqual(sets[0], tails)   # все списки одинаковые
 
         # первый друг удаляет второго друга
-        self.srequest(c, '/participant/exclude', {'psid' : psid2,
-                                                  'uuid' : uuid3,
-                                                  'comment' : 'dont like'},
+        self.srequest(c, '/participant/vote/conform', {'psid' : psid2,
+                                                       'uuid' : uuid3,
+                                                       'vote' : 'exclude',
+                                                       'comment' : 'dont like'},
                       httplib.CREATED)
 
         # инициатор это согласует
-        self.srequest(c, '/participant/exclude', {'psid' : psid,
-                                                  'uuid' : uuid3,
-                                                  'comment' : 'i dont like him too'},
+        self.srequest(c, '/participant/vote/conform', {'psid' : psid,
+                                                       'uuid' : uuid3,
+                                                       'vote' : 'exclude',
+                                                       'comment' : 'i dont like him too'},
                       httplib.CREATED)
 
         # просматривается список участников - активный должно быть два
@@ -813,16 +815,18 @@ class mytest(TestCase):
         self.assertEqual(1, len([a for a in resp if a['status'] == 'denied']))
 
         # второй друг пытается удалить первого, но он уже удален так что фейлится
-        r = self.srequest(c, '/participant/exclude', {'psid' : psid3,
-                                                      'uuid' : uuid2,
-                                                      'comment' : 'He deleted me !'},
+        r = self.srequest(c, '/participant/vote/conform', {'psid' : psid3,
+                                                           'uuid' : uuid2,
+                                                           'vote' : 'exclude',
+                                                           'comment' : 'He deleted me !'},
                           httplib.PRECONDITION_FAILED)
         resp = dec.decode(r)
         self.assertEqual(resp['code'], ACCESS_DENIED)
 
         # инициатор удаляет первого друга
-        self.srequest(c, '/participant/exclude', {'psid' : psid,
-                                                  'uuid' : uuid2},
+        self.srequest(c, '/participant/vote/conform', {'psid' : psid,
+                                                       'vote' : 'exclude',
+                                                       'uuid' : uuid2},
                       httplib.CREATED)
 
         # инициатор смотрит список участников - он один
@@ -1261,7 +1265,8 @@ class mytest(TestCase):
         psid2 = dec.decode(r)['psid']
         token = dec.decode(r)['token']
 
-        self.srequest(c, '/participant/exclude', {'psid' : psid2},
+        self.srequest(c, '/participant/vote/conform', {'psid' : psid2,
+                                                       'vote' : 'exclude'},
                       httplib.CREATED)
 
         self.srequest(c, '/project/enter/invitation', {'uuid' : puuid,
@@ -2041,6 +2046,81 @@ class mytest(TestCase):
 
 
         self._delete_project(psid)
+
+    def test_public_as_include(self, ):
+        c = httplib.HTTPConnection(host, port)
+        enc, dec = getencdec()
+        r = self.srequest(c, '/project/create',
+                          {'name':  'proj1',
+                           'sharing' : 'open',
+                           'ruleset' : 'despot',
+                           'user_name' : 'root'},
+                          httplib.CREATED)
+        psid = dec.decode(r)['psid']
+        puuid = dec.decode(r)['uuid']
+
+        self.srequest(c, '/project/status/change',
+                      {'psid' : psid,
+                       'uuid' : puuid,
+                       'status' : 'planning'},
+                      httplib.CREATED)
+
+        r = self.srequest(c, '/project/enter/open',
+                          {'uuid' : puuid,
+                           'name' : 'user1',
+                           'user_id' : 'user1'},
+                          httplib.CREATED)
+        psid2 = dec.decode(r)['psid']
+
+        r = self.srequest(c, '/activity/create',
+                          {'psid' : psid2,
+                           'name' : 'activ1',
+                           'begin' : '2010-10-10',
+                           'end' : '2010-10-10'},
+                          httplib.CREATED)
+        auuid = dec.decode(r)['uuid']
+        self.srequest(c, '/activity/public',
+                      {'psid' : psid2,
+                       'uuid' : auuid},
+                      httplib.CREATED)
+        self.srequest(c, '/activity/public',
+                      {'psid' : psid,
+                       'uuid' : auuid},
+                      httplib.CREATED)
+        self.srequest(c, '/activity/deny',
+                      {'psid' : psid2,
+                       'uuid' : auuid},
+                      httplib.CREATED)
+        r = self.srequest(c, '/project/enter/open',
+                          {'uuid' : puuid,
+                           'name' : 'user2',
+                           'user_id' : 'user2'},
+                          httplib.CREATED)
+        psid3 = dec.decode(r)['psid']
+        self.srequest(c, '/activity/public', # голосуем за добавление мероприятия
+                      {'psid' : psid3,
+                       'uuid' : auuid},
+                      httplib.CREATED)
+        r = self.srequest(c, '/activity/list',
+                          {'psid' : psid},
+                          httplib.OK)
+        d = dec.decode(r)[0]
+        self.assertEqual(d['status'], 'accepted')
+        self.assertEqual(len(d['votes']), 2)
+        self.assertEqual(set(['include', 'exclude']), set([a['vote'] for a in d['votes']]))
+        self.srequest(c, '/activity/public',
+                      {'psid' : psid,
+                       'uuid' : auuid},
+                      httplib.CREATED)
+        r = self.srequest(c, '/activity/list',
+                          {'psid' : psid},
+                          httplib.OK)
+        d = dec.decode(r)[0]
+        self.assertEqual(d['status'], 'accepted')
+        self.assertEqual(len(d['votes']), 0)
+        
+        self._delete_project(psid)
+        
 
 if __name__ == '__main__':
     main()

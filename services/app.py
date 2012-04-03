@@ -566,6 +566,10 @@ def execute_enter_project_invitation(params, prj):
 
 @get_user
 def execute_exclude_participant(params, user):
+
+    return exclude_participant(params, user)
+
+def exclude_participant(params, user):
     prj = user.project
     part = None
     if params.get('uuid') == None:
@@ -590,15 +594,22 @@ def execute_exclude_participant(params, user):
                                         'uuid' : part.uuid})
 
 @get_user
-@get_object_by_uuid(Participant, PARTICIPANT_NOT_FOUND,
-                    u'Participant with such uuid has not been found')
-def execute_conform_participant_vote(params, part, user):
-    status = get_object_status(part)
+def execute_conform_participant_vote(params, user):
+    if params.get('uuid') == None:
+        params['uuid'] = user.uuid
+        part = user
+    else:
+        try:
+            part = Participant.objects.filter(uuid=params['uuid']).all()[0]
+        except IndexError:
+            return {'code' : PARTICIPANT_NOT_FOUND,
+                    'caption' : 'Participant not found'}, httplib.PRECONDITION_FAILED
     if params['vote'] == 'exclude':
-        if status == 'denied':
-            return 'Participant is already denied', httplib.CREATED
-    elif status == 'accepted':
-        return 'Participant is already accepted', httplib.CREATED
+        return exclude_participant(params, user)
+    elif get_object_status(part) == 'accepted':
+        vts = get_parameter_voter(part, 'voted', 'denied', tpclass = 'status')
+        if len(vts) == 0:
+            return 'Already denied', httplib.CREATED
 
     set_vote_for_object_parameter(part, user, 'accepted', tpclass = 'status', comment = params.get('comment'))
 
@@ -719,7 +730,12 @@ def execute_create_activity(params, user):
 def execute_public_activity(params, act, user):
     ast = get_object_status(act)
     if ast == 'accepted':
-        return 'This activity is already public', httplib.CREATED
+        vts = get_parameter_voter(act, 'voted', 'denied', tpclass = 'status')
+        if len(vts) == 0:
+            return 'Already accepted'
+        else:
+            set_vote_for_object_parameter(act, user, 'accepted', tpclass = 'status', comment = params.get('comment'))
+            return conform_activity(user, act)
     elif ast == 'voted':
         set_vote_for_object_parameter(act, user, 'accepted', tpclass='status')
         return conform_activity(user, act)
@@ -1090,7 +1106,9 @@ def execute_include_activity_resource(params, res, act, user):
 
     st = get_object_status(ap)
     if st == 'accepted':
-        return "Has already", httplib.CREATED
+        vts = get_parameter_voter(ap, 'voted', 'denied', tpclass = 'status')
+        if len(vts) == 0:
+            return "Has already", httplib.CREATED
     elif st == 'denied':
         if not iam_creator:
             return {'code' : ACTIVITY_RESOURCE_IS_NOT_ACCEPTED,
