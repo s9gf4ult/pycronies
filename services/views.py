@@ -697,6 +697,9 @@ def conform_participant_route(params): # ++TESTED на прямую не выз�
 def exclude_participant_route(params):
     """
     **Исключить участника**
+    
+    **NOTE: ** функция устаревшая, дублирует функциональность
+    **/participant/vote/conform**
 
     путь запроса: **/participant/exclude**
 

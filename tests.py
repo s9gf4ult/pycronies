@@ -2000,7 +2000,19 @@ class mytest(TestCase):
                            'uuid' : res1,
                            'activity' : auuid},
                           httplib.OK)
-        self.ase
+        d = dec.decode(r)
+        for a, b in [('name', 'p1'),
+                     ('value', None),
+                     ('enum', False),
+                     ('tp', 'text'),
+                     ]:
+            self.assertEqual(d[0][a], b)
+        self.assertEqual(len(d[0]['votes']), 1)
+        self.assertEqual(d[0]['votes'][0]['value'], 'value1')
+        
+# второй участник создает типовой параметр ресурса
+
+# второй участник видит 
 
         # второй участник создает параметр мероприятия
 
