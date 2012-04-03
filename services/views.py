@@ -1484,7 +1484,7 @@ def create_activity_resource_parameter_from_default_route(params):
     """
     **Добавить типовой параметр ресурса**
 
-    путь запроса: **/ativity/resource/parameter/create/from_default**
+    путь запроса: **/activity/resource/parameter/create/fromdefault**
 
     Параметры запроса:
 

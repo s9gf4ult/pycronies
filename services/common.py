@@ -207,7 +207,7 @@ class typical_json_responder(object):
 class get_activity_from_uuid(object):
     def __init__(self, param = 'uuid'):
         self._param = param
-        
+
     def __call__(self, fnc):
         @wraps(fnc)
         def ret(*args, **kargs):
@@ -624,10 +624,14 @@ def get_authorized_activity_participant(user, activ):
     except IndexError:
         return None
     st = get_object_status(ap)
-    if st == 'accepted':
+    if st == 'accepted' or am_i_creating_activity_now(activ, user):
         return ap
     else:
         return False
+
+def am_i_creating_activity_now(act, user):
+    return get_object_status(act) == 'created' and (user in get_parameter_voter(act, 'accepted', 'created', tpclass = 'status'))
+
 
 class get_resource_parameter_from_uuid(object):
     """
@@ -653,12 +657,12 @@ class get_resource_parameter_from_uuid(object):
                 except IndexError:
                     return {'code' : RESOURCE_PARAMETER_NOT_FOUND,
                             'caption' : 'There is no such resource parameter'}, httplib.PRECONDITION_FAILED
-            
+
             if isinstance(aresp, ActivityResourceParameter):
                 ares = aresp.obj
             else:
                 ares = aresp.obj.resource
-                
+
             if get_object_status(ares) != 'accepted':
                 return {'code' : ACTIVITY_RESOURCE_IS_NOT_ACCEPTED,
                         'caption' : 'This resource is not accepted on this activity'}, httplib.PRECONDITION_FAILED
@@ -677,9 +681,9 @@ def get_parameter_voter(obj, status, value, tpclass = None, name = None ,uuid = 
     """
     Return list of voters, which voted for specified value with specified status
     of specified parameter
-    
+
     Arguments:
-    
+
     - `obj`:
     - `status`:
     - `value`:
@@ -710,9 +714,9 @@ def get_parameter_voter(obj, status, value, tpclass = None, name = None ,uuid = 
         q &= Q(parameter_val__parameter__tpclass = tpclass)
         if name != None:
             q &= Q(parameter_val__parameter__name = name)
-    
+
     ret = []
     for vt in vote.objects.filter(q).distinct().all():
         ret.append(vt.voter)
     return ret
-    
+
