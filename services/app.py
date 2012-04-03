@@ -594,9 +594,16 @@ def exclude_participant(params, user):
                                         'uuid' : part.uuid})
 
 @get_user
-@get_object_by_uuid(Participant, PARTICIPANT_NOT_FOUND,
-                    u'Participant with such uuid has not been found')
-def execute_conform_participant_vote(params, part, user):
+def execute_conform_participant_vote(params, user):
+    if params.get('uuid') == None:
+        params['uuid'] = user.uuid
+        part = user
+    else:
+        try:
+            part = Participant.objects.filter(uuid=params['uuid']).all()[0]
+        except IndexError:
+            return {'code' : PARTICIPANT_NOT_FOUND,
+                    'caption' : 'Participant not found'}, httplib.PRECONDITION_FAILED
     if params['vote'] == 'exclude':
         return exclude_participant(params, user)
     elif get_object_status(part) == 'accepted':

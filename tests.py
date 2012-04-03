@@ -794,15 +794,17 @@ class mytest(TestCase):
             self.assertEqual(sets[0], tails)   # все списки одинаковые
 
         # первый друг удаляет второго друга
-        self.srequest(c, '/participant/exclude', {'psid' : psid2,
-                                                  'uuid' : uuid3,
-                                                  'comment' : 'dont like'},
+        self.srequest(c, '/participant/vote/conform', {'psid' : psid2,
+                                                       'uuid' : uuid3,
+                                                       'vote' : 'exclude',
+                                                       'comment' : 'dont like'},
                       httplib.CREATED)
 
         # инициатор это согласует
-        self.srequest(c, '/participant/exclude', {'psid' : psid,
-                                                  'uuid' : uuid3,
-                                                  'comment' : 'i dont like him too'},
+        self.srequest(c, '/participant/vote/conform', {'psid' : psid,
+                                                       'uuid' : uuid3,
+                                                       'vote' : 'exclude',
+                                                       'comment' : 'i dont like him too'},
                       httplib.CREATED)
 
         # просматривается список участников - активный должно быть два
@@ -813,16 +815,18 @@ class mytest(TestCase):
         self.assertEqual(1, len([a for a in resp if a['status'] == 'denied']))
 
         # второй друг пытается удалить первого, но он уже удален так что фейлится
-        r = self.srequest(c, '/participant/exclude', {'psid' : psid3,
-                                                      'uuid' : uuid2,
-                                                      'comment' : 'He deleted me !'},
+        r = self.srequest(c, '/participant/vote/conform', {'psid' : psid3,
+                                                           'uuid' : uuid2,
+                                                           'vote' : 'exclude',
+                                                           'comment' : 'He deleted me !'},
                           httplib.PRECONDITION_FAILED)
         resp = dec.decode(r)
         self.assertEqual(resp['code'], ACCESS_DENIED)
 
         # инициатор удаляет первого друга
-        self.srequest(c, '/participant/exclude', {'psid' : psid,
-                                                  'uuid' : uuid2},
+        self.srequest(c, '/participant/vote/conform', {'psid' : psid,
+                                                       'vote' : 'exclude',
+                                                       'uuid' : uuid2},
                       httplib.CREATED)
 
         # инициатор смотрит список участников - он один
@@ -1261,7 +1265,8 @@ class mytest(TestCase):
         psid2 = dec.decode(r)['psid']
         token = dec.decode(r)['token']
 
-        self.srequest(c, '/participant/exclude', {'psid' : psid2},
+        self.srequest(c, '/participant/vote/conform', {'psid' : psid2,
+                                                       'vote' : 'exclude'},
                       httplib.CREATED)
 
         self.srequest(c, '/project/enter/invitation', {'uuid' : puuid,
