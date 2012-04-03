@@ -1978,10 +1978,29 @@ class mytest(TestCase):
                      ]:
             self.assertEqual(d[0][a], b)
 
+        self.assertEqual(len(d[0]['votes']), 1)
+        self.assertEqual(d[0]['votes'][0]['vote'], 'include')
+
         # второй участник создает параметр ресурса
+        r = self.srequest(c, '/activity/resource/parameter/create',
+                          {'psid' : psid2,
+                           'activity' : auuid,
+                           'uuid' : res1,
+                           'name' : 'p1',
+                           'tp' : 'text',
+                           'enum' : False,
+                           'value' : 'value1'},
+                          httplib.CREATED)
+        param1 = dec.decode(r)['uuid']
 
         # второй участник в списке параметров ресурсов видит предложение по
         # этому параметру
+        r = self.srequest(c, '/activity/resource/parameter/list',
+                          {'psid' : psid2,
+                           'uuid' : res1,
+                           'activity' : auuid},
+                          httplib.OK)
+        self.ase
 
         # второй участник создает параметр мероприятия
 
