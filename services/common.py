@@ -712,7 +712,7 @@ def get_parameter_voter(obj, status, value, tpclass = None, name = None ,uuid = 
             q &= Q(parameter_val__parameter__name = name)
     
     ret = []
-    for vt in vote.filter(q).distinct().all():
+    for vt in vote.objects.filter(q).distinct().all():
         ret.append(vt.voter)
     return ret
     
