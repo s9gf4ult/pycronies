@@ -1911,6 +1911,10 @@ class mytest(TestCase):
                           httplib.CREATED)
         puuid = dec.decode(r)['uuid']
         psid = dec.decode(r)['psid']
+        self.srequest(c, '/project/status/change',
+                      {'psid' : psid,
+                       'status' : 'planning'},
+                      httplib.CREATED)
 
         r = self.srequest(c, '/project/enter/open',
                           {'uuid' : puuid,
@@ -1986,6 +1990,66 @@ class mytest(TestCase):
         self.assertEqual(len(d[0]['votes']), 1)
         self.assertEqual(d[0]['votes'][0]['vote'], 'include')
 
+        # второй участник добавляет личный ресурс
+        r = self.srequest(c, '/project/resource/create',
+                          {'psid' : psid2,
+                           'name' : 'res2',
+                           'units' : 'kg',
+                           'use' : 'personal',
+                           'site' : 'external'},
+                          httplib.CREATED)
+        res2 = dec.decode(r)['uuid']
+        self.srequest(c, '/activity/resource/include',
+                      {'psid' : psid2,
+                       'uuid' : res2,
+                       'activity' : auuid},
+                      httplib.CREATED)
+
+        # второй участник видит два ресурса, по второму только предложение
+        r = self.srequest(c, '/activity/resource/list',
+                          {'psid' : psid2,
+                           'uuid' : auuid},
+                          httplib.OK)
+        d = dec.decode(r)
+        self.assertEqual(len(d), 2)
+        resource1 = [a for a in d if a['uuid'] == res1][0]
+        self.assertEqual(len(resource1['votes']), 1)
+        self.assertEqual(resource1['status'], 'voted')
+        self.assertEqual(resource1['votes'][0]['vote'], 'include')
+        resource2 = [a for a in d if a['uuid'] == res2][0]
+        self.assertEqual(len(resource1['votes']), 1)
+        self.assertEqual(resource1['status'], 'accepted')
+        self.assertEqual(resource1['votes'][0]['vote'], 'include')
+
+        # второй участник добавляет параметр личного ресурса
+        r = self.srequest(c, '/activity/resource/parameter/create',
+                      {'psid' : psid2,
+                       'activity' : auuid,
+                       'uuid' : res2,
+                       'name' : 'p1',
+                       'tp' : 'text',
+                       'enum' : enc.encode(False),
+                       'value' : 'value1'},
+                      httplib.CREATED)
+        param3 = dec.decode(r)['uuid']
+
+        # второй участник видит что параметр личного ресурса присутствует с
+        # пустым значением и одним предолжением
+        r = self.srequest(c, '/activity/resource/parameter/list',
+                          {'psid' : psid2,
+                           'uuid' : res2,
+                           'activity' : auuid},
+                          httplib.OK)
+        d = dec.decode(r)
+        for a, b in [('name', 'p1'),
+                     ('value', None),
+                     ('enum', False),
+                     ('tp', 'text'),
+                     ]:
+            self.assertEqual(d[0][a], b)
+        self.assertEqual(len(d[0]['votes']), 1)
+        self.assertEqual(d[0]['votes'][0]['value'], 'value1')
+
         # второй участник создает параметр ресурса
         r = self.srequest(c, '/activity/resource/parameter/create',
                           {'psid' : psid2,
@@ -2014,36 +2078,189 @@ class mytest(TestCase):
             self.assertEqual(d[0][a], b)
         self.assertEqual(len(d[0]['votes']), 1)
         self.assertEqual(d[0]['votes'][0]['value'], 'value1')
-        
-# второй участник создает типовой параметр ресурса
 
-# второй участник видит 
+        # второй участник создает типовой параметр ресурса
+        r = self.srequest(c, '/parameters/list',
+                          {},
+                          httplib.OK)
+        def1 = dec.decode(r)[0]['uuid']
+
+        r = self.srequest(c, '/ativity/resource/parameter/create/from_default',
+                          {'psid' : psid2,
+                           'activity' : auuid,
+                           'uuid' : resp1,
+                           'default' : def1},
+                          httplib.CREATED)
+        param2 = dec.decode(r)['uuid']
+
+        # второй участник видит что есть два параметра ресурса по обоим только
+        # предложения, значение пустое
+        r = self.srequest(c, '/activity/resource/parameter/list',
+                          {'psid' : psid2,
+                           'uuid' : res1,
+                           'activity' : auuid},
+                          httplib.OK)
+        d = dec.decode(r)
+        self.assertEqual(len(d), 2)
+        for res in d:
+            self.assertEqual(res['value'], None)
+            self.assertEqual(len(res['votes']), 1)
 
         # второй участник создает параметр мероприятия
+        r = self.srequest(c, '/activity/parameter/create',
+                          {'psid' : psid2,
+                           'name' : 'param1',
+                           'tp' : 'text',
+                           'enum' : enc.encode(False),
+                           'value' : 'value1'},
+                          httplib.CREATED)
 
         # второй участник в списке параметров мероприятия видит предложение по
         # этому параметру
+        r = self.srequest(c, '/activity/parameter/list',
+                          {'psid' : psid2,
+                           'uuid' : auuid},
+                          httplib.OK)
+        d = dec.decode(r)
+        self.assertEqual(len(d), 1)
+        self.assertEqual(d[0]['value'], None)
+        self.assertEqual(len(d[0]['votes']), 1)
+        self.assertEqual(d[0]['votes'][0]['value'], 'value1')
 
+                           #  FIXME: доделать такое же для default параметра
         # второй участник публикует мероприятие
+        self.srequest(c, '/activity/public',
+                      {'psid' : psid2,
+                       'uuid' : auuid},
+                      httplib.CREATED)
 
         # первый участник видит опубликованное мероприятие
+        r = self.srequest(c, '/activity/list',
+                          {'psid' : psid},
+                          httplib.OK)
+        d = dec.decode(r)
+        self.assertEqual(len(d), 1)
+        self.assertEqual(d[0]['status'], 'voted')
+        self.assertEqual(d[0]['uuid'], auuid)
 
-        # первый участник видит предложение по ресурсу
+        # первый участник видит предложение по обоим ресурсам
+        r = self.assertEqual(c, '/activity/resource/list',
+                             {'psid' : psid,
+                              'uuid' : auuid},
+                             httplib.OK)
+        d = dec.decode(r)
+        resource1 = [a for a in d if a['uuid'] == res1][0]
+        self.assertEqual(len(resource1['votes']), 1)
+        self.assertEqual(resource1['status'], 'voted')
+        self.assertEqual(resource1['votes'][0]['vote'], 'include')
+        resource2 = [a for a in d if a['uuid'] == res2][0]
+        self.assertEqual(len(resource1['votes']), 1)
+        self.assertEqual(resource1['status'], 'accepted')
+        self.assertEqual(resource1['votes'][0]['vote'], 'include')
 
-        # первый участник видит предложение параметру ресурса
+        # первый участник видит два предложения параметрам ресурса
+        r = self.srequest(c, '/activity/resource/parameter/list',
+                          {'psid' : psid,
+                           'uuid' : res1,
+                           'activity' : auuid},
+                          httplib.OK)
+        d = dec.decode(r)
+        self.assertEqual(len(d), 2)
+        for res in d:
+            self.assertEqual(res['value'], None)
+            self.assertEqual(len(res['votes']), 1)
+
+        # первый участник видит предложение по параметру второго ресурса
+        r = self.srequest(c, '/activity/resource/parameter/list',
+                          {'psid' : psid,
+                           'uuid' : res2,
+                           'activity' : auuid},
+                          httplib.OK)
+        d = dec.decode(r)
+        for a, b in [('name', 'p1'),
+                     ('value', None),
+                     ('enum', False),
+                     ('tp', 'text'),
+                     ]:
+            self.assertEqual(d[0][a], b)
+        self.assertEqual(len(d[0]['votes']), 1)
+        self.assertEqual(d[0]['votes'][0]['value'], 'value1')
 
         # первый участник видит предложение по параметру мероприятия
+        r = self.srequest(c, '/activity/parameter/list',
+                          {'psid' : psid2,
+                           'uuid' : auuid},
+                          httplib.OK)
+        d = dec.decode(r)
+        self.assertEqual(len(d), 1)
+        self.assertEqual(d[0]['value'], None)
+        self.assertEqual(len(d[0]['votes']), 1)
+        self.assertEqual(d[0]['votes'][0]['value'], 'value1')
 
         # первый участник согласует мероприятие
+        self.srequest(c, '/activity/public',
+                      {'psid' : psid,
+                       'uuid' : auuid},
+                      httplib.CREATED)
 
         # все видят созданное мероприятие
+        r = self.srequest(c, '/activity/list',
+                          {'psid' : psid},
+                          httplib.OK)
+        activ = dec.decode(r)[0]
+        self.assertEqual(activ['status'], 'accepted')
+        self.assertEqual(len(activ['votes']), 0)
 
         # все видят в нем активный параметр
+        r = self.srequest(c, '/activity/parameter/list',
+                          {'psid' : psid,
+                           'uuid' : auuid},
+                          httplib.OK)
+        d = dec.decode(r)
+        self.assertEqual(len(d[0]['votes']), 0)
+        self.assertEqual(d[0]['value'], 'value1')
 
-        # все видят в нем активный русурс
+        # все видят в нем два активных ресурса
+        r = self.srequest(c, '/activity/resource/list',
+                          {'psid' : psid,
+                           'activity' : auuid,
+                           'uuid' : res1},
+                          httplib.OK)
+        d = dec.decode(r)
+        resource1 = [a for a in d if a['uuid'] == res1][0]
+        self.assertEqual(len(resource1['votes']), 0)
+        self.assertEqual(resource1['used'], True)
+        self.assertEqual(resource1['amount'], 20)
+        self.assertEqual(resource1['status'], 'accepted')
+        resource2 = [a for a in d if a['uuid'] == res2][0]
+        self.assertEqual(len(resource2['votes']), 0)
+        self.assertEqual(resource2['used'], False)
+        self.assertEqual(resource2['amount'], 0)
+        self.assertEqual(resource2['status'], 'accepted')
 
-        # все видят у ресурса активный параметр
+        # все видят у ресурса два активнх параметра
+        r = self.srequest(c, '/activity/resource/parameter/list',
+                          {'psid' : psid,
+                           'activity' : auuid,
+                           'uuid' : res1},
+                          httplib.OK)
+        d = dec.decode(r)
+        self.assertEqual(len(d), 2)
+        for respar in d:
+            self.assertNotEqual(respar['value'], None)
+            self.assertEqual(len(respar['votes']), 0)
 
+        # все видят у второго ресурса один активный параметр
+        r = self.srequest(c, '/activity/resource/parameter/list',
+                          {'psid' : psid,
+                           'activity' : auuid,
+                           'uuid' : res2},
+                          httplib.OK)
+        d = dec.decode(r)
+        self.assertEqual(len(d), 1)
+        for respar in d:
+            self.assertEqual(respar['value'], 'value1')
+            self.assertEqual(len(respar['votes']), 0)
 
         self._delete_project(psid)
 
@@ -2118,9 +2335,9 @@ class mytest(TestCase):
         d = dec.decode(r)[0]
         self.assertEqual(d['status'], 'accepted')
         self.assertEqual(len(d['votes']), 0)
-        
+
         self._delete_project(psid)
-        
+
 
 if __name__ == '__main__':
     main()
