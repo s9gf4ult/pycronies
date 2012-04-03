@@ -1895,6 +1895,121 @@ class mytest(TestCase):
         for p in psids:
             self._delete_project(p)
 
+    def test_created_activity(self, ):
+        enc, dec = getencdec()
+        c = httplib.HTTPConnection(host, port)
+        r = self.srequest(c, '/project/create',
+                          {'name' : 'proj1',
+                           'sharing' : 'open',
+                           'ruleset' : 'despot',
+                           'user_name' : 'root'},
+                          httplib.CREATED)
+        puuid = dec.decode(r)['uuid']
+        psid = dec.decode(r)['psid']
+
+        r = self.srequest(c, '/project/enter/open',
+                          {'uuid' : puuid,
+                           'name' : 'user1'},
+                          httplib.CREATED)
+        psid2 = dec.decode(r)['psid']
+
+        # второй участник создает новое мероприятие
+        r = self.srequest(c, '/activity/create',
+                          {'psid' : psid2,
+                           'name' : 'activ1',
+                           'begin' : '2010-10-10',
+                           'end' : '2012-10-10'},
+                          httplib.CREATED)
+        auuid = dec.decode(r)['uuid']
+
+        # второй участник входит в еще только созданное мероприятие
+        self.srequest(c, '/activity/participation',
+                      {'psid' : psid2,
+                       'action' : 'include',
+                       'uuid' : auuid},
+                      httplib.CREATED)
+
+        # первый участник пытается войти в мероприятие и фейлится потому что не
+        # он создтатель этого мероприятия
+        self.srequest(c, '/activity/participation',
+                      {'psid' : psid,
+                       'action' : 'include',
+                       'uuid' : auuid},
+                      httplib.PRECONDITION_FAILED)
+
+        # второй участник создает на проекте ресурс
+        r = self.srequest(c, '/resource/create',
+                          {'psid' : psid2,
+                           'name' : 'res1',
+                           'units' : 'kg',
+                           'use' : 'common',
+                           'site' : 'external'},
+                          httplib.CREATED)
+        res1 = dec.decode(r)['uuid']
+
+        # второй участник добавляет ресурс на мероприятие
+        self.srequest(c, '/activity/resource/include',
+                      {'psid' : psid2,
+                       'uuid' : res1,
+                       'activity' : auuid,
+                       'need' : enc.encode(True),
+                       'amount' : 20},
+                      httplib.CREATED)
+
+        # второй участник смотрит список мероприятий и видит что созданное
+        # мероприятие содержит один неактивный ресурс и предложение по ресурсу
+        r = self.srequest(c, '/activity/list',
+                          {'psid' : psid2},
+                          httplib.OK)
+        d = dec.decode(r)
+        self.assertEqual(len(d), 1)
+        self.assertEqual(d['participant'], True)
+
+        r = self.srequest(c, '/activity/resource/list',
+                          {'psid' : psid2,
+                           'uuid' : auuid},
+                          httplib.OK)
+        d = dec.decode(r)
+        self.assertEqual(len(d), 1)
+        for a, b in [('uuid', res1),
+                     ('status', 'voted'),
+                     ('used', False),
+                     ('amount' : 20),
+                     ]:
+            self.assertEqual(d[0][a], b)
+
+        # второй участник создает параметр ресурса
+
+        # второй участник в списке параметров ресурсов видит предложение по
+        # этому параметру
+
+        # второй участник создает параметр мероприятия
+
+        # второй участник в списке параметров мероприятия видит предложение по
+        # этому параметру
+
+        # второй участник публикует мероприятие
+
+        # первый участник видит опубликованное мероприятие
+
+        # первый участник видит предложение по ресурсу
+
+        # первый участник видит предложение параметру ресурса
+
+        # первый участник видит предложение по параметру мероприятия
+
+        # первый участник согласует мероприятие
+
+        # все видят созданное мероприятие
+
+        # все видят в нем активный параметр
+
+        # все видят в нем активный русурс
+
+        # все видят у ресурса активный параметр
+
+
+        self._delete_project(psid)
 
 if __name__ == '__main__':
     main()
