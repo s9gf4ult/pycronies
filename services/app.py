@@ -719,7 +719,12 @@ def execute_create_activity(params, user):
 def execute_public_activity(params, act, user):
     ast = get_object_status(act)
     if ast == 'accepted':
-        return 'This activity is already public', httplib.CREATED
+        vts = get_parameter_voter(act, 'voted', 'denied', tpclass = 'status')
+        if len(vts) == 0:
+            return 'Already accepted'
+        else:
+            set_vote_for_object_parameter(act, user, 'accepted', tpclass = 'status', comment = params.get('comment'))
+            return conform_activity(user, act)
     elif ast == 'voted':
         set_vote_for_object_parameter(act, user, 'accepted', tpclass='status')
         return conform_activity(user, act)

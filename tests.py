@@ -1896,5 +1896,80 @@ class mytest(TestCase):
             self._delete_project(p)
 
 
+    def test_public_as_include(self, ):
+        c = httplib.HTTPConnection(host, port)
+        enc, dec = getencdec()
+        r = self.srequest(c, '/project/create',
+                          {'name':  'proj1',
+                           'sharing' : 'open',
+                           'ruleset' : 'despot',
+                           'user_name' : 'root'},
+                          httplib.CREATED)
+        psid = dec.decode(r)['psid']
+        puuid = dec.decode(r)['uuid']
+
+        self.srequest(c, '/project/status/change',
+                      {'psid' : psid,
+                       'uuid' : puuid,
+                       'status' : 'planning'},
+                      httplib.CREATED)
+
+        r = self.srequest(c, '/project/enter/open',
+                          {'uuid' : puuid,
+                           'name' : 'user1',
+                           'user_id' : 'user1'},
+                          httplib.CREATED)
+        psid2 = dec.decode(r)['psid']
+
+        r = self.srequest(c, '/activity/create',
+                          {'psid' : psid2,
+                           'name' : 'activ1',
+                           'begin' : '2010-10-10',
+                           'end' : '2010-10-10'},
+                          httplib.CREATED)
+        auuid = dec.decode(r)['uuid']
+        self.srequest(c, '/activity/public',
+                      {'psid' : psid2,
+                       'uuid' : auuid},
+                      httplib.CREATED)
+        self.srequest(c, '/activity/public',
+                      {'psid' : psid,
+                       'uuid' : auuid},
+                      httplib.CREATED)
+        self.srequest(c, '/activity/deny',
+                      {'psid' : psid2,
+                       'uuid' : auuid},
+                      httplib.CREATED)
+        r = self.srequest(c, '/project/enter/open',
+                          {'uuid' : puuid,
+                           'name' : 'user2',
+                           'user_id' : 'user2'},
+                          httplib.CREATED)
+        psid3 = dec.decode(r)['psid']
+        self.srequest(c, '/activity/public', # голосуем за добавление мероприятия
+                      {'psid' : psid3,
+                       'uuid' : auuid},
+                      httplib.CREATED)
+        r = self.srequest(c, '/activity/list',
+                          {'psid' : psid},
+                          httplib.OK)
+        d = dec.decode(r)[0]
+        self.assertEqual(d['status'], 'accepted')
+        self.assertEqual(len(d['votes']), 2)
+        self.assertEqual(set(['include', 'exclude']), set([a['vote'] for a in d['votes']]))
+        self.srequest(c, '/activity/public',
+                      {'psid' : psid,
+                       'uuid' : auuid},
+                      httplib.CREATED)
+        r = self.srequest(c, '/activity/list',
+                          {'psid' : psid},
+                          httplib.OK)
+        d = dec.decode(r)[0]
+        self.assertEqual(d['status'], 'accepted')
+        self.assertEqual(len(d['votes']), 0)
+        
+        self._delete_project(psid)
+        
+
 if __name__ == '__main__':
     main()
