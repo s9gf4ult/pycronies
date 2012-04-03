@@ -433,7 +433,7 @@ def execute_list_participants(params, part):
         vts = []
         for ps in ParticipantParameterVal.objects.filter(Q(parameter__tpclass='status') & Q(parameter__obj=par) & Q(status='voted')).all(): #все предложенные статусы участника
             for pvt in ps.participantparametervote_set.all():   #все предложения по каждому статусу
-                vts.append({'voter' : pvt.voter.uuid,
+                vts.append({'uuid' : pvt.voter.uuid,
                             'vote' : 'include' if ps.value == 'accepted' else 'exclude',
                             'comment' : pvt.comment})
         a['votes'] = vts
