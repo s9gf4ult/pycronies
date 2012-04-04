@@ -1083,13 +1083,19 @@ def get_full_resource_amount(res):
     if res.usage == 'common':
         x = res.activityresource_set.filter(Q(activityresourceparameter__tpclass = 'status')&
                                             Q(activityresourceparameter__activityresourceparameterval__status = 'accepted')&
-                                            Q(activityresourceparameter__activityresourceparameterval__value = 'accepted')).aggregate(Sum('amount'))
+                                            Q(activityresourceparameter__activityresourceparameterval__value = 'accepted')&
+                                            Q(activity__activityparameter__tpclass = 'status') &
+                                            Q(activity__activityparameter__activityparameterval__status = 'accepted')&
+                                            Q(activity__activityparameter__activityparameterval__value = 'accepted')).aggregate(Sum('amount'))
         return float(x['amount__sum']) if x['amount__sum'] != None else 0
     else:
         x = ParticipantResource.objects.filter(Q(resource__resource=res)&
                                                Q(resource__activityresourceparameter__tpclass = 'status')&
                                                Q(resource__activityresourceparameter__activityresourceparameterval__status = 'accepted')&
-                                               Q(resource__activityresourceparameter__activityresourceparameterval__value = 'accepted')).aggregate(Sum('amount'))
+                                               Q(resource__activityresourceparameter__activityresourceparameterval__value = 'accepted')&
+                                               Q(participant__activity__activityparameter__tpclass = 'status') &
+                                               Q(participant__activity__activityparameter__activityparameterval__status = 'accepted')&
+                                               Q(participant__activity__activityparameter__activityparameterval__value = 'accepted')).aggregate(Sum('amount'))
         return float(x['amount__sum']) if x['amount__sum'] != None else 0
 
 
@@ -1584,7 +1590,59 @@ def execute_report_project_statistics(params, user):
 
 @get_user
 def execute_participant_statistics(params, user):
+    ret = []
+    prj = user.project
+    if params.get('uuids') == None or len(params['uuids']) == 0:
+        qry = prj.participant_set.filter(Q(participantparameter__tpclass = 'status')&
+                                         Q(participantparameter__participantparameterval__status = 'accepted')&
+                                         Q(participantparameter__participantparameterval__value = 'accepted')).distinct().all()
+    else:
+        qry = prj.participant_set.filter(uuid_in = params['uuids']).distinct().all()
+    queryres = prj.resource_set.all()
+    for part in qry:
+        pstat = get_object_status(part)
+        p = {'uuid' : part.uuid,
+             'create' : part.create_date.isoformat(),
+             'login' : part.dt.isoformat(),
+             'is_initiator' : part.is_initiator,
+             'user_id' : part.user,
+             'name' : part.name,
+             'descr' : part.descr,
+             'status' : pstat}
+        resources = []
+        for res in queryres:
+            if res.usage == 'common':
+                rst = get_participant_common_resource_stats(part, res)
+            else:
+                rst = get_participant_personal_resouce_stats(part, res)
+            if rst != None:
+                resources.append(rst)
+        
+        ret.append(p)
+    return ret, httplib.OK
+
+def get_participant_common_resource_stats(part, res):
+    ares = res.activityresource_set.filter(Q(activity__activityparameter__tpclass = 'status') &
+                                           Q(activity__activityparameter__activityparameterval__status = 'accepted')&
+                                           Q(activity__activityparameter__activityparameterval__value = 'accepted')&
+                                           Q(activity__activityparticipant__activityparticipantparameter__tpclass = 'status') &
+                                           Q(activity__activityparticipant__activityparticipantparameter__activityparticipantparameterval__status = 'accepted') &
+                                           Q(activity__activityparticipant__activityparticipantparameter__activityparticipantparameterval__value = 'accepted'))
+    if ares.count() == 0:
+        return None
+    
+    amount = 0
+    for ar in ares.all():
+        act = ar.activity
+        
+    
+    
+    
+
+def get_participant_personal_resouce_stats(part, res):
     pass
+    
+
 
 def execute_contractor_offer_resource(params):
     try:

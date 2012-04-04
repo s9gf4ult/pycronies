@@ -18,7 +18,7 @@ from services.app import execute_create_project, execute_list_projects, execute_
     execute_create_project_resource, execute_include_activity_resource, execute_exclude_activity_resource, \
     execute_conform_activity_resource, execute_create_resource_parameter, execute_create_resource_parameter_from_default, \
     execute_list_activity_resource_parameters, execute_change_resource_parameter, execute_conform_resource_parameter, \
-    execute_create_contractor, execute_use_contractor, execute_report_project_statistics, execute_participant_statistics, \
+    execute_create_contractor, execute_use_contractor,  execute_participant_statistics, \
     execute_contractor_offer_resource, execute_contractor_list_project_resources, execute_list_contractors
 
 from services.common import getencdec, standard_request_handler, typical_json_responder, translate_parameters, parse_json
@@ -1683,62 +1683,62 @@ def use_contractor_route(params): # ++TESTED
     pass
 
 
-@transaction.commit_on_success
-@standard_request_handler({'psid' : _good_string})
-@typical_json_responder(execute_report_project_statistics, httplib.OK)
-def project_statistics_route(params): 
-    """
-    **Отчет о пректе**
+# @transaction.commit_on_success
+# @standard_request_handler({'psid' : _good_string})
+# @typical_json_responder(execute_report_project_statistics, httplib.OK)
+# def project_statistics_route(params): 
+#     """
+#     **Отчет о пректе**
 
-    путь запроса: **/project/report**
+#     путь запроса: **/project/report**
 
-    Параметры запроса:
+#     Параметры запроса:
 
-    - `psid`: ключ доступа к проекту
+#     - `psid`: ключ доступа к проекту
 
-    Вовзращает JSON словарь с ключами:
+#     Вовзращает JSON словарь с ключами:
 
-    - `uuid`: ид проекта
-    - `name`: имя проекта
-    - `descr`: описание проекта
-    - `sharing`: строка, описывает политику добавления новых участников проекта
-       - `open`: проект открыт для свободного доступа
-       - `invitation`: проект доступен для входа по приглашениям
-       - `close`: доступом в проект упаравляет инициатор
-    - `ruleset`: политика управления свойствами проекта
-       - `despot`: всем управляет инициатор
-       - `auto`: авто управление
-       - `vote`: управление голосованием
-    - `begin_date`: дата старта проекта
-    - `end_date`: дата завершения проекта
-    - `cost`: цена всего проекта (цена ресурсов)
-    - `resources`: описывает ресурсы задействованные на проекте,
-      то есть только те ресурсы, которые используются хотя бы одним мероприятием
-      или участником мероприятия, в количестве более 0.001. Является списком хэш
-      таблиц с ключами:
-       - `uuid`: uuid ресурса
-       - `product`: ид продукта (для связи с таблицей продуктов от поставщиков)
-       - `amount`: суммарное количество ресурса использованное на проекте
-       - `available`: количество ресурса заказанное на поставку
-       - `cost`: цена ресурса, если есть поставщик, None если поставщика нет
-       - `name`: имя ресурса
-       - `descr`: описание ресурса
-       - `units' : название еденицы измерения ресурса
-       - `use` : способ использования ресурса, одно из возможных значений:
-          - `common`: общий ресурс для мероприятия
-          - `personal`: ресурс персональный
-       - `site`: принадлежность ресурса, строка, одно из возможных значений
-          - `internal`: ресурс внутренний, покупать не нужно
-          - `external`: ресурс нужно еще приобрести
+#     - `uuid`: ид проекта
+#     - `name`: имя проекта
+#     - `descr`: описание проекта
+#     - `sharing`: строка, описывает политику добавления новых участников проекта
+#        - `open`: проект открыт для свободного доступа
+#        - `invitation`: проект доступен для входа по приглашениям
+#        - `close`: доступом в проект упаравляет инициатор
+#     - `ruleset`: политика управления свойствами проекта
+#        - `despot`: всем управляет инициатор
+#        - `auto`: авто управление
+#        - `vote`: управление голосованием
+#     - `begin_date`: дата старта проекта
+#     - `end_date`: дата завершения проекта
+#     - `cost`: цена всего проекта (цена ресурсов)
+#     - `resources`: описывает ресурсы задействованные на проекте,
+#       то есть только те ресурсы, которые используются хотя бы одним мероприятием
+#       или участником мероприятия, в количестве более 0.001. Является списком хэш
+#       таблиц с ключами:
+#        - `uuid`: uuid ресурса
+#        - `product`: ид продукта (для связи с таблицей продуктов от поставщиков)
+#        - `amount`: суммарное количество ресурса использованное на проекте
+#        - `available`: количество ресурса заказанное на поставку
+#        - `cost`: цена ресурса, если есть поставщик, None если поставщика нет
+#        - `name`: имя ресурса
+#        - `descr`: описание ресурса
+#        - `units' : название еденицы измерения ресурса
+#        - `use` : способ использования ресурса, одно из возможных значений:
+#           - `common`: общий ресурс для мероприятия
+#           - `personal`: ресурс персональный
+#        - `site`: принадлежность ресурса, строка, одно из возможных значений
+#           - `internal`: ресурс внутренний, покупать не нужно
+#           - `external`: ресурс нужно еще приобрести
 
-    Статусы возврата:
+#     Статусы возврата:
 
-    - `200`: ok
-    - `412`: не верные данные с описанием в теле ответа
-    - `500`: ошибка сервера
+#     - `200`: ok
+#     - `412`: не верные данные с описанием в теле ответа
+#     - `500`: ошибка сервера
 
-    """
-    pass
+#     """
+#     pass
 
 # @transaction.commit_on_success
 # @standard_request_handler({'psid' : _good_string,
@@ -1813,9 +1813,10 @@ def participant_statistics_route(params):
     - `create`: дата входа пользователя на проект, ISO строка
     - `login`: дата последнего логина пользователя, ISO строка
     - `is_initiator`: Boolean является ли пользователель инициатором
-    - `user`: user_id пользователя
+    - `user_id`: user_id пользователя
     - `name`: имя (ник) пользователя
     - `descr`: описание пользователя
+    - `status`: статус участника проекта
     - `resources`: ресурсы мероприятия и личные ресрусы которые используются на этом мероприятии,
       список словарей с ключами:
        - `uuid`: uuid ресурса
@@ -1845,6 +1846,14 @@ def participant_statistics_route(params):
        - `site`: принадлежность ресурса, строка, одно из возможных значений
           - `internal`: ресурс внутренний, покупать не нужно
           - `external`: ресурс нужно еще приобрести
+
+    Повещение
+
+       Если указан `uuids` то выводит статистику строго по пользователям из
+       списка, не найденные пользователи просто игнорируются.  Если `uuids` не
+       казан, то выводит статистику по активным пользователям (статус accepted),
+       в обоих случаях выводит только пользователей находящихся в проекте
+       привязанном к `psid`
 
     Статусы возврата:
 
