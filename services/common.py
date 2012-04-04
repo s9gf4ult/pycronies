@@ -208,7 +208,7 @@ class typical_json_responder(object):
 class get_activity_from_uuid(object):
     def __init__(self, param = 'uuid'):
         self._param = param
-        
+
     def __call__(self, fnc):
         @wraps(fnc)
         def ret(*args, **kargs):
@@ -628,10 +628,14 @@ def get_authorized_activity_participant(user, activ):
     except IndexError:
         return None
     st = get_object_status(ap)
-    if st == 'accepted':
+    if st == 'accepted' or am_i_creating_activity_now(activ, user):
         return ap
     else:
         return False
+
+def am_i_creating_activity_now(act, user):
+    return get_object_status(act) == 'created' and (user in get_parameter_voter(act, 'accepted', 'created', tpclass = 'status'))
+
 
 class get_resource_parameter_from_uuid(object):
     """
@@ -657,12 +661,12 @@ class get_resource_parameter_from_uuid(object):
                 except IndexError:
                     return {'code' : RESOURCE_PARAMETER_NOT_FOUND,
                             'caption' : 'There is no such resource parameter'}, httplib.PRECONDITION_FAILED
-            
+
             if isinstance(aresp, ActivityResourceParameter):
                 ares = aresp.obj
             else:
                 ares = aresp.obj.resource
-                
+
             if get_object_status(ares) != 'accepted':
                 return {'code' : ACTIVITY_RESOURCE_IS_NOT_ACCEPTED,
                         'caption' : 'This resource is not accepted on this activity'}, httplib.PRECONDITION_FAILED
@@ -695,3 +699,46 @@ class translate_parameters(object):
 def parse_json(data):
     dec = json.JSONDecoder()
     return dec.decode(data)
+
+def get_parameter_voter(obj, status, value, tpclass = None, name = None ,uuid = None):
+    """
+    Return list of voters, which voted for specified value with specified status
+    of specified parameter
+
+    Arguments:
+
+    - `obj`:
+    - `status`:
+    - `value`:
+    - `tpclass`:
+    - `name`:
+    - `uuid`:
+
+    Raises:
+
+    - `TypeError`: if obj has wrong type
+    - `ValueError`: if something wrong with parameters
+    """
+    t = type(obj)
+    if t not in parameter_class_map:
+        raise TypeError("obj must be model object with parameters, not {0}".format(t))
+    vote = parameter_class_map[t]['vote']
+    q = (Q(parameter_val__parameter__obj = obj)&
+         Q(parameter_val__status = status)&
+         Q(parameter_val__value = value))
+    if uuid != None:
+        q &= Q(parameter_val__parameter__uuid = uuid)
+    else:
+        if tpclass == 'user':
+            if not isinstance(name, basestring):
+                raise ValueError('You must specify `name` of parameter, if tpclass == "user"')
+        elif not isinstance(tpclass, basestring):
+            raise ValueError('You must specify `tpclass` if `uuid` is not specified')
+        q &= Q(parameter_val__parameter__tpclass = tpclass)
+        if name != None:
+            q &= Q(parameter_val__parameter__name = name)
+
+    ret = []
+    for vt in vote.objects.filter(q).distinct().all():
+        ret.append(vt.voter)
+    return ret
