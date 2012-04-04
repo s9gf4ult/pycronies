@@ -781,21 +781,26 @@ def despot_conform_activity(prj, user, activity):
         set_as_accepted_value_of_object_parameter(astv)
         activate_all_activity_resouces(activity, user)
         activate_all_activity_parameters(activity, user)
-        pass
+        return 'Activated and all resources and parameters too', httplib.CREATED
     else:
         set_as_accepted_value_of_object_parameter(astv)
         return 'Status changed', httplib.CREATED
 
 def activate_all_activity_resouces(act, user):
     for ares in act.activityresource_set.filter(Q(activityresourceparameter__tpclass = 'status') &
-                                                Q(activityresourceparameter__activityresourceparameterval__status = 'voted')&
-                                                Q(activityresourceparameter__activityresourceparameterval__activityresourceparametervote__voter = user)).distinct().all():
-        vls = ares.
+                                                Q(activityresourceparameter__activityresourceparameterval__status = 'voted') &
+                                                Q(activityresourceparameter__activityresourceparameterval__value = 'accepted')).distinct().all():
+        set_vote_for_object_parameter(ares, user, 'accepted', tpclass = 'status')
         conform_activity_resource(None, ares, None, act, user)
+        for aresparam in ares.activityresourceparameter_set.filter(Q(tpclass = 'user')&
+                                                                   Q(activityresourceparameterval__status = 'voted')).distinct().all():
+            vtvals = aresparam.activityresourceparameterval_set.filter(status = 'voted').all()
+            if len(vtvals) == 1:
+                set_vote_for_object_parameter(ares, user, vtvals[0].value, uuid = aresparam.uuid)
+                conform_resource_parameter(None, aresparam, user)
         
 def activate_all_activity_parameters(act, user):
-    for aparam in act.activityparameter_set.filter(Q(activityparameterval__status = 'voted') &
-                                                   Q(activityparameterval__activityparametervote__voter = user)).distinct().all():
+    for aparam in act.activityparameter_set.filter(Q(activityparameterval__status = 'voted')).distinct().all():
         vls = aparam.activityparameterval_set.filter(status='voted').all()
         if len(vls) == 1:
             set_vote_for_object_parameter(act, user, vls[0].value, uuid = aparam.uuid)

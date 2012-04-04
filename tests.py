@@ -2224,8 +2224,7 @@ class mytest(TestCase):
         # все видят в нем два активных ресурса
         r = self.srequest(c, '/activity/resource/list',
                           {'psid' : psid,
-                           'activity' : auuid,
-                           'uuid' : res1},
+                           'uuid' : auuid},
                           httplib.OK)
         d = dec.decode(r)
         resource1 = [a for a in d if a['uuid'] == res1][0]
