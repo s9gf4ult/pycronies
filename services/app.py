@@ -1521,7 +1521,7 @@ def execute_use_contractor(params, user):
     except IndexError:
         return {'code' : RESOURCE_IS_NOT_OFFERED,
                 'caption' : 'This contractor does not offer this resource'}, httplib.PRECONDITION_FAILED
-    allowerd = get_full_resource_amount(res) - get_full_resource_usage(res)
+    allowerd = get_full_resource_amount(res) - get_full_resource_available(res)
     if params.get('amount') == None:
         am = allowerd
     else:
@@ -1560,28 +1560,32 @@ def despot_conform_use_contractor(params, cntu, res, user):
         set_as_accepted_value_of_object_parameter(vt)
     return 'Created', httplib.CREATED
 
-@get_user
-def execute_report_project_statistics(params, user):
-    prj = user.project
-    ret = {'uuid' : prj.uuid,
-           'name' : prj.name,
-           'descr' : prj.descr,
-           'sharing' : prj.sharing,
-           'ruleset' : prj.ruleset,
-           'begin_date' : prj.begin_date.isoformat(),
-           'end_date' : prj.end_date.isoformat()}
-    res = []
-    for res in prj.resource_set.all():
-        p = {'uuid' : res.uuid,
-             'product' : res.product,
-             'amount' : get_full_resource_amount(res),
-             'available' : get_full_resource_usage(res),
-             'cost' : get_full_resource_,
-             'name' : res.name,
-             'descr' : res.descr,
-             'units' : res.measure.name,
-             'use' : res.usage,
-             'site' : res.site}
+# @get_user
+# def execute_report_project_statistics(params, user):
+#     prj = user.project
+#     ret = {'uuid' : prj.uuid,
+#            'name' : prj.name,
+#            'descr' : prj.descr,
+#            'sharing' : prj.sharing,
+#            'ruleset' : prj.ruleset,
+#            'begin_date' : prj.begin_date.isoformat(),
+#            'end_date' : prj.end_date.isoformat()}
+#     res = []
+#     for res in prj.resource_set.all():
+#         p = {'uuid' : res.uuid,
+#              'product' : res.product,
+#              'amount' : get_full_resource_amount(res),
+#              'available' : get_full_resource_available(res),
+#              'cost' : get_full_resource_cost(res),
+#              'name' : res.name,
+#              'descr' : res.descr,
+#              'units' : res.measure.name,
+#              'use' : res.usage,
+#              'site' : res.site}
+#         res.append(p)
+#     ret['resources'] = res
+#     ret['cost'] = sum([a['cost'] for a in res])
+#     return ret, httplib.OK
         
 
 # @get_user
@@ -1603,7 +1607,7 @@ def execute_participant_statistics(params, user):
         pstat = get_object_status(part)
         p = {'uuid' : part.uuid,
              'create' : part.create_date.isoformat(),
-             'login' : part.dt.isoformat(),
+             'login' : part.dt.isoformat() if part.dt != None else None,
              'is_initiator' : part.is_initiator,
              'user_id' : part.user,
              'name' : part.name,
@@ -1617,7 +1621,7 @@ def execute_participant_statistics(params, user):
                 rst = get_participant_personal_resouce_stats(part, res)
             if rst != None:
                 resources.append(rst)
-        
+        p['resources'] = resources
         ret.append(p)
     return ret, httplib.OK
 
@@ -1627,20 +1631,80 @@ def get_participant_common_resource_stats(part, res):
                                            Q(activity__activityparameter__activityparameterval__value = 'accepted')&
                                            Q(activity__activityparticipant__activityparticipantparameter__tpclass = 'status') &
                                            Q(activity__activityparticipant__activityparticipantparameter__activityparticipantparameterval__status = 'accepted') &
-                                           Q(activity__activityparticipant__activityparticipantparameter__activityparticipantparameterval__value = 'accepted'))
+                                           Q(activity__activityparticipant__activityparticipantparameter__activityparticipantparameterval__value = 'accepted')&
+                                           Q(activity__activityparticipant__participant = part))
     if ares.count() == 0:
         return None
-    
     amount = 0
     for ar in ares.all():
-        act = ar.activity
-        
-    
-    
-    
+        apars = ar.activity.activityparticipant_set.filter(Q(activityparticipantparameter__tpclass = 'status')&
+                                                           Q(activityparticipantparameter__activityparticipantparameterval__status = 'accepted')&
+                                                           Q(activityparticipantparameter__activityparticipantparameterval__value = 'accepted')).count()
+        a = float(ar.amount) / float(apars)
+        amount += a
+    fullamount = get_full_resource_amount(res)
+    fullavailable = get_full_resource_available(res)
+    available = amount * fullavailable / fullamount
+    cost = get_full_resource_cost(res) * available / fullavailable
+    ret = {'uuid' : res.uuid,
+           'product' : res.product,
+           'amount' : amount,
+           'available' : available,
+           'cost' : cost,
+           'name' : res.name,
+           'descr' : res.descr,
+           'units' : res.measure.name,
+           'use' : res.usage,
+           'site' : res.site}
+    return ret
 
+def get_full_resource_cost(res):
+    ret = 0
+    for usg in res.contractorusage_set.all():
+        try:
+            off = res.contractoroffer_set.filter(contractor = usg.contractor).all()[0]
+        except IndexError:
+            continue
+        prmt = get_object_parameter(usg, tpclass = 'amount')
+        if prmt != None:
+            amount = float(prmt)
+            ret += amount * float(off.cost)
+    return ret
+
+        
 def get_participant_personal_resouce_stats(part, res):
-    pass
+    ares = res.activityresource_set.filter(Q(activity__activityparameter__tpclass = 'status') &
+                                           Q(activity__activityparameter__activityparameterval__status = 'accepted')&
+                                           Q(activity__activityparameter__activityparameterval__value = 'accepted')&
+                                           Q(activity__activityparticipant__activityparticipantparameter__tpclass = 'status') &
+                                           Q(activity__activityparticipant__activityparticipantparameter__activityparticipantparameterval__status = 'accepted') &
+                                           Q(activity__activityparticipant__activityparticipantparameter__activityparticipantparameterval__value = 'accepted')&
+                                           Q(participantresource__participant__participant = part))
+    if ares.count() == 0:
+        return None
+    amount = 0
+    for ar in ares.all():
+        a = ar.participantresource_set.filter(participant__participant = res).aggregate(Sum('amount'))
+        if a != None and a['amount__sum'] != None:
+            amount += float(a['amount__sum'])
+    fullamount = get_full_resource_amount(res)
+    fullavailable = get_full_resource_available(res)
+    available = amount * fullavailable / fullamount
+    cost = get_full_resource_cost(res) * available / fullavailable
+    ret = {'uuid' : res.uuid,
+           'product' : res.product,
+           'amount' : amount,
+           'available' : available,
+           'cost' : cost,
+           'name' : res.name,
+           'descr' : res.descr,
+           'units' : res.measure.name,
+           'use' : res.usage,
+           'site' : res.site}
+    return ret
+           
+    
+                                           
     
 
 
@@ -1686,12 +1750,12 @@ def execute_contractor_list_project_resources(params):
         if amount <= 0.001:
             continue
         p['amount'] = amount
-        us = get_full_resource_usage(res)
+        us = get_full_resource_available(res)
         p['free_amount'] = p['amount'] - us
         ret.append(p)
     return ret, httplib.OK
 
-def get_full_resource_usage(res):
+def get_full_resource_available(res):
     ret = 0
     for a in res.contractorusage_set.all():
         x = get_object_parameter(a, tpclass = 'amount')
