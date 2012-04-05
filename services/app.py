@@ -102,13 +102,21 @@ def execute_list_projects(props):
         pn = props.get('page_number') if props.get('page_number') != None else 0 # номер страницы
         ppp = props['projects_per_page'] # количество проектов на страницу
         if count < pn*ppp:
-            return {'pages' : int(ceil(float(count) / ppp)),
-                    'projects' : []} # количество проектов меньше чем начало куска который был запрошел
+            try:
+                return {'pages' : int(ceil(float(count) / ppp)),
+                        'projects' : []} # количество проектов меньше чем начало
+# куска который был запрошел
+            except ZeroDivisionError:
+                return {'pages' : 0,
+                        'projects' : []}
         ret = qr[ppp*pn:ppp*(pn+1)]
     else:                       # количество проектов на страницу не указано
         ret = qr
-
-    return {'pages' : int(ceil(float(count) / props.get('projects_per_page'))) if props.get('projects_per_page') != None else count,
+    try:
+        pagesc = int(ceil(float(count) / props.get('projects_per_page'))) if props.get('projects_per_page') != None else count
+    except ZeroDivisionError:
+        pagesc = 0
+    return {'pages' : pagesc,
             'projects' : [{'uuid' : a.uuid,
                            'name' : a.name,
                            'descr' : a.descr,
@@ -1642,12 +1650,21 @@ def get_participant_common_resource_stats(part, res):
         apars = ar.activity.activityparticipant_set.filter(Q(activityparticipantparameter__tpclass = 'status')&
                                                            Q(activityparticipantparameter__activityparticipantparameterval__status = 'accepted')&
                                                            Q(activityparticipantparameter__activityparticipantparameterval__value = 'accepted')).count()
-        a = float(ar.amount) / float(apars)
+        try:
+            a = float(ar.amount) / float(apars)
+        except ZeroDivisionError:
+            a = 0
         amount += a
     fullamount = get_full_resource_amount(res)
     fullavailable = get_full_resource_available(res)
-    available = amount * fullavailable / fullamount
-    cost = get_full_resource_cost(res) * available / fullavailable
+    try:
+        available = amount * fullavailable / fullamount
+    except ZeroDivisionError:
+        available = 0
+    try:
+        cost = get_full_resource_cost(res) * available / fullavailable
+    except ZeroDivisionError:
+        cost = 0
     ret = {'uuid' : res.uuid,
            'product' : res.product,
            'amount' : amount,
@@ -1691,8 +1708,14 @@ def get_participant_personal_resouce_stats(part, res):
             amount += float(a['amount__sum'])
     fullamount = get_full_resource_amount(res)
     fullavailable = get_full_resource_available(res)
-    available = amount * fullavailable / fullamount
-    cost = get_full_resource_cost(res) * available / fullavailable
+    try:
+        available = amount * fullavailable / fullamount
+    except ZeroDivisionError:
+        available = 0
+    try:
+        cost = get_full_resource_cost(res) * available / fullavailable
+    except ZeroDivisionError:
+        cost = 0
     ret = {'uuid' : res.uuid,
            'product' : res.product,
            'amount' : amount,
