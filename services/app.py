@@ -512,11 +512,9 @@ def despot_conform_participant(voter, prt, params):
 
     if (not voter.is_initiator) and (not ((voter == prt) and (vt.value == 'denied'))):
         return 'You are not initiator, doing nothing', httplib.CREATED
-
-
     set_as_accepted_value_of_object_parameter(vt)
-
     return '', httplib.CREATED
+
 
 @get_object_by_uuid(Project,
                     PROJECT_NOT_FOUND,
@@ -540,12 +538,11 @@ def execute_enter_project_open(params, prj):   #++TESTED
     except IntegrityError:
         return {'code' : PARTICIPANT_ALREADY_EXISTS,
                 'caption' : 'There is one participant with such name or user_id in this project'}, httplib.PRECONDITION_FAILED
-
     pprm = create_object_parameter(prt, 'status', True, values = [{'value' : a[0]} for a in Participant.PARTICIPANT_STATUS])
     set_object_status(prt, prt, 'accepted')
-
     return {'psid' : prt.psid,
             'token' : prt.token}, httplib.CREATED
+
 
 @get_object_by_uuid(Project,
                     PROJECT_NOT_FOUND,
@@ -1594,7 +1591,7 @@ def despot_conform_use_contractor(params, cntu, res, user):
 
 @get_user
 def execute_participant_statistics(params, user):
-    ret = []
+    prts = []
     prj = user.project
     if params.get('uuids') == None or len(params['uuids']) == 0:
         qry = prj.participant_set.filter(Q(participantparameter__tpclass = 'status')&
@@ -1622,7 +1619,12 @@ def execute_participant_statistics(params, user):
             if rst != None:
                 resources.append(rst)
         p['resources'] = resources
-        ret.append(p)
+        p['cost'] = sum([a['cost'] for a in resources])
+        prts.append(p)
+    ret = {}
+    ret['participants'] = prts
+    ret['cost'] = sum([a['cost'] for a in prts])
+    
     return ret, httplib.OK
 
 def get_participant_common_resource_stats(part, res):

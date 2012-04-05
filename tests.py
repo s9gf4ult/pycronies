@@ -2406,7 +2406,8 @@ class mytest(TestCase):
         r = self.srequest(c, '/participant/report',
                           {'psid' : psid},
                           httplib.OK)
-        d = dec.decode(r)
+        rdd = dec.decode(r)
+        d = rdd['participants']
         self.assertEqual(len([a for a in d if a['is_initiator']]), 1)
         self.assertEqual(len(d), 2)
         partic1 = [a for a in d if a['name'] == 'root'][0]
@@ -2454,7 +2455,10 @@ class mytest(TestCase):
                      ('site', 'external'),
                      ]:
             self.assertEqual(p2re3[a], b)
- 
+        self.assertEqual(partic1['cost'], (400. / 35. * 25.) + 475 + 750)
+        self.assertEqual(partic2['cost'], (400. / 35. * 10.) + 475 + 750)
+        self.assertEqual(rdd['cost'], 400 + 1500 + 950)
+        
         
         for p in psids:
             self._delete_project(p)
