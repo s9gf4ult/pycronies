@@ -89,3 +89,27 @@
              change_resource_parameter_route,
              conform_resource_parameter_route,
 
+------------------------
+Согласование поставщиков
+------------------------
+
+.. automodule:: services.views
+   :members: list_contractors,
+             use_contractor_route
+
+-------------------
+Отчеты и статистика
+-------------------
+
+.. automodule:: services.views
+   :members: participant_statistics_route
+
+------------------
+Функции поставщика
+------------------
+
+.. automodule:: services.views
+   :members: contractor_list_project_resources_route,
+             contractor_offer_resource_route,
+             create_contractor_route
+             

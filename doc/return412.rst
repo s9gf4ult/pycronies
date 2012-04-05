@@ -149,7 +149,25 @@
   При попытке работы с персональным ресурсом, который не используется как
   персональный данным участником (то есть не используется участником выполнившим
   запрос)
-  
+
+- CONTRACTOR_ALREADY_EXISTS = 129
+
+  При попытке создать поставщика с существующим `user_id` или именем
+
+- CONTRACTOR_NOT_FOUND = 130
+
+  При попытке работать с поставщиком которого не существует
+
+- RESOURCE_IS_NOT_OFFERED = 140
+
+  При попытке заказать ресурс, который не предложен ни одним поставщиком
+
+- PROJECT_STATUS_MUST_BE_CONTRACTOR = 141
+
+  При попытке совершить действие, которое требует статус проекта ==
+  "contractor", но статус != "contractor"
+
+
 
 ^^^^^^^^^^^^^^^^^^^
 JavaSctip копипаста
@@ -186,6 +204,10 @@ JavaSctip копипаста
   var RESOURCE_PARAMETER_ALREADY_EXISTS = 126;
   var RESOURCE_PARAMETER_NOT_FOUND = 127;
   var PERSONAL_RESOURCE_NOT_FOUND = 128;
+  var CONTRACTOR_ALREADY_EXISTS = 129;
+  var CONTRACTOR_NOT_FOUND = 130;
+  var RESOURCE_IS_NOT_OFFERED = 140;
+  var PROJECT_STATUS_MUST_BE_CONTRACTOR = 141;
 
 
 -------------------
@@ -315,6 +337,10 @@ JavaSctip копипаста
   целое число однозначно (содержит пробельные символы внутри числа или другие не
   числовые символы в любом месте строки)
 
+- VALUE_IS_NOT_CHECKED = 17
+
+  В случае, когда значение должно удовлетворять некоторому произвольному
+  условию, например, число должно быть больше нуля, и это условие не выполнено
 
 ^^^^^^^^^^^^^^^^^^^^
 JavaScript копипаста
@@ -339,3 +365,4 @@ JavaScript копипаста
  var LENGTH_VALIDATION_FAILED = 14;
  var JSON_VALIDATION_FAILED = 15;
  var CAN_NOT_PROCESS_VALUE = 16;
+ var VALUE_IS_NOT_CHECKED = 17;

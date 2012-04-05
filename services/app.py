@@ -1632,7 +1632,7 @@ def get_participant_common_resource_stats(part, res):
                                            Q(activity__activityparticipant__activityparticipantparameter__tpclass = 'status') &
                                            Q(activity__activityparticipant__activityparticipantparameter__activityparticipantparameterval__status = 'accepted') &
                                            Q(activity__activityparticipant__activityparticipantparameter__activityparticipantparameterval__value = 'accepted')&
-                                           Q(activity__activityparticipant__participant = part))
+                                           Q(activity__activityparticipant__participant = part)).distinct()
     if ares.count() == 0:
         return None
     amount = 0
@@ -1679,12 +1679,12 @@ def get_participant_personal_resouce_stats(part, res):
                                            Q(activity__activityparticipant__activityparticipantparameter__tpclass = 'status') &
                                            Q(activity__activityparticipant__activityparticipantparameter__activityparticipantparameterval__status = 'accepted') &
                                            Q(activity__activityparticipant__activityparticipantparameter__activityparticipantparameterval__value = 'accepted')&
-                                           Q(participantresource__participant__participant = part))
+                                           Q(participantresource__participant__participant = part)).distinct()
     if ares.count() == 0:
         return None
     amount = 0
     for ar in ares.all():
-        a = ar.participantresource_set.filter(participant__participant = res).aggregate(Sum('amount'))
+        a = ar.participantresource_set.filter(participant__participant = part).aggregate(Sum('amount'))
         if a != None and a['amount__sum'] != None:
             amount += float(a['amount__sum'])
     fullamount = get_full_resource_amount(res)
