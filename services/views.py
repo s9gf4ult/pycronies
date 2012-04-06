@@ -32,15 +32,21 @@ _good_string = RegexpMatch(r'^[^;:"''|\\/#&><]*$')
 _good_float = Each(Able(float), Checkable(lambda a: float(a) >=0, 'Value must not be >= 0'))
 _good_int = Each(Able(int), Checkable(lambda a: int(a) >= 0, 'Value must be >= 0'))
 
+
 @transaction.commit_on_success
-@standard_request_handler({'name' : _good_string,
-                           'descr' : OrNone(_good_string),
+@standard_request_handler({'name' : '',
+                           'descr' : OrNone(''),
                            'begin_date' : OrNone(DateTimeString()),
                            'sharing' : Any(*[Equal(a[0]) for a in Project.PROJECT_SHARING]),
                            'ruleset' : Any(*[Equal(a[0]) for a in Project.PROJECT_RULESET]), # fucken amazing !
-                           'user_name' : _good_string,
-                           'user_id' : OrNone(_good_string),
-                           'user_descr' : OrNone(_good_string)})
+                           'user_name' : '',
+                           'user_id' : OrNone(''),
+                           'user_descr' : OrNone('')})
+@translate_parameters({'name' : translate_string,
+                       'descr' : translate_string,
+                       'user_name' : translate_string,
+                       'user_id' : translate_string,
+                       'user_descr' : translate_string})
 @typical_json_responder(execute_create_project, httplib.CREATED)
 def create_project_route(prs):  # ++TESTED
     """
@@ -86,6 +92,7 @@ def create_project_route(prs):  # ++TESTED
                            'status' : OrNone(Any(*[Equal(a[0]) for a in Project.PROJECT_STATUS])),
                            'begin_date' : OrNone(DateTimeString()),
                            'search' : OrNone(_good_string)})
+@translate_parameters({'search' : translate_string})
 def list_projects_route(pars):  # ++TESTED
     """
     **Список проектов**
@@ -136,7 +143,8 @@ def list_projects_route(pars):  # ++TESTED
     return http.HttpResponse(enc.encode(result), status=httplib.OK, content_type='application/json')
 
 @transaction.commit_on_success
-@standard_request_handler({'user_id' : _good_string})
+@standard_request_handler({'user_id' : ''})
+@translate_parameters({'user_id' : translate_string})
 def list_user_projects_route(params): # ++TESTED
     """
     **Проекты пользователя**
@@ -179,9 +187,10 @@ def list_user_projects_route(params): # ++TESTED
     return http.HttpResponse(enc.encode(ret), status=st, content_type='application/json')
 
 @transaction.commit_on_success
-@standard_request_handler({'psid' : '',
+@standard_request_handler({'psid' : _good_string,
                            'status' : Any(*[Equal(a[0]) for a in Project.PROJECT_STATUS]),
-                           'comment' : OrNone(_good_string)})
+                           'comment' : OrNone('')})
+@translate_parameters({'comment' : translate_string})
 @typical_json_responder(execute_change_project_status, httplib.CREATED)
 def change_project_status_route(params): # ++TESTED
     """
@@ -242,15 +251,19 @@ def list_default_parameters_route(request): # ++TESTED
 
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
-                           'name' : _good_string,
-                           'descr' : OrNone(_good_string),
+                           'name' : '',
+                           'descr' : OrNone(''),
                            'tp' : _good_string,
                            'enum' : JsonString(True),
                            'value' : _good_string,
                            # 'values' : OrNone(JsonString([{'value' : _good_string,
                            #                                'caption' : OrNone(_good_string)}])),
-                           'caption' : OrNone(_good_string),
-                           'comment' : OrNone(_good_string)})
+                           'caption' : OrNone(''),
+                           'comment' : OrNone('')})
+@translate_parameters({'name' : translate_string,
+                       'descr' : translate_string,
+                       'caption' : translate_string,
+                       'comment' : translate_string})
 def create_project_parameter_route(params): # ++TESTED
     """
     **Создать параметр проекта**
@@ -370,8 +383,10 @@ def list_project_parameters_route(params): # ++TESTED
 @standard_request_handler({'psid' : _good_string,
                            'uuid' : _good_string,
                            'value' : _good_string,
-                           'caption' : OrNone(_good_string),
-                           'comment' : OrNone(_good_string)})
+                           'caption' : OrNone(''),
+                           'comment' : OrNone('')})
+@translate_parameters({'caption' : translate_string,
+                       'comment' : translate_string})
 @typical_json_responder(execute_change_project_parameter, httplib.CREATED)
 def change_project_parameter_route(params): # ++TESTED
     """
@@ -448,9 +463,12 @@ def delete_project_route(params): #  NOTE: метод для тестов
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
                            'uuid' : OrNone(_good_string),
-                           'name' : OrNone(_good_string),
-                           'descr' : OrNone(_good_string),
-                           'user_id' : OrNone(_good_string)})
+                           'name' : OrNone(''),
+                           'descr' : OrNone(''),
+                           'user_id' : OrNone('')})
+@translate_parameters({'name' : translate_string,
+                       'descr' : translate_string,
+                       'user_id' : translate_string})
 def change_participant_route(params): # ++TESTED
     """
     **Изменить параметры участника проекта**
@@ -533,10 +551,14 @@ def list_participants_route(params): # ++TESTED
 
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
-                           'name' : _good_string,
-                           'descr' : OrNone(_good_string),
-                           'user_id' : OrNone(_good_string),
-                           'comment': OrNone(_good_string)})
+                           'name' : '',
+                           'descr' : OrNone(''),
+                           'user_id' : OrNone(''),
+                           'comment': OrNone('')})
+@translate_parameters({'name' : translate_string,
+                       'descr' : translate_string,
+                       'user_id' : translate_string,
+                       'comment' : translate_string})
 @typical_json_responder(execute_invite_participant, httplib.CREATED)
 def invite_participant_route(params): # ++TESTED
     """
@@ -578,7 +600,8 @@ def invite_participant_route(params): # ++TESTED
 @standard_request_handler({'psid' : _good_string,
                            'uuid' : OrNone(_good_string),
                            'vote' : Any(Equal('include'), Equal('exclude')),
-                           'comment' : OrNone(_good_string)})
+                           'comment' : OrNone('')})
+@translate_parameters({'comment' : translate_string})
 @typical_json_responder(execute_conform_participant_vote, httplib.CREATED)
 def conform_participant_vote_route(params):
     """
@@ -615,9 +638,12 @@ def conform_participant_vote_route(params):
 
 @transaction.commit_on_success
 @standard_request_handler({'uuid' : _good_string,
-                           'name' : _good_string,
-                           'descr' : OrNone(_good_string),
-                           'user_id' : OrNone(_good_string)})
+                           'name' : '',
+                           'descr' : OrNone(''),
+                           'user_id' : OrNone('')})
+@translate_parameters({'name' : translate_string,
+                       'descr' : translate_string,
+                       'user_id' : translate_string})
 @typical_json_responder(execute_enter_project_open, httplib.CREATED)
 def enter_project_open_route(params): # ++TESTED
     """
@@ -702,7 +728,8 @@ def conform_participant_route(params): # ++TESTED на прямую не выз�
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
                            'uuid' : OrNone(_good_string),
-                           'comment' : OrNone(_good_string)})
+                           'comment' : OrNone('')})
+@translate_parameters({'comment' : translate_string})
 @typical_json_responder(execute_exclude_participant, httplib.CREATED)
 def exclude_participant_route(params): # ++TESTED
     """
@@ -786,7 +813,8 @@ def list_activities_route(params): # ++TESTED
 @standard_request_handler({'psid' : _good_string,
                            'action' : Any(Equal('include'), Equal('exclude')),
                            'uuid' : _good_string,
-                           'comment' : OrNone(_good_string)})
+                           'comment' : OrNone('')})
+@translate_parameters({'comment' : translate_string})
 @typical_json_responder(execute_activity_participation, httplib.CREATED)
 def activity_participation_route(params): # ++TESTED
     """
@@ -811,10 +839,12 @@ def activity_participation_route(params): # ++TESTED
 
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
-                           'name' : _good_string,
-                           'descr' : OrNone(_good_string),
+                           'name' : '',
+                           'descr' : OrNone(''),
                            'begin' : DateTimeString(),
                            'end' : DateTimeString()})
+@translate_parameters({'name' : translate_string,
+                       'descr' : translate_string})
 @typical_json_responder(execute_create_activity, httplib.CREATED)
 def create_activity_route(params): # ++TESTED
     """
@@ -846,7 +876,8 @@ def create_activity_route(params): # ++TESTED
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
                            'uuid' : _good_string,
-                           'comment' : OrNone(_good_string)})
+                           'comment' : OrNone('')})
+@translate_parameters({'comment' : translate_string})
 @typical_json_responder(execute_public_activity, httplib.CREATED)
 def public_activity_route(params): # ++TESTED
     """
@@ -911,7 +942,8 @@ def activity_delete_route(params): # ++TESTED
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
                            'uuid' : _good_string,
-                           'comment' : OrNone(_good_string)})
+                           'comment' : OrNone('')})
+@translate_parameters({'comment' : translate_string})
 @typical_json_responder(execute_activity_deny, httplib.CREATED)
 def activity_deny_route(params): # ++TESTED
     """
@@ -996,11 +1028,13 @@ def conform_activity_route(params):
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
                            'uuid' : _good_string,
-                           'name' : _good_string,
-                           'descr' : OrNone(_good_string),
+                           'name' : '',
+                           'descr' : OrNone(''),
                            'tp' : _good_string,
                            'enum' : JsonString(True),
                            'value' : OrNone(_good_string)})
+@translate_parameters({'name' : translate_string,
+                       'descr' : translate_string}) 
 def create_activity_parameter_route(params): # ++TESTED
     """
     **Создание параметра мероприятия**
@@ -1129,7 +1163,8 @@ def list_activity_parameters_route(params): # ++TESTED
 @standard_request_handler({'psid' : _good_string,
                            'uuid' : _good_string,
                            'value' : _good_string,
-                           'comment' : OrNone(_good_string)})
+                           'comment' : OrNone('')})
+@translate_parameters({'comment' : translate_string})
 @typical_json_responder(execute_change_activity_parameter, httplib.CREATED)
 def change_activity_parameter_route(params): # ++TESTED
     """
@@ -1306,11 +1341,13 @@ def list_activity_resources_route(params): # ++TESTED
 
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
-                           'name' : _good_string,
-                           'descr' : OrNone(_good_string),
+                           'name' : '',
+                           'descr' : OrNone(''),
                            'units' : _good_string,
                            'use' : Any(*[Equal(a[0]) for a in Resource.RESOURCE_USAGE]),
                            'site' : Any(*[Equal(a[0]) for a in Resource.RESOURCE_SITE])})
+@translate_parameters({'name' : translate_string,
+                       'descr' : translate_string})
 @typical_json_responder(execute_create_project_resource, httplib.CREATED)
 def create_project_resource_route(params): # ++TESTED
     """
@@ -1351,7 +1388,8 @@ def create_project_resource_route(params): # ++TESTED
                            'activity' : _good_string,
                            'need' : OrNone(JsonString(True)),
                            'amount' : OrNone(_good_float),
-                           'comment' : OrNone(_good_string)})
+                           'comment' : OrNone('')})
+@translate_parameters({'comment' : translate_string})
 def include_activity_resource_route(params): # ++TESTED
     """
     **Добавление ресурса мероприятия**
@@ -1394,7 +1432,8 @@ def include_activity_resource_route(params): # ++TESTED
 @standard_request_handler({'psid' : _good_string,
                            'uuid' : _good_string,
                            'activity' : _good_string,
-                           'comment' : OrNone(_good_string)})
+                           'comment' : OrNone('')})
+@translate_parameters({'comment' : translate_string})
 @typical_json_responder(execute_exclude_activity_resource, httplib.CREATED)
 def exclude_activity_resource_route(params): # ++TESTED
     """

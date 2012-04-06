@@ -7,6 +7,7 @@ from django.db import transaction, IntegrityError
 import httplib
 import datetime
 import re
+import cgi
 import json
 from functools import wraps
 from svalidate import Validate
@@ -742,3 +743,6 @@ def get_parameter_voter(obj, status, value, tpclass = None, name = None ,uuid = 
     for vt in vote.objects.filter(q).distinct().all():
         ret.append(vt.voter)
     return ret
+
+def translate_string(string):
+    return cgi.escape(string, True)
