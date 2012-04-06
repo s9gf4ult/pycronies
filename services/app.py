@@ -18,6 +18,7 @@ from django.db.models import Q, Sum
 from datetime import datetime
 from math import ceil
 import httplib
+from copy import copy
 
 
 def execute_create_project(parameters):
@@ -1632,8 +1633,19 @@ def execute_participant_statistics(params, user):
     ret = {}
     ret['participants'] = prts
     ret['cost'] = sum([a['cost'] for a in prts])
-    
+    resources = {}
+    for part in prts:
+        for res in part['resources']:
+            if res['uuid'] not in resources:
+                resources[res['uuid']] = copy(res)
+            else:
+                oldres = resources[res['uuid']]
+                for n in ['amount', 'available', 'cost']:
+                    oldres[n] += res[n]
+                resources[res['uuid']] = oldres
+    ret['resources'] = [val for val in resources.itervalues()]
     return ret, httplib.OK
+
 
 def get_participant_common_resource_stats(part, res):
     ares = res.activityresource_set.filter(Q(activity__activityparameter__tpclass = 'status') &
