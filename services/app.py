@@ -1052,9 +1052,9 @@ def list_activity_resources(params, act, user):
              'descr' : res.descr,
              'units' : res.measure.name,
              'status' : stt if stt != None else 'voted',
-             'min_cost' : float(res.min_cost),
-             'max_cost' : float(res.max_cost),
-             'mean_cost' : float(res.mean_cost),
+             'min_cost' : float(res.min_cost) if res.min_cost != None else None
+             'max_cost' : float(res.max_cost) if res.max_cost != None else None
+             'mean_cost' : float(res.mean_cost) if res.mean_cost != None else None
              'min_cost_sum' : None,
              'max_cost_sum' : None,
              'mean_cost_sum' : None,
@@ -1121,9 +1121,9 @@ def list_project_resources(params, user):
              'descr' : res.descr,
              'units' : res.measure.name,
              'status' : 'accepted',
-             'min_cost' : float(res.min_cost),
-             'max_cost' : float(res.max_cost),
-             'mean_cost' : float(res.mean_cost),
+             'min_cost' : float(res.min_cost) if res.min_cost != None else None
+             'max_cost' : float(res.max_cost) if res.max_cost != None else None
+             'mean_cost' : float(res.mean_cost) if res.mean_cost != None else None
              'use' : res.usage,
              'site' : res.site,
              'votes' : []}
