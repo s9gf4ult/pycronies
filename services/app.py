@@ -1673,6 +1673,9 @@ def get_participant_common_resource_stats(part, res):
                                            Q(activity__activityparticipant__activityparticipantparameter__tpclass = 'status') &
                                            Q(activity__activityparticipant__activityparticipantparameter__activityparticipantparameterval__status = 'accepted') &
                                            Q(activity__activityparticipant__activityparticipantparameter__activityparticipantparameterval__value = 'accepted')&
+                                           Q(activityresourceparameter__tpclass='status')&
+                                           Q(activityresourceparameter__activityresourceparameterval__status = 'accepted')&
+                                           Q(activityresourceparameter__activityresourceparameterval__value = 'accepted')&
                                            Q(activity__activityparticipant__participant = part)).distinct()
     if ares.count() == 0:
         return None
@@ -1732,6 +1735,9 @@ def get_participant_personal_resouce_stats(part, res):
                                            Q(activity__activityparticipant__activityparticipantparameter__tpclass = 'status') &
                                            Q(activity__activityparticipant__activityparticipantparameter__activityparticipantparameterval__status = 'accepted') &
                                            Q(activity__activityparticipant__activityparticipantparameter__activityparticipantparameterval__value = 'accepted')&
+                                           Q(activityresourceparameter__tpclass='status')&
+                                           Q(activityresourceparameter__activityresourceparameterval__status = 'accepted')&
+                                           Q(activityresourceparameter__activityresourceparameterval__value = 'accepted')&
                                            Q(participantresource__participant__participant = part)).distinct()
     if ares.count() == 0:
         return None
