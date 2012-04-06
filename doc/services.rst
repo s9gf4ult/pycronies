@@ -77,6 +77,7 @@
              include_activity_resource_route,
              exclude_activity_resource_route,
              conform_activity_resource_route,
+             set_resource_costs,
 
 ------------------
 Параметры ресурсов
