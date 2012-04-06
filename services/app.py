@@ -1833,8 +1833,12 @@ def execute_list_contractors(params):
     return ret, httplib.OK
 
 @get_user
-@get_resource_from_uuid()
-def execute_set_resource_costs(params, resource, user): #  FIXME: dirty
+def execute_set_resource_costs(params, user): #  FIXME: dirty
+    try:
+        resource = Resource.objects.filter(uuid = params['uuid']).all()[0]
+    except IndexError:
+        return {'code' : RESOURCE_NOT_FOUND,
+                'caption' : 'Resource not found'}, httplib.PRECONDITION_FAILED
     prj = user.project
     if prj.ruleset != 'despot':
         return 'Project status is not "despot"', httplib.NOT_IMPLEMENTED
