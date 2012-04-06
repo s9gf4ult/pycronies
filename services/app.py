@@ -1657,6 +1657,9 @@ def execute_participant_statistics(params, user):
                         oldres[n] = oldres[n] + res[n] if oldres[n] != None else res[n]
                 resources[res['uuid']] = oldres
     ret['resources'] = [val for val in resources.itervalues()]
+    ret['min_cost'] = sum([a['min_cost'] for a in ret['resources']])
+    ret['max_cost'] = sum([a['max_cost'] for a in ret['resources']])
+    ret['mean_cost'] = sum([a['mean_cost'] for a in ret['resources']])
     return ret, httplib.OK
 
 
