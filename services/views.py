@@ -2036,7 +2036,7 @@ def list_contractors(params):   # ++TESTED
                        'max' : float,
                        'cost' : float})
 @typical_json_responder(execute_set_resource_costs, httplib.CREATED)
-def set_resource_costs(params):
+def set_resource_costs_route(params):
     """
     ** Сменить предполагаемые цены на ресурс **
 

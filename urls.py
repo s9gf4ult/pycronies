@@ -54,6 +54,7 @@ urlpatterns = patterns('',
                        url(r'^project/report$', 'services.views.project_statistics_route'),
                        url(r'^project/status/change$', 'services.views.change_project_status_route'),
                        url(r'^resource/contractor/use$', 'services.views.use_contractor_route'),
+                       url(r'^resource/cost/change$', 'services.views.set_resource_costs_route'),
                        url(r'^resource/create$', 'services.views.create_project_resource_route'),
                        
     # url(r'^pycronies/', include('pycronies.foo.urls')),
