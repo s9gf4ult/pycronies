@@ -1052,6 +1052,12 @@ def list_activity_resources(params, act, user):
              'descr' : res.descr,
              'units' : res.measure.name,
              'status' : stt if stt != None else 'voted',
+             'min_cost' : res.min_cost,
+             'max_cost' : res.max_cost,
+             'mean_cost' : res.mean_cost,
+             'min_cost_sum' : None,
+             'max_cost_sum' : None,
+             'mean_cost_sum' : None,
              'use' : res.usage,
              'site' : res.site}
 
@@ -1115,6 +1121,9 @@ def list_project_resources(params, user):
              'descr' : res.descr,
              'units' : res.measure.name,
              'status' : 'accepted',
+             'min_cost' : res.min_cost,
+             'max_cost' : res.max_cost,
+             'mean_cost' : res.mean_cost,
              'use' : res.usage,
              'site' : res.site,
              'votes' : []}
@@ -1155,8 +1164,10 @@ def list_project_resources(params, user):
                 cnt.append(cc)
         p['contractors'] = cnt
         p['cost'] = sum([x['cost'] * x['amount'] if (x['cost'] != None and x['amount'] != None) else 0 for x in cnt])
-        
-        
+        p['available'] = sum([x['amount'] if x['amount'] != None else 0 for x in cnt])
+        p['min_cost_sum'] = res.min_cost * p['amount'] if res.min_cost != None else None
+        p['max_cost_sum'] = res.max_cost * p['amount'] if res.max_cost != None else None
+        p['mean_cost_sum'] = res.mean_cost * p['amount'] if res.mean_cost != None else None
         ret.append(p)
     return ret, httplib.OK
 
@@ -1640,8 +1651,10 @@ def execute_participant_statistics(params, user):
                 resources[res['uuid']] = copy(res)
             else:
                 oldres = resources[res['uuid']]
-                for n in ['amount', 'available', 'cost']:
-                    oldres[n] += res[n]
+                for n in ['amount', 'available', 'cost',
+                          'min_cost', 'max_cost', 'mean_cost']:
+                    if res[n] != None:
+                        oldres[n] = oldres[n] + res[n] if oldres[n] != None else res[n]
                 resources[res['uuid']] = oldres
     ret['resources'] = [val for val in resources.itervalues()]
     return ret, httplib.OK
@@ -1682,6 +1695,9 @@ def get_participant_common_resource_stats(part, res):
            'amount' : amount,
            'available' : available,
            'cost' : cost,
+           'min_cost' : float(res.min_cost) * amount if res.min_cost != None else None,
+           'max_cost' : float(res.max_cost) * amount if res.max_cost != None else None,
+           'mean_cost' : float(res.mean_cost) * amount if res.mean_cost != None else None,
            'name' : res.name,
            'descr' : res.descr,
            'units' : res.measure.name,
@@ -1733,16 +1749,19 @@ def get_participant_personal_resouce_stats(part, res):
            'amount' : amount,
            'available' : available,
            'cost' : cost,
+           'min_cost' : float(res.min_cost) * amount if res.min_cost != None else None,
+           'max_cost' : float(res.max_cost) * amount if res.max_cost != None else None,
+           'mean_cost' : float(res.mean_cost) * amount if res.mean_cost != None else None,
            'name' : res.name,
            'descr' : res.descr,
            'units' : res.measure.name,
            'use' : res.usage,
            'site' : res.site}
     return ret
-           
-    
-                                           
-    
+
+
+
+
 
 
 def execute_contractor_offer_resource(params):
@@ -1812,3 +1831,21 @@ def execute_list_contractors(params):
         p['contacts'] = pp
         ret.append(p)
     return ret, httplib.OK
+
+@get_user
+@get_resource_from_uuid()
+def execute_set_resource_costs(params, resource, user): #  FIXME: dirty
+    prj = user.project
+    if prj.ruleset != 'despot':
+        return 'Project status is not "despot"', httplib.NOT_IMPLEMENTED
+    if not user.is_initiator:
+        return {'code' : MUST_BE_INITIATOR,
+                'caption' : 'you are not initiator'}, httplib.PRECONDITION_FAILED
+    if params.get('min') != None:
+        resource.min_cost = params['min']
+    if params.get('max') != None:
+        resource.max_cost = params['max']
+    if params.get('cost') != None:
+        resource.mean_cost = params['cost']
+    resource.save(force_update=True)
+    return 'changed', httplib.CREATED

@@ -19,7 +19,8 @@ from services.app import execute_create_project, execute_list_projects, execute_
     execute_conform_activity_resource, execute_create_resource_parameter, execute_create_resource_parameter_from_default, \
     execute_list_activity_resource_parameters, execute_change_resource_parameter, execute_conform_resource_parameter, \
     execute_create_contractor, execute_use_contractor,  execute_participant_statistics, \
-    execute_contractor_offer_resource, execute_contractor_list_project_resources, execute_list_contractors
+    execute_contractor_offer_resource, execute_contractor_list_project_resources, execute_list_contractors, \
+    execute_set_resource_costs
 
 from services.common import getencdec, standard_request_handler, typical_json_responder, translate_parameters, parse_json
 from services.models import Project, Resource
@@ -1265,8 +1266,8 @@ def list_activity_resources_route(params): # ++TESTED
        - `user`: user_id поставщика
        - `cost`: предложенная цена по ресурсу
        - `amount`: количетсво ресурса, согласованное для поставки данным поставщиком
-       - `offer_amount`: количество ресурса, которое поставщик может поаставить, если None значит
-         поставщик не ограничен в количестве ресурса
+       - `offer_amount`: количество ресурса, которое поставщик может поаставить,
+         если None значит поставщик не ограничен в количестве ресурса
        - `votes`: предложения по этому поставщику
           - `uuid`: uuid пользователя
           - `amount`: количество ресурса предложенное участником проекта
@@ -1284,9 +1285,16 @@ def list_activity_resources_route(params): # ++TESTED
       ресурса задействованное на всех мероприятиях. Для персонального
       ресурса показывает суммарное количество ресурса задйествованное всеми
       участниками на всех мероприятиях
-
+    - `available`: количество ресурса поставленное всеми
+      поставщиками на проект, не возвращается для отчета по мероприятию
     - `cost`: цена, если выбран поставщик, не возвращается для просмотра по
       мероприятию, ибо не однозначно количество ресурса, которое надо отобразить
+    - `min_cost`: минимальная цена за еденицу ресурса, выставленная инициатором
+    - `min_cost_sum`: минимальная цена за весь объем заказанного ресурса
+    - `max_cost`: максимальная цена за еденицу ресурса выставленная инициатором
+    - `max_cost_sum`: максимальная цена за весь объем заказанного ресурса
+    - `mean_cost`: предполагаемая цена за еденицу ресурса выставленная инициатором
+    - `mean_cost_sum`: предполагаемая цена за весь объем заказанного ресурса
 
     Статусы возврата:
 
@@ -1842,6 +1850,9 @@ def participant_statistics_route(params):
           - `cost`: общая цена товара умноженная на отношение общего количества
             поставленного товара к количеству поставленного этому участнику товара
             `available`
+          - `min_cost`: минимальная цена за ресурс заказанный участником
+          - `max_cost`: минимальная цена за ресурс заказанный участником
+          - `mean_cost`: минимальная цена за ресурс заказанный участником
           - `name`: имя ресурса
           - `descr`: описание ресурса
           - `units` : название еденицы измерения ресурса
@@ -1858,6 +1869,9 @@ def participant_statistics_route(params):
        - `available`: суммароное количество поставленного ресурса для списка
          участников
        - `cost`: общая цена товара для списка участников
+       - `min_cost`: минимальная цена за весь объем ресурса
+       - `max_cost`: максимальная цена за весь объем ресурса
+       - `mean_cost`: предполагаемая цена за весь объем ресурса
        - `name`: имя ресурса
        - `descr`: описание ресурса
        - `units` : название еденицы измерения ресурса
@@ -2008,5 +2022,39 @@ def list_contractors(params):   # ++TESTED
     - `412`: не верные данные с описанием в теле ответа
     - `500`: ошибка сервера
 
+    """
+    pass
+
+
+@transaction.commit_on_success
+@standard_request_handler({'psid' : _good_string,
+                           'uuid' : _good_string,
+                           'min' : OrNone(_good_int),
+                           'max' : OrNone(_good_int),
+                           'cost' : OrNone(_good_int)})
+@translate_parameters({'min' : float,
+                       'max' : float,
+                       'cost' : float})
+@typical_json_responder(execute_set_resource_costs, httplib.CREATED)
+def set_resource_costs(params):
+    """
+    ** Сменить предполагаемые цены на ресурс **
+
+    путь запроса: **/resource/cost/change**
+
+    Параметры запроса:
+
+    - `psid`: ключ доступа
+    - `uuid`: uuid ресурса
+    - `min`: минимальная предполагаемая цена на ресурс
+    - `max`: максимальная предполагаемая цена за ресурс
+    - `cost`: предполагаемая цена за ресурс
+
+    Статусы возврата:
+
+    - `201`: ok
+    - `412`: не верные данные с описанием в теле ответа
+    - `501`: если управление проектом != "despot"
+    - `500`: ошибка сервера
     """
     pass
