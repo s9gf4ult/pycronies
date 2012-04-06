@@ -1052,9 +1052,9 @@ def list_activity_resources(params, act, user):
              'descr' : res.descr,
              'units' : res.measure.name,
              'status' : stt if stt != None else 'voted',
-             'min_cost' : res.min_cost,
-             'max_cost' : res.max_cost,
-             'mean_cost' : res.mean_cost,
+             'min_cost' : float(res.min_cost),
+             'max_cost' : float(res.max_cost),
+             'mean_cost' : float(res.mean_cost),
              'min_cost_sum' : None,
              'max_cost_sum' : None,
              'mean_cost_sum' : None,
@@ -1121,9 +1121,9 @@ def list_project_resources(params, user):
              'descr' : res.descr,
              'units' : res.measure.name,
              'status' : 'accepted',
-             'min_cost' : res.min_cost,
-             'max_cost' : res.max_cost,
-             'mean_cost' : res.mean_cost,
+             'min_cost' : float(res.min_cost),
+             'max_cost' : float(res.max_cost),
+             'mean_cost' : float(res.mean_cost),
              'use' : res.usage,
              'site' : res.site,
              'votes' : []}
@@ -1165,9 +1165,9 @@ def list_project_resources(params, user):
         p['contractors'] = cnt
         p['cost'] = sum([x['cost'] * x['amount'] if (x['cost'] != None and x['amount'] != None) else 0 for x in cnt])
         p['available'] = sum([x['amount'] if x['amount'] != None else 0 for x in cnt])
-        p['min_cost_sum'] = res.min_cost * p['amount'] if res.min_cost != None else None
-        p['max_cost_sum'] = res.max_cost * p['amount'] if res.max_cost != None else None
-        p['mean_cost_sum'] = res.mean_cost * p['amount'] if res.mean_cost != None else None
+        p['min_cost_sum'] = float(res.min_cost) * p['amount'] if res.min_cost != None else None
+        p['max_cost_sum'] = float(res.max_cost) * p['amount'] if res.max_cost != None else None
+        p['mean_cost_sum'] = float(res.mean_cost) * p['amount'] if res.mean_cost != None else None
         ret.append(p)
     return ret, httplib.OK
 
