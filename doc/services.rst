@@ -114,3 +114,12 @@
              contractor_offer_resource_route,
              create_contractor_route,
              
+-----------------------
+Работа с пользователями
+-----------------------
+
+.. automodule:: services.views
+   :members: check_user_exists_route,
+             send_activation_mail_route,
+             activate_account_route,
+             authenticate_user_route,

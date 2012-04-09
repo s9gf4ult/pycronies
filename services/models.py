@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 
-from django.db import models
 from datetime import date, datetime
-import uuid
+from django.contrib.auth.models import User
+from django.db import models
 import re
+import uuid
 
 # Create your models here.
 
@@ -33,6 +34,15 @@ def hex4():
     """Return hexdigest of uuid4
     """
     return str(uuid.uuid4())
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(User, on_delete = models.CASCADE)
+
+    token = models.CharField(max_length = 40)
+    confirmation = models.CharField(max_length = 40)
+    descr = models.TextField(default = '')
+    
+    
 
 class BaseModel(models.Model):
     """Все объекты в базе имеют поля uuid и create_date, а также один и тот же метод __unicode__

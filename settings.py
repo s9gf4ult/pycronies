@@ -110,7 +110,7 @@ TEMPLATE_DIRS = (
 )
 
 INSTALLED_APPS = (
-   # 'django.contrib.auth',
+    'django.contrib.auth',
     'django.contrib.contenttypes',
    # 'django.contrib.sessions',
     'django.contrib.sites',
@@ -123,6 +123,8 @@ INSTALLED_APPS = (
     # Uncomment the next line to enable admin documentation:
     # 'django.contrib.admindocs',
 )
+
+AUTH_PROFILE_MODULE = 'services.UserProfile'
 
 # A sample logging configuration. The only tangible logging
 # performed by this configuration is to send an email to
