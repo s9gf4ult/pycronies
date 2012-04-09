@@ -746,3 +746,41 @@ def get_parameter_voter(obj, status, value, tpclass = None, name = None ,uuid = 
 
 def translate_string(string):
     return cgi.escape(string, True)
+
+def translate_values(string):
+    dec = json.JSONDecoder()
+    d = dec.decode(string)
+    if not isinstance(d, list):
+        raise ValueError('translate_values: Json parsed data is not a list')
+    for vl in d:
+        if not isinstance(vl, dict):
+            raise ValueError('translate_values: Element of list is not a dictionary, but must be')
+        if vl.get('caption') != None:
+            vl['caption'] = translate_string(vl['caption'])
+    return d
+
+class proceed_checks(object):
+    """check decorator
+    """
+    enc = json.JSONEncoder()
+
+    def __init__(self, *check_functions):
+        for fn in check_functions:
+            if not callable(fn['lambda']):
+                raise TypeError('proceed_checks: all values with key "lambda" must be callable objects')
+            if not isinstance(fn['caption'], basestring):
+                raise TypeError('proceed_checks: all values with key "caption" must be strings')
+        self._check_functions = check_functions
+
+    def __call__(self, fnc):
+        @wraps(fnc)
+        def ret(*args, **kargs):
+            params = args[0]
+            for chck in self._check_functions:
+                if not chck['lambda'](params):
+                    return http.HttpResponse(self.enc.encode({'code' : PARAMETERS_BROKEN,
+                                                              'caption' : chck['caption']}),
+                                             status = httplib.PRECONDITION_FAILED,
+                                             content_type = 'application/json')
+            return fnc(*args, **kargs)
+        return ret

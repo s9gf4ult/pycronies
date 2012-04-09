@@ -22,7 +22,8 @@ from services.app import execute_create_project, execute_list_projects, execute_
     execute_contractor_offer_resource, execute_contractor_list_project_resources, execute_list_contractors, \
     execute_set_resource_costs
 
-from services.common import getencdec, standard_request_handler, typical_json_responder, translate_parameters, parse_json
+from services.common import getencdec, standard_request_handler, typical_json_responder, translate_parameters, parse_json, \
+    translate_values, translate_string, proceed_checks
 from services.models import Project, Resource
 from services.statuses import PARAMETERS_BROKEN
 from svalidate import OrNone, Any, DateTimeString, RegexpMatch, Equal, JsonString, Able, Validate, Checkable, Each
@@ -1489,9 +1490,14 @@ def conform_activity_resource_route(params):
                            'descr' : OrNone(_good_string),
                            'tp' : _good_string,
                            'enum' : JsonString(True),
-                           'value' : OrNone(_good_string)})
-                           # 'values' : OrNone([{'value' : _good_string,
-                           #                     'caption' : OrNone(_good_string)}])})
+                           'value' : OrNone(_good_string),
+                           'values' : OrNone(JsonString([{'value' : _good_string,
+                                                          'caption' : OrNone('')}]))})
+@translate_parameters({'values' : translate_values,
+                       'enum' : parse_json})
+@proceed_checks({'lambda' : lambda a: a['values'] != None and len(a['values']) > 0 if a['enum'] else True,
+                 'caption' : 'if `enum` is True then `values` must be list of at least one element'})
+@typical_json_responder(execute_create_resource_parameter, httplib.CREATED)
 def create_activity_resource_parameter_route(params): # ++TESTED
     """
     **Добавить праметр ресурса мероприятия**
@@ -1529,25 +1535,7 @@ def create_activity_resource_parameter_route(params): # ++TESTED
     - `501`: если управление проектом != 'despot'
     - `500`: ошибка сервера
     """
-    enc, dec = getencdec()
-    pp = copy(params)
-    pp['enum'] = dec.decode(pp['enum'])
-    if pp['enum']:
-        v = Validate()
-        r = v.validate(JsonString([{'value' : _good_string,
-                                    'caption' : OrNone(_good_string)}]),
-                       pp['values'])
-        if r != None:
-            return http.HttpResponse(enc.encode({ 'code' : PARAMETERS_BROKEN,
-                                                  'error' : r,
-                                                  'caption' : 'You must give proper "values" if "enum" field is true'}),
-                                     status = httplib.PRECONDITION_FAILED,
-                                     content_type='application/json')
-        pp['values'] = dec.decode(pp['values'])
-    ret, st = execute_create_resource_parameter(pp)
-    if st != httplib.CREATED:
-        transaction.rollback()
-    return http.HttpResponse(enc.encode(ret), status=st, content_type = 'application/json')
+    pass
 
 
 @transaction.commit_on_success
@@ -1636,8 +1624,10 @@ def list_activity_resource_parameters_route(params): # ++TESTED
 @standard_request_handler({'psid' : _good_string,
                            'uuid' : _good_string,
                            'value' : _good_string,
-                           'caption' : OrNone(_good_string),
-                           'comment' : OrNone(_good_string)})
+                           'caption' : OrNone(''),
+                           'comment' : OrNone('')})
+@translate_parameters({'caption' : translate_string,
+                       'comment' : translate_string})
 @typical_json_responder(execute_change_resource_parameter, httplib.CREATED)
 def change_resource_parameter_route(params): # ++TESTED
     """
@@ -1698,10 +1688,12 @@ def conform_resource_parameter_route(params): # ++TESTED
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
                            'resource' : _good_string,
-                           'contractor' : _good_string,
+                           'contractor' : '',
                            'amount' : OrNone(_good_float),
-                           'comment' : OrNone(_good_string)})
-@translate_parameters({'amount' : float})
+                           'comment' : OrNone('')})
+@translate_parameters({'amount' : float,
+                       'comment' : translate_string,
+                       'contractor' : translate_string})
 @typical_json_responder(execute_use_contractor, httplib.CREATED)
 def use_contractor_route(params): # ++TESTED
     """
@@ -2013,11 +2005,13 @@ def contractor_offer_resource_route(params): # ++TESTED
     pass
 
 @transaction.commit_on_success
-@standard_request_handler({'user' : _good_string,
-                           'name' : _good_string,
+@standard_request_handler({'user' : '',
+                           'name' : '',
                            'contacts' : OrNone(JsonString([{'type' : _good_string,
                                                             'value' : _good_string}]))})
-@translate_parameters({'contacts' : parse_json})
+@translate_parameters({'contacts' : parse_json,
+                       'user' : translate_string,
+                       'name' : translate_string})
 @typical_json_responder(execute_create_contractor, httplib.CREATED)
 def create_contractor_route(params): # ++TESTED
     """
