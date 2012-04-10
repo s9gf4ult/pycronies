@@ -93,6 +93,12 @@ TEMPLATE_LOADERS = (
 #     'django.template.loaders.eggs.Loader',
 )
 
+EMAIL_USE_TLS = True
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_HOST_USER = 'pycronies@gmail.com'
+EMAIL_HOST_PASSWORD = 'Nee9zea4'
+EMAIL_PORT = 587
+
 MIDDLEWARE_CLASSES = (
     'django.middleware.common.CommonMiddleware',
    # 'django.contrib.sessions.middleware.SessionMiddleware',
@@ -110,7 +116,7 @@ TEMPLATE_DIRS = (
 )
 
 INSTALLED_APPS = (
-    'django.contrib.auth',
+    # 'django.contrib.auth',
     'django.contrib.contenttypes',
    # 'django.contrib.sessions',
     'django.contrib.sites',
@@ -124,7 +130,7 @@ INSTALLED_APPS = (
     # 'django.contrib.admindocs',
 )
 
-AUTH_PROFILE_MODULE = 'services.UserProfile'
+# AUTH_PROFILE_MODULE = 'services.UserProfile'
 
 # A sample logging configuration. The only tangible logging
 # performed by this configuration is to send an email to

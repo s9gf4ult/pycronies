@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 from datetime import date, datetime
-from django.contrib.auth.models import User
 from django.db import models
 import re
 import uuid
@@ -35,14 +34,6 @@ def hex4():
     """
     return str(uuid.uuid4())
 
-class UserProfile(models.Model):
-    user = models.OneToOneField(User, on_delete = models.CASCADE)
-
-    token = models.CharField(max_length = 40)
-    confirmation = models.CharField(max_length = 40)
-    descr = models.TextField(default = '')
-    
-    
 
 class BaseModel(models.Model):
     """Все объекты в базе имеют поля uuid и create_date, а также один и тот же метод __unicode__
@@ -57,6 +48,19 @@ class BaseModel(models.Model):
     class Meta:
         abstract = True
         ordering = ['create_date']
+
+class User(BaseModel):
+    token = models.CharField(max_length = 40, default = hex4)
+    last_login = models.DateTimeField(null=True)
+    name = models.TextField()
+    email = models.TextField()  # email and login as well
+    password = models.CharField(max_length=128)
+    descr = models.TextField(default='')
+    is_active = models.BooleanField(default = False)
+    confirmation = models.CharField(max_length=40, null=True)
+    class Meta:
+        unique_together = (('email',),
+                           ('confirmation',))
 
 class BaseParameter(BaseModel):
     enum = models.BooleanField() # параметр с ограниченным набором значений

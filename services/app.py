@@ -6,15 +6,17 @@ from services.common import get_or_create_object, get_user, get_authorized_user,
     set_object_status, set_object_parameter, get_object_status, get_object_parameter, create_object_parameter_from_default, \
     set_vote_for_object_parameter, get_vote_value_for_object_parameter, set_as_accepted_value_of_object_parameter, \
     get_or_create_object_parameter, get_resource_from_uuid, get_activity_resource_from_parameter, check_activity_resource_status, \
-    get_authorized_activity_participant, get_resource_parameter_from_uuid, get_parameter_voter, am_i_creating_activity_now
+    get_authorized_activity_participant, get_resource_parameter_from_uuid, get_parameter_voter, am_i_creating_activity_now, \
+    create_user, get_database_user, get_acceptable_user, auth_user
 from services.models import Project, Participant, hex4, ProjectParameter, ProjectParameterVl, ProjectParameterVal, \
     DefaultParameter,  DefaultParameterVl, ProjectRulesetDefaults, ProjectParameterVote, ActivityParticipant, \
     Activity, ActivityParameter, ActivityParameterVal, ActivityParameterVl, ActivityParameterVote, ParticipantParameterVal, \
     Resource, MeasureUnits, ActivityResourceParameterVote, ParticipantResource, ActivityResource, ActivityResourceParameter, \
-    ParticipantResourceParameter, Contractor, ContractorUsagePrmtVote, ContractorContact, ContractorOffer, ContractorUsage
+    ParticipantResourceParameter, Contractor, ContractorUsagePrmtVote, ContractorContact, ContractorOffer, ContractorUsage, User
 from services.statuses import *
 from django.db import transaction, IntegrityError
 from django.db.models import Q, Sum
+from django.core.mail import send_mail
 from datetime import datetime
 from math import ceil
 import httplib
@@ -1865,3 +1867,68 @@ def execute_set_resource_costs(params, user): #  FIXME: dirty
         resource.mean_cost = params['cost']
     resource.save(force_update=True)
     return 'changed', httplib.CREATED
+
+def execute_check_user_exists(params):
+    email = params['email']
+    if User.objects.filter(email=email).count() == 1:
+        return '', 200
+    else:
+        return '', 404
+
+def execute_create_user_account(params):
+    try:
+        user = create_user(params['email'],
+                           params['password'],
+                           params['name'],
+                           params.get('descr'))
+    except IntegrityError:
+        return '', 409
+    return {'email' : user.email,
+            'name' : user.name,
+            'descr' : user.descr}, 201
+
+def execute_ask_user_confirmation(params):
+    email = params['email']
+    try:
+        user = User.objects.filter(email=email).all()[0]
+    except IndexError:
+        return {'code' : USER_NOT_FOUND,
+                'caption' : 'This user is not exists'}, httplib.PRECONDITION_FAILED
+    if user.is_active:
+        return 'User is already activated', 409
+    user.confirmation = hex4()
+    user.save(force_update=True)
+    try:
+        send_mail(u'Подтверждение регистрации на сайте',
+                  """Ваш код подтверждения
+{0}
+используйте его для подтверждения аккаунта""".format(user.confirmation),
+                  'pycronies@gmail.com',
+                  [user.email])
+    except Exception as e:
+        print(str(e))
+        return {'code' : EMAIL_CAN_NOT_BE_SENT,
+                'caption' : 'Could not send the email'}, httplib.PRECONDITION_FAILED
+    return '', httplib.OK
+
+def execute_confirm_account(params):
+    user = get_database_user(params['email'],
+                             params['password'])
+    if user == None or user.confirmation != params['confirmation']:
+        return {'code' : USER_CONFIRMATION_FAILED,
+                'caption' : 'Confirmation failed'}, httplib.PRECONDITION_FAILED
+    user.is_active = True
+    user.confirmation = None
+    user.save(force_update=True)
+    return '', 202
+
+def execute_authenticate_user(params):
+    user = auth_user(params['email'],
+                     params['password'])
+    if user == None:
+        return {'code' : AUTHENTICATION_FAILED,
+                'caption' : 'Authentication failed'}, httplib.PRECONDITION_FAILED
+    return {'email' : user.email,
+            'name' : user.name,
+            'descr' : user.descr,
+            'token' : user.token}, httplib.OK

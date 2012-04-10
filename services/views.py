@@ -20,18 +20,23 @@ from services.app import execute_create_project, execute_list_projects, execute_
     execute_list_activity_resource_parameters, execute_change_resource_parameter, execute_conform_resource_parameter, \
     execute_create_contractor, execute_use_contractor,  execute_participant_statistics, \
     execute_contractor_offer_resource, execute_contractor_list_project_resources, execute_list_contractors, \
-    execute_set_resource_costs
+    execute_set_resource_costs, execute_check_user_exists, execute_ask_user_confirmation, execute_create_user_account, \
+    execute_confirm_account, execute_authenticate_user
 
 from services.common import getencdec, standard_request_handler, typical_json_responder, translate_parameters, parse_json, \
-    translate_values, translate_string, proceed_checks
+    translate_values, translate_string, proceed_checks, naive_json_responder
 from services.models import Project, Resource
 from services.statuses import PARAMETERS_BROKEN
 from svalidate import OrNone, Any, DateTimeString, RegexpMatch, Equal, JsonString, Able, Validate, Checkable, Each
 from copy import copy
+from django.core.validators import email_re
+def is_valid_email(email):
+    return True if email_re.match(email) else False
 
 _good_string = RegexpMatch(r'^[^;:"''|\\/#&><]*$')
 _good_float = Each(Able(float), Checkable(lambda a: float(a) >=0, 'Value must not be >= 0'))
 _good_int = Each(Able(int), Checkable(lambda a: int(a) >= 0, 'Value must be >= 0'))
+_is_email = Each('', Checkable(is_valid_email, 'String must be email'))
 
 
 @transaction.commit_on_success
@@ -2096,6 +2101,9 @@ def set_resource_costs_route(params):
     pass
 
 
+@transaction.commit_on_success
+@standard_request_handler({'email' : _is_email})
+@naive_json_responder(execute_check_user_exists)
 def check_user_exists_route(params):
     """
     ** Проверка существования пользователя по Email **
@@ -2115,9 +2123,17 @@ def check_user_exists_route(params):
     """
     pass
 
+@transaction.commit_on_success
+@standard_request_handler({'email' : _is_email,
+                           'password' : '',
+                           'name' : '',
+                           'descr' : OrNone('')})
+@translate_parameters({'name' : translate_string,
+                       'descr' : translate_string})
+@typical_json_responder(execute_create_user_account, httplib.CREATED)
 def create_user_account_route(params):
     """
-    ** Отправка электронного письма пользователю для активации аккаунта **
+    ** Создание пользователя **
 
     путь запроса: **/user/new**
 
@@ -2126,20 +2142,52 @@ def create_user_account_route(params):
     - `email`: электронная почта пользователя (она же логин)
     - `password`: пароль
     - `name`: имя / ник
-    - `descr`: описание пользователя
+    - `descr`: не обязательное описание пользователя
 
-    Если отправка письма прошла успешно, тело ответа пустое
+    Возвраащет json словарь с данными пользователя
+
+    - `email`: электронная почта пользователя (она же логин)
+    - `name`: имя / ник
+    - `descr`: описание пользователя
 
     Статусы возврата:
 
     - `201`: ok
     - `409`: такой email уже есть
-    - `412`: не верные данные с описанием в теле ответа либо ошибка
-      отправки письма
+    - `412`: не верные данные с описанием в теле ответа
     - `500`: ошибка сервера
     """
     pass
 
+@transaction.commit_on_success
+@standard_request_handler({'email' : _is_email})
+@typical_json_responder(execute_ask_user_confirmation, httplib.OK)
+def ask_user_confirmation(params):
+    """
+    ** Отправка писма для подтверждения **
+
+    путь запроса: **/user/ask_confirm**
+
+    Параметры запроса:
+
+    - `email`: электронная почта зарегистрированного пользователя
+
+    Статусы возврата:
+
+    - `200`: ok
+    - `409`: пользователь уже подтвержден
+    - `412`: не верные данные с описанием в теле ответа либо ошибка
+      отправки письма, подробности в теле
+    - `500`: ошибка сервера
+    """
+    pass
+
+
+@transaction.commit_on_success
+@standard_request_handler({'email' : _is_email,
+                           'password' : '',
+                           'confirmation' : ''})
+@typical_json_responder(execute_confirm_account, 202)
 def confirm_account_route(params):
     """
     ** Активация аккаунта **
@@ -2157,14 +2205,18 @@ def confirm_account_route(params):
     Статусы возврата:
 
     - `202`: ok
-    - `412`: Аутентификация не прошла либо ошибка в параметрах
+    - `412`: подтверждение не прошло либо ошибка в параметрах
     - `500`: ошибка сервера
     """
     pass
-    
+
+@transaction.commit_on_success
+@standard_request_handler({'email' : _is_email,
+                           'password' : ''})
+@typical_json_responder(execute_authenticate_user, httplib.OK)
 def authenticate_user_route(params):
     """
-    ** Аутентификация  пользователя **
+    ** Аутентификация пользователя **
 
     путь запроса: **/user/auth**
 
@@ -2178,7 +2230,7 @@ def authenticate_user_route(params):
     - `email` : почта
     - `name`: имя пользователя
     - `descr`: описание пользователя
-    - `token`: 
+    - `token`: ключ доступа пользователя
 
     Статусы возврата:
 

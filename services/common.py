@@ -4,6 +4,7 @@
 import django.http as http
 from django.db.models import Q
 from django.db import transaction, IntegrityError
+from django.contrib.auth.hashers import make_password, check_password
 import httplib
 import datetime
 import re
@@ -15,7 +16,7 @@ from copy import copy
 from services.statuses import PARAMETERS_BROKEN, ACCESS_DENIED, ACTIVITY_PARAMETER_NOT_FOUND, ACTIVITY_IS_NOT_ACCEPTED, \
     ACTIVITY_NOT_FOUND, RESOURCE_NOT_FOUND, ACTIVITY_RESOURCE_NOT_FOUND, ACTIVITY_RESOURCE_IS_NOT_ACCEPTED, RESOURCE_PARAMETER_NOT_FOUND
 from services.models import Participant, Activity, ActivityParameter, parameter_class_map, DefaultParameterVl, Resource, \
-    ActivityResourceParameter, ParticipantResourceParameter
+    ActivityResourceParameter, ParticipantResourceParameter, User, hex4
 
 yearmonthdayhour = ['year', 'month', 'day', 'hour', 'minute', 'second']
 formats = ['%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d', '%Y-%m-%dT%H:%M:%S.%f', '%Y-%m-%d %H:%M:%S.%f']
@@ -784,3 +785,78 @@ class proceed_checks(object):
                                              content_type = 'application/json')
             return fnc(*args, **kargs)
         return ret
+
+class naive_json_responder(object):
+    """
+    """
+    enc = json.JSONEncoder()
+    
+    def __init__(self, handler):
+        if not callable(handler):
+            raise TypeError('naive_json_responder: parameter must be callable object')
+        self._handler = handler
+
+    def __call__(self, fnc):
+        @wraps(fnc)
+        def ret(*args, **kargs):
+            ret, stat = self._handler(*args, **kargs)
+            return http.HttpResponse(self.enc.encode(ret),
+                                     status = stat,
+                                     content_type = 'application/json')
+        return ret
+
+def create_user(email, password, name, descr = None):
+    """
+    Arguments:
+    
+    - `email`:
+    - `password`:
+    - `name`:
+    - `descr`:
+    """
+    a = {'email' : email,
+         'password' : make_password(password),
+         'name' : name}
+    if descr != None:
+        a['descr'] = descr
+    user = User(**a)
+    user.save(force_insert=True)
+    return user
+
+def get_database_user(email, password):
+    """
+    Arguments:
+    
+    - `email`:
+    - `password`:
+    """
+    try:
+        u = User.objects.filter(email = email).all()[0]
+    except IndexError:
+        return None
+    if check_password(password, u.password):
+        return u
+    else:
+        return None
+
+def get_acceptable_user(email, password):
+    """
+    Arguments:
+    
+    - `email`:
+    - `password`:
+    """
+    u = get_database_user(email, password)
+    if u != None and u.is_active:
+        return u
+    else:
+        return None
+
+def auth_user(email, password):
+    u = get_acceptable_user(email, password)
+    if u == None:
+        return None
+    u.token = hex4()
+    u.save(force_update = True)
+    return u
+    
