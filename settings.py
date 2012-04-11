@@ -34,7 +34,7 @@ TIME_ZONE = 'Asia/Yekaterinburg'
 # http://www.i18nguy.com/unicode/language-identifiers.html
 LANGUAGE_CODE = 'RU-ru'
 
-SITE_ID = 1
+SITE_ID = 2
 
 # If you set this to False, Django will make some optimizations so as not
 # to load the internationalization machinery.
@@ -98,6 +98,7 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_HOST_USER = 'pycronies@gmail.com'
 EMAIL_HOST_PASSWORD = 'Nee9zea4'
 EMAIL_PORT = 587
+EMAIL_DO_REALY_SEND = False
 
 MIDDLEWARE_CLASSES = (
     'django.middleware.common.CommonMiddleware',
@@ -129,6 +130,10 @@ INSTALLED_APPS = (
     # Uncomment the next line to enable admin documentation:
     # 'django.contrib.admindocs',
 )
+
+MY_PROTOCOL_NAME='http'
+MY_PORT=8000
+
 
 # AUTH_PROFILE_MODULE = 'services.UserProfile'
 

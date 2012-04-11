@@ -7,7 +7,7 @@ from services.common import get_or_create_object, get_user, get_authorized_user,
     set_vote_for_object_parameter, get_vote_value_for_object_parameter, set_as_accepted_value_of_object_parameter, \
     get_or_create_object_parameter, get_resource_from_uuid, get_activity_resource_from_parameter, check_activity_resource_status, \
     get_authorized_activity_participant, get_resource_parameter_from_uuid, get_parameter_voter, am_i_creating_activity_now, \
-    create_user, get_database_user, get_acceptable_user, auth_user
+    create_user, get_database_user, get_acceptable_user, auth_user, generate_user_magic_link, send_mail, get_registered_user
 from services.models import Project, Participant, hex4, ProjectParameter, ProjectParameterVl, ProjectParameterVal, \
     DefaultParameter,  DefaultParameterVl, ProjectRulesetDefaults, ProjectParameterVote, ActivityParticipant, \
     Activity, ActivityParameter, ActivityParameterVal, ActivityParameterVl, ActivityParameterVote, ParticipantParameterVal, \
@@ -15,8 +15,9 @@ from services.models import Project, Participant, hex4, ProjectParameter, Projec
     ParticipantResourceParameter, Contractor, ContractorUsagePrmtVote, ContractorContact, ContractorOffer, ContractorUsage, User
 from services.statuses import *
 from django.db import transaction, IntegrityError
+from django.contrib.sites.models import Site
 from django.db.models import Q, Sum
-from django.core.mail import send_mail
+from django.conf import settings
 from datetime import datetime
 from math import ceil
 import httplib
@@ -47,7 +48,12 @@ def execute_create_project(parameters):
     pr.token=hex4()
     pr.is_initiator=True
     if parameters.get('user_id') != None:
-        pr.user = parameters['user_id']
+        try:
+            u = User.objects.filter(token=parameters['user_id']).all()[0]
+        except IndexError:
+            pass
+        else:
+            pr.user = u.uuid
     if parameters.get('user_descr') != None:
         pr.descr = parameters['user_descr']
     pr.save(force_insert=True)
@@ -126,7 +132,7 @@ def execute_list_projects(props):
                            'begin_date' : a.begin_date.isoformat() if a.begin_date != None else None,
                            'end_date' : a.end_date.isoformat() if a.end_date != None else None} for a in ret]}
 
-def execute_list_user_projects(user_id):
+def execute_list_user_projects(params):
     """return tuple of response and status
     response is json encodable answer, list of projects assigned to given user_id
 
@@ -139,7 +145,8 @@ def execute_list_user_projects(user_id):
     (`response`, `answer`)
     """
     # берем список участников с указанным user_id
-    parts = Participant.objects.filter(Q(user=user_id) | Q(token=user_id)).all() # список участиков
+    user_id = params['user_id']
+    parts = Participant.objects.filter(Q(user__token=user_id) | Q(token=user_id)).all() # список участиков
     ret = []
     # формируем список проектов для соответствующего списка участников
     for part in parts:
@@ -455,6 +462,10 @@ def execute_list_participants(params, part):
 
 @get_user
 def execute_invite_participant(params, user):
+    reguser = get_registered_user(params['psid'])
+    if reguser == None or (not reguser.is_active):
+        return {'code' : REGISTRATION_IS_REQUIRED,
+                'caption' : 'You are not registered user, please register first'}, httplib.PRECONDITION_FAILED
     prj = user.project
     if prj.sharing == 'close':  # проект закрытый
         if prj.ruleset == 'despot' and (not user.is_initiator):
@@ -465,18 +476,22 @@ def execute_invite_participant(params, user):
             return {'code' : PROJECT_STATUS_MUST_BE_PLANNING,
                     'caption' : 'Project is not in the planning status'}, httplib.PRECONDITION_FAILED
 
+    # берем user_id по почте
+    try:
+        u = User.objects.filter(email = params['email']).all()[0]
+    except IndexError:
+        user_id = None
+    user_id = u.uuid
     # создаем нового или берем существующего участника
-    q = {'name' : params['name'],
-         'project' : prj}
-    if params.get('user_id') != None:
-        q['user'] = params['user_id']
-
     try:
         def check(p):
             return prj.ruleset == 'despot' and user.is_initiator
 
-        part = get_or_create_object(Participant, q, {'descr' : params.get('descr'),
-                                                     'user' : params.get('user_id')},
+        part = get_or_create_object(Participant,
+                                    {'name' : params['name'],
+                                     'project' : prj},
+                                    {'descr' : params.get('descr'),
+                                     'user' : user_id},
                                     can_change = check)
     except IntegrityError:
         return {'code' : PARTICIPANT_ALREADY_EXISTS,
@@ -486,7 +501,7 @@ def execute_invite_participant(params, user):
                 'caption' : 'This participant already exists, try repeat this query but do not specify "user_id" and "descr" fields or specify the same value'}, httplib.PRECONDITION_FAILED
 
     pstat = get_object_status(part)
-    if get_object_status(part) == 'denied': # пользователь уже был и он запрещен
+    if pstat == 'denied': # пользователь уже был и он запрещен
         return {'code' : PARTICIPANT_DENIED,
                 'caption' : 'This participant has denied status, so you can not invite him/her again'}, httplib.PRECONDITION_FAILED
 
@@ -497,8 +512,23 @@ def execute_invite_participant(params, user):
     prmt = get_or_create_object_parameter(part, 'status', True, values = [{'value' : a[0], 'caption' : a[1]} for a in Participant.PARTICIPANT_STATUS])
     set_object_parameter(part, user, 'voted', uuid = prmt.uuid)
     set_vote_for_object_parameter(part, user, 'accepted', uuid = prmt.uuid, comment = params.get('comment'))
+    # отправляем письмо на электронную почту участника
+    site = Site.objects.get_current()
+    send_mail(u'Пользователь {0} пригласил вас на проект',
+              u"""вас пригласили на проект на сайт {1}, вот ваш ключ приглашения:
+{2}
+вы также можете воспользоваться ссылкой для входа в проект
+{3}""".format(reguser.name,
+              site.name,
+              part.token,
+              generate_user_magic_link('invitation', part.token)),
+              settings.EMAIL_HOST_USER,
+              [params['email']])
 
-    return {'token' : part.token}, httplib.CREATED
+    if settings.DEBUG:
+        return {'token' : part.token}, httplib.CREATED
+    else:
+        return '', httplib.CREATED
 
 @get_user
 @get_object_by_uuid(Participant,
@@ -543,9 +573,14 @@ def execute_enter_project_open(params, prj):   #++TESTED
     if params.get('descr') != None:
         prt.descr = params['descr']
     if params.get('user_id') != None:
-        prt.user = params['user_id']
+        try:
+            u = User.objects.filter(token = params['user_id']).all()[0]
+        except IndexError:
+            pass
+        else:
+            prt.user = u.uuid
     try:
-        prt.save()
+        prt.save(force_insert = True)
     except IntegrityError:
         return {'code' : PARTICIPANT_ALREADY_EXISTS,
                 'caption' : 'There is one participant with such name or user_id in this project'}, httplib.PRECONDITION_FAILED
@@ -560,17 +595,22 @@ def execute_enter_project_open(params, prj):   #++TESTED
                     u'There is no such project')
 def execute_enter_project_invitation(params, prj):
     try:
-        prt = Participant.objects.filter(Q(project=prj) & (Q(token=params['token']) | Q(user=params['token']))).all()[0]
+        prt = Participant.objects.filter(Q(project=prj) &
+                                         (Q(token=params['token']) |
+                                          Q(user__token=params['token']))).all()[0]
     except IndexError:
         return {'code' : PARTICIPANT_NOT_FOUND,
                 'caption' : 'There is no participants with such token or user_id'}, httplib.PRECONDITION_FAILED
-
+    u = get_registered_user(prt.psid)
+    if u != None and (not u.is_active):
+        return {'code' : AUTHENTICATION_FAILED,
+                'caption' : 'Your account is not activated, proceed activation procedure please'}, httplib.PRECONDITION_FAILED
     if get_object_status(prt) != 'accepted':
         return {'code' : ACCESS_DENIED,
                 'caption' : 'You are not allowerd user (not accepted status) to do enter to the project'}, httplib.PRECONDITION_FAILED
     prt.dt = datetime.now()
     prt.psid = hex4()
-    prt.save()
+    prt.save(force_update = True)
     return {'psid' : prt.psid}, httplib.CREATED
 
 @get_user
@@ -1899,11 +1939,15 @@ def execute_ask_user_confirmation(params):
     user.confirmation = hex4()
     user.save(force_update=True)
     try:
-        send_mail(u'Подтверждение регистрации на сайте',
+        site = Site.objects.get_current()
+        send_mail(u'Подтверждение регистрации на сайте {0}',
                   """Ваш код подтверждения
-{0}
-используйте его для подтверждения аккаунта""".format(user.confirmation),
-                  'pycronies@gmail.com',
+{1}
+используйте его для подтверждения аккаунта или просто перйдите по ссылке
+{2}""".format(site.name,
+              user.confirmation,
+              generate_user_magic_link('confirm', user.confirmation)),
+                  settings.EMAIL_HOST_USER,
                   [user.email])
     except Exception as e:
         print(str(e))

@@ -74,7 +74,7 @@ def create_project_route(prs):  # ++TESTED
        - `vote`: управление голосованием
        - `auto`: автоуправление
     - `user_name`: имя пользователя
-    - `user_id`: строка не обязательный
+    - `user_id`: не обязательный token зарегистрированного пользователя
     - `user_description`: описание пользователя, не обязательный
 
     возвращает JSON словарь с ключами
@@ -151,6 +151,7 @@ def list_projects_route(pars):  # ++TESTED
 @transaction.commit_on_success
 @standard_request_handler({'user_id' : ''})
 @translate_parameters({'user_id' : translate_string})
+@typical_json_responder(execute_list_user_projects, httplib.OK)
 def list_user_projects_route(params): # ++TESTED
     """
     **Проекты пользователя**
@@ -159,7 +160,7 @@ def list_user_projects_route(params): # ++TESTED
 
     Параметры запроса
 
-    - `user_id`: user_id or token of user, if given token then return just one project
+    - `user_id`: token приглашения или токен зарегистрированного пользователя
 
     возвращает JSON список ловарей с ключами
 
@@ -188,9 +189,7 @@ def list_user_projects_route(params): # ++TESTED
     - `501`: query was not post
     - `500`: otherwise
     """
-    enc, dec = getencdec()
-    ret, st = execute_list_user_projects(params['user_id'])
-    return http.HttpResponse(enc.encode(ret), status=st, content_type='application/json')
+    pass
 
 @transaction.commit_on_success
 @standard_request_handler({'psid' : _good_string,
@@ -559,11 +558,10 @@ def list_participants_route(params): # ++TESTED
 @standard_request_handler({'psid' : _good_string,
                            'name' : '',
                            'descr' : OrNone(''),
-                           'user_id' : OrNone(''),
+                           'email' : _is_email,
                            'comment': OrNone('')})
 @translate_parameters({'name' : translate_string,
                        'descr' : translate_string,
-                       'user_id' : translate_string,
                        'comment' : translate_string})
 @typical_json_responder(execute_invite_participant, httplib.CREATED)
 def invite_participant_route(params): # ++TESTED
@@ -577,20 +575,20 @@ def invite_participant_route(params): # ++TESTED
     - `psid`: (строка) ключ доступа
     - `name`: (строка) имя участника
     - `descr`: (строка) описание участника, может быть Null
-    - `user_id`: (строка) ид пользователя, может быть Null
+    - `email`: (строка) почта пользователя куда слать приглашение
     - `comment`: (строка) комментарий по предложению, может быть Null
 
-    Возвращает json словарь с ключами:
+    В отладночном режиме озвращает json словарь с ключами:
 
     - `token`: (строка) ключ приглашения
 
+    Ничего не возвращает в теле в нормальном режиме
+
     Поведение:
 
-       Если указанный пользователь совпадает с существующим (совпадает имя и
-       user_id если последний указан, либо просто имя если не указан user_id),
-       то добваляет приглашение на существующего пользователя, иначе создает
-       нового пользователя со статусом 'voted'. Согласование пользователя не
-       вызывается.
+       Создает участника проекта с указанными данными и отправляет на указанный
+       email письмо с кодом приглашения, если email принадлежит зарегистрированному
+       пользователю, то создает участника проекта из этого пользователя.
 
     Статусы возврата:
 
@@ -662,7 +660,7 @@ def enter_project_open_route(params): # ++TESTED
     - `uuid`: ид проекта
     - `name`: имя участника
     - `descr`: описание участника может быть None
-    - `user_id`: не обязательный user_id
+    - `user_id`: не обязательный token зарегистрированного пользователя
 
     возвращает JSON словарь:
 
@@ -691,7 +689,7 @@ def enter_project_invitation_route(params): # ++TESTED
     Параметры запроса:
 
     - `uuid`: ид проекта
-    - `token`: токен приглашения или user_id поле
+    - `token`: токен приглашения или токен зарегистрированного пользователя
 
     Возвращает словарь с одним ключем
 

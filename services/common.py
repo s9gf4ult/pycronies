@@ -5,6 +5,9 @@ import django.http as http
 from django.db.models import Q
 from django.db import transaction, IntegrityError
 from django.contrib.auth.hashers import make_password, check_password
+from django.contrib.sites.models import Site
+from django.conf import settings
+import django.core.mail
 import httplib
 import datetime
 import re
@@ -790,7 +793,7 @@ class naive_json_responder(object):
     """
     """
     enc = json.JSONEncoder()
-    
+
     def __init__(self, handler):
         if not callable(handler):
             raise TypeError('naive_json_responder: parameter must be callable object')
@@ -808,7 +811,7 @@ class naive_json_responder(object):
 def create_user(email, password, name, descr = None):
     """
     Arguments:
-    
+
     - `email`:
     - `password`:
     - `name`:
@@ -826,7 +829,7 @@ def create_user(email, password, name, descr = None):
 def get_database_user(email, password):
     """
     Arguments:
-    
+
     - `email`:
     - `password`:
     """
@@ -842,7 +845,7 @@ def get_database_user(email, password):
 def get_acceptable_user(email, password):
     """
     Arguments:
-    
+
     - `email`:
     - `password`:
     """
@@ -859,4 +862,47 @@ def auth_user(email, password):
     u.token = hex4()
     u.save(force_update = True)
     return u
+
+def generate_user_magic_link(magicpath, magicid):
+    """
+
+    Arguments:
+    - `user`:
+    """
+    site = Site.objects.get_current()
+    return '{0}://{1}{2}/{3}/{4}'.format(settings.MY_PROTOCOL_NAME,
+                                         site.domain,
+                                         ':{0}'.format(settings.MY_PORT) if settings.MY_PORT != 80 else '',
+                                         magicpath,
+                                         magicid)
+
+def send_mail(*args, **kargs):
+    """
+    Arguments:
     
+    - `subject`:
+    - `message`:
+    - `from_email`:
+    - `recipient_list`:
+    - `fail_silently`:
+    - `auth_user`:
+    - `auth_password`:
+    - `connection`:
+    """
+    if settings.EMAIL_DO_REALY_SEND:
+        return django.core.mail.send_mail(*args, **kargs)
+    else:
+        print('Just simulate real sending email to {0}'.format(args[3]))
+        return None
+
+def get_registered_user(psid):
+    """
+    Arguments:
+    
+    - `psid`:
+    """
+    try:
+        u = User.objects.filter(participant__psid = psid).all()[0]
+    except IndexError:
+        return None
+    return u

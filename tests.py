@@ -176,10 +176,10 @@ class mytest(TestCase):
         enc, dec = getencdec()
         c = httplib.HTTPConnection(host, port)
         request(c, '/services/project/create', {'name' : 'test',
-                                       'sharing' : 'open',
-                                       'ruleset' : 'despot',
-                                       'user_name' : 'mega_user',
-                                       'user_id' : 'test_id'})
+                                                'sharing' : 'open',
+                                                'ruleset' : 'despot',
+                                                'user_name' : 'mega_user',
+                                                'user_id' : 'test_id'})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.CREATED)
         psid = dec.decode(r.read())['psid']
