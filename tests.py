@@ -10,6 +10,13 @@ import datetime
 host = '127.0.0.1'
 port = 8000
 
+def fnone(arg):
+    ret = {}
+    for a, b in arg.iteritems():
+        if b != None:
+            ret[a] = b
+    return ret
+
 def getencdec():
     """
     """
@@ -42,9 +49,8 @@ def string2datetime(val):
     else:
         raise ValueError('Could not parse string as datetme')
 
-class mytest(TestCase):
-    """
-    """
+class common_test(TestCase):
+
     def srequest(self, conn, route, data, status=None, print_result=False):
         dec = json.JSONDecoder()
         request(conn, route, data)
@@ -68,6 +74,86 @@ class mytest(TestCase):
         request(c, '/services/project/delete', {'psid' : psid})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.OK)
+
+    def _create_project(self,
+                        name = 'project1',
+                        descr = None,
+                        sharing = 'open',
+                        ruleset = 'despot',
+                        user_name = 'root',
+                        user_id = None,
+                        evidence = httplib.CREATED,
+                        print_error = False
+                        ):
+        c = httplib.HTTPConnection(host, port)
+        dec = json.JSONDecoder()
+        r = self.srequest(c, '/services/project/create',
+                          fnone({'name' : name,
+                                 'descr' : descr,
+                                 'sharing' : sharing,
+                                 'ruleset' : ruleset,
+                                 'user_name' : user_name,
+                                 'user_id' : user_id}),
+                          evidence, print_error)
+        d = dec.decode(r)
+        return d['psid'], d['uuid']
+
+    def _set_project_status(self, psid, status, comment = None, evidence = httplib.CREATED):
+        c = httplib.HTTPConnection(host, port)
+        self.srequest(c, '/services/project/status/change',
+                      fnone({'psid' : psid,
+                             'status' : status,
+                             'comment' : comment}),
+                      evidence)
+
+    def _user_check(self, email, evidence = 200):
+        c = httplib.HTTPConnection(host, port)
+        self.srequest(c, '/services/user/check',
+                      fnone({'email' : email}),
+                      evidence)
+
+    def _create_user_account(self, email, password, name, evidence = 201):
+        c = httplib.HTTPConnection(host, port)
+        dec = json.JSONDecoder()
+        r = self.srequest(c, '/services/user/new',
+                          fnone({'email' : email,
+                                 'password' : password,
+                                 'name' : name}),
+                          evidence)
+        d = dec.decode(r)
+        return d
+
+    def _ask_user_confirmation(self, email, evidence = 200, print_error = False):
+        c = httplib.HTTPConnection(host, port)
+        dec = json.JSONDecoder()
+        r = self.srequest(c, '/services/user/ask_confirm',
+                          fnone({'email' : email}),
+                          evidence, print_error)
+        d = dec.decode(r)
+        return d
+
+    def _authenticate_user(self, email, password, evidence = 200):
+        c = httplib.HTTPConnection(host, port)
+        dec = json.JSONDecoder()
+        r = self.srequest(c, '/services/user/auth',
+                          fnone({'email' : email,
+                                 'password' : password}),
+                          evidence)
+        d = dec.decode(r)
+        return d
+
+    def _confirm_account(self, email, password, confirmation, evidence = 202):
+        c = httplib.HTTPConnection(host, port)
+        self.srequest(c, '/services/user/confirm',
+                      fnone({'email' : email,
+                             'password' : password,
+                             'confirmation' : confirmation}),
+                      evidence)
+
+
+class mytest(common_test):
+    """
+    """
 
     def test_create_project(self, ):
         """
@@ -170,32 +256,36 @@ class mytest(TestCase):
         for psid in psids:
             self._delete_project(psid)
 
-    def test_list_user_projects_route(self, ):
-        """
-        """
-        enc, dec = getencdec()
-        c = httplib.HTTPConnection(host, port)
-        request(c, '/services/project/create', {'name' : 'test',
-                                                'sharing' : 'open',
-                                                'ruleset' : 'despot',
-                                                'user_name' : 'mega_user',
-                                                'user_id' : 'test_id'})
-        r = c.getresponse()
-        self.assertEqual(r.status, httplib.CREATED)
-        psid = dec.decode(r.read())['psid']
-        request(c, '/services/project/list/userid', {'user_id' : 'test_id'})
-        r = c.getresponse()
-        self.assertEqual(r.status, httplib.OK)
-        resp = dec.decode(r.read())
-        self.assertEqual(1, len(resp))
-        self.assertEqual(resp[0]['name'], 'test')
-        self.assertEqual(resp[0]['initiator'], True)
-        self.assertEqual(resp[0]['status'], 'opened')
+    # def test_list_user_projects_route(self, ):
+    #     """
+    #     """
+    #     enc, dec = getencdec()
+    #     c = httplib.HTTPConnection(host, port)
+    #     request(c, '/services/project/create', {'name' : 'test',
+    #                                             'sharing' : 'open',
+    #                                             'ruleset' : 'despot',
+    #                                             'user_name' : 'mega_user',
+    #                                             'user_id' : 'test_id'})
+    #     r = c.getresponse()
+    #     self.assertEqual(r.status, httplib.CREATED)
+    #     psid = dec.decode(r.read())['psid']
+    #     request(c, '/services/project/list/userid', {'user_id' : 'test_id'})
+    #     r = c.getresponse()
+    #     self.assertEqual(r.status, httplib.OK)
+    #     resp = dec.decode(r.read())
+    #     self.assertEqual(1, len(resp))
+    #     self.assertEqual(resp[0]['name'], 'test')
+    #     self.assertEqual(resp[0]['initiator'], True)
+    #     self.assertEqual(resp[0]['status'], 'opened')
 
-        r = self.srequest(c, '/services/project/list/userid', {'user_id' : '11111111111'}, httplib.OK) # такого ид в базе нет
-        self.assertEqual(0, len(dec.decode(r)))
+    #     r = self.srequest(c, '/services/project/list/userid', {'user_id' : '11111111111'}, httplib.OK) # такого ид в базе нет
+    #     self.assertEqual(0, len(dec.decode(r)))
 
-        self._delete_project(psid)
+    #     self._delete_project(psid)
+    # так как мы должны указывать token пользователя либо token приглашения то
+    # этот тест не может быть выполнен без выполнения приглашения или
+    # регистрации пользователя
+
 
     def test_change_project_status(self, ):
         """
@@ -498,22 +588,22 @@ class mytest(TestCase):
         c = httplib.HTTPConnection(host, port)
         psds = []
         request(c, '/services/project/create', {'name' : 'blahblah',
-                                       'sharing' : 'open',
-                                       'ruleset' : 'despot',
-                                       'user_name' : 'user'})
+                                                'sharing' : 'open',
+                                                'ruleset' : 'despot',
+                                                'user_name' : 'user'})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.CREATED)
         resp = dec.decode(r.read())
         psds.append(resp['psid'])
 
         request(c, '/services/project/status/change', {'psid' : resp['psid'],
-                                              'status' : 'planning'})
+                                                       'status' : 'planning'})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.CREATED)
 
         request(c, '/services/project/enter/open', {'uuid' : resp['uuid'],
-                                           'name' : 'blah blah',
-                                           'user_id' : 'something'})
+                                                    'name' : 'blah blah'})
+                                                    # 'user_id' : 'something'})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.CREATED)
         d = dec.decode(r.read())
@@ -521,47 +611,47 @@ class mytest(TestCase):
         self.assertIn('token', d)
 
         request(c, '/services/project/enter/open', {'uuid' : resp['uuid'],
-                                           'name' : 'blah blah', # same name can not enter
-                                           'user_id' : 'sdfasdf'})
+                                                    'name' : 'blah blah'}) # same name can not enter
+                                                    # 'user_id' : 'sdfasdf'})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.PRECONDITION_FAILED)
 
-        request(c, '/services/project/enter/open', {'uuid' : resp['uuid'],
-                                           'name' : 'blahsdf blah',
-                                           'user_id' : 'something'})
-        r = c.getresponse()
-        self.assertEqual(r.status, httplib.PRECONDITION_FAILED)
+        # request(c, '/services/project/enter/open', {'uuid' : resp['uuid'],
+        #                                             'name' : 'blahsdf blah',
+        #                                             'user_id' : 'something'})
+        # r = c.getresponse()
+        # self.assertEqual(r.status, httplib.PRECONDITION_FAILED)
 
         request(c, '/services/project/status/change', {'psid' : resp['psid'],
-                                              'status' : 'contractor'})
+                                                       'status' : 'contractor'})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.CREATED)
 
         request(c, '/services/project/enter/open', {'uuid' : resp['uuid'],
-                                           'name' : 'fjfj',
-                                           'user_id' : 'jajaja'})
+                                                    'name' : 'fjfj'})
+                                                    # 'user_id' : 'jajaja'})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.PRECONDITION_FAILED)
 
         request(c, '/services/project/create', {'name' : 'pojer',
-                                       'sharing' : 'close',
-                                       'ruleset' : 'despot',
-                                       'user_name' : 'sdf'})
+                                                'sharing' : 'close',
+                                                'ruleset' : 'despot',
+                                                'user_name' : 'sdf'})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.CREATED)
         resp = dec.decode(r.read())
         psds.append(resp['psid'])
 
         request(c, '/services/project/status/change', {'psid' : resp['psid'],
-                                              'status' : 'planning'})
+                                                       'status' : 'planning'})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.CREATED)
 
         request(c, '/services/project/enter/open', {'uuid' : resp['uuid'],
-                                           'name' : 'some',
-                                           'user_id' : 'asdfasd'})
+                                                    'name' : 'some'})
+                                                    # 'user_id' : 'asdfasd'})
         r = c.getresponse()
-        self.assertEqual(r.status, httplib.PRECONDITION_FAILED)
+        self.assertEqual(r.status, httplib.PRECONDITION_FAILED) # проект - закрытый
 
         for p in psds:
             self._delete_project(p)
@@ -572,33 +662,33 @@ class mytest(TestCase):
         c = httplib.HTTPConnection(host, port)
         psid = []
         request(c, '/services/project/create', {'name' : 'somename',
-                                       'sharing' : 'open',
-                                       'ruleset' : 'despot',
-                                       'user_name' : 'asdfasdf'})
+                                                'sharing' : 'open',
+                                                'ruleset' : 'despot',
+                                                'user_name' : 'asdfasdf'})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.CREATED)
         psid.append(dec.decode(r.read())['psid'])
 
         request(c, '/services/project/create', {'name' : 'somename2',
-                                       'sharing' : 'open',
-                                       'ruleset' : 'despot',
-                                       'user_name' : 'asdfasdf'})
+                                                'sharing' : 'open',
+                                                'ruleset' : 'despot',
+                                                'user_name' : 'asdfasdf'})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.CREATED)
         psid.append(dec.decode(r.read())['psid'])
 
         request(c, '/services/project/create', {'name' : 'somename3',
-                                       'sharing' : 'open',
-                                       'ruleset' : 'despot',
-                                       'user_name' : 'asdfasdf'})
+                                                'sharing' : 'open',
+                                                'ruleset' : 'despot',
+                                                'user_name' : 'asdfasdf'})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.CREATED)
         psid.append(dec.decode(r.read())['psid'])
 
         request(c, '/services/project/create', {'name' : 'somename3',
-                                       'sharing' : 'opened',
-                                       'ruleset' : 'despot',
-                                       'user_name' : 'asdfasdf'})
+                                                'sharing' : 'opened',
+                                                'ruleset' : 'despot',
+                                                'user_name' : 'asdfasdf'})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.PRECONDITION_FAILED)
 
@@ -615,10 +705,10 @@ class mytest(TestCase):
         c = httplib.HTTPConnection(host, port)
         psids = []
         request(c, '/services/project/create', {'name' : 'project1',
-                                       'sharing' : 'invitation',
-                                       'ruleset' : 'despot',
-                                       'user_name' : 'blah blah',
-                                       'user_id' : 'blah blah'})
+                                                'sharing' : 'invitation',
+                                                'ruleset' : 'despot',
+                                                'user_name' : 'blah blah'})
+                                                # 'user_id' : 'blah blah'})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.CREATED)
         resp = dec.decode(r.read())
@@ -626,22 +716,26 @@ class mytest(TestCase):
         puuid = resp['uuid']
         psids.append(psid)
 
+        #  FIXME: зарегистрироваться чтобы можно было приглашать (обязательное условие)
 
         # приглашаем участника в свой проект
         r = self.srequest(c, '/services/participant/invite', {'psid' : psid,
-                                                     'name' : 'ololosh',
-                                                     'comment' : 'This is the test'},
+                                                              'name' : 'ololosh',
+                                                              'comment' : 'This is the test',
+                                                              'email' : 'ololosh@mail.ru'},
                           httplib.PRECONDITION_FAILED)
         resp = dec.decode(r)
+        print(resp)
         self.assertEqual(resp['code'], PROJECT_STATUS_MUST_BE_PLANNING)
 
         r = self.srequest(c, '/services/project/status/change', {'psid' : psid,
-                                                        'status' : 'planning'},
+                                                                 'status' : 'planning'},
                           httplib.CREATED)
 
         r = self.srequest(c, '/services/participant/invite', {'psid' : psid,
-                                                     'name' : 'ololosh',
-                                                     'comment' : 'This is the test'},
+                                                              'name' : 'ololosh',
+                                                              'comment' : 'This is the test',
+                                                              'email' : 'ololosh@mail.ru'},
                           httplib.CREATED)
         resp = dec.decode(r)
         self.assertIn('token', resp)
@@ -681,15 +775,14 @@ class mytest(TestCase):
 
         # приглашенный участник входит на проект
         r = self.srequest(c, '/services/project/enter/invitation', {'uuid' : puuid,
-                                                           'token' : token},
+                                                                    'token' : token},
                           httplib.CREATED)
         resp = dec.decode(r)
         psid2 = resp['psid']
 
         # зашедший участник меняет сам себя
         self.srequest(c, '/services/participant/change', {'psid' : psid2,
-                                                 'name' : 'vasek',
-                                                 'user_id' : 'barlam barlam'},
+                                                          'name' : 'vasek'},
                       httplib.CREATED)
 
         # а теперь тоже самое но с uuid
@@ -698,22 +791,23 @@ class mytest(TestCase):
         resp = dec.decode(r)
 
         # участник с нашим именем имеет поле `me` == True
-        self.assertEqual(set([True]), set([a['me'] for a in resp if a['name'] == 'vasek']))
-        self.assertEqual(set([False]), set([a['me'] for a in resp if a['name'] != 'vasek']))
+        self.assertEqual([True], [a['me'] for a in resp if a['name'] == 'vasek'])
+        self.assertEqual([False], [a['me'] for a in resp if a['name'] != 'vasek'])
 
         self.assertIn('vasek', [a['name'] for a in resp])
         uuid2 = [a['uuid'] for a in resp if a['name'] == 'vasek'][0] #взяли свой uuid
         r = self.srequest(c, '/services/participant/change', {'psid' : psid2,
-                                                     'uuid' : uuid2,
-                                                     'name' : 'vasek',
-                                                     'user_id' : 'barlam barlam'},
+                                                              'uuid' : uuid2,
+                                                              'name' : 'vasek'},
+                                                              # 'user_id' : 'barlam barlam'},
                           httplib.CREATED)
 
         # зашедщий участник приглашает друга
         r = self.srequest(c, '/services/participant/invite', {'psid' : psid2,
-                                                     'name' : 'second',
-                                                     'descr' : 'just some stranger',
-                                                     'user_id' : 'you you'},
+                                                              'name' : 'second',
+                                                              'descr' : 'just some stranger',
+                                                              'email' : 'second@mail.ru'},
+                                                     # 'user_id' : 'you you'},
                           httplib.CREATED)
         resp = dec.decode(r)
         token3 = resp['token']
@@ -726,59 +820,60 @@ class mytest(TestCase):
         uuid3 = [a['uuid'] for a in resp if a['name'] == 'second'][0] #взяли uuid второго друга
 
         r = self.srequest(c, '/services/participant/change', {'psid' : psid2,
-                                                     'uuid' : uuid3,
-                                                     'name' : 'mister guy',
-                                                     'descr' : 'the best fried of vasek'},
+                                                              'uuid' : uuid3,
+                                                              'name' : 'mister guy',
+                                                              'descr' : 'the best fried of vasek'},
                           httplib.CREATED)
 
         # участник повторно добавляет того же друга и ничего не происходит
         r = self.srequest(c, '/services/participant/invite', {'psid' : psid2,
-                                                     'name' : 'mister guy'},
+                                                              'name' : 'mister guy'},
                           httplib.CREATED)
 
         # участник повторно добавляет того же друго но указывает не верные данные
         self.srequest(c, '/services/participant/invite', {'psid' : psid2,
-                                                 'name' : 'mister guy',
-                                                 'descr' : 'blah blah another description'},
+                                                          'name' : 'mister guy',
+                                                          'descr' : 'blah blah another description'},
                       httplib.PRECONDITION_FAILED)
 
         # участни повторно дабавляет того же участника и указывает теже данные
         self.srequest(c, '/services/participant/invite', {'psid' : psid2,
-                                                 'name' : 'mister guy',
-                                                 'user_id' : 'you you',
-                                                 'descr' : 'the best fried of vasek'},
+                                                          'name' : 'mister guy',
+                                                 # 'user_id' : 'you you',
+                                                          'descr' : 'the best fried of vasek'},
                       httplib.CREATED)
 
 
         # участник меняет друга так что он совпадает с существующим пользователем
         r = self.srequest(c, '/services/participant/change', {'psid' : psid2,
-                                                     'uuid' : uuid3,
-                                                     'name' : 'vasek'}, # это имя уже есть
+                                                              'uuid' : uuid3,
+                                                              'name' : 'vasek'}, # это имя уже есть
                           httplib.PRECONDITION_FAILED)
         resp = dec.decode(r)
         self.assertEqual(resp['code'], PARTICIPANT_ALREADY_EXISTS)
 
         # инициатор согласует добавление второго друга
         self.srequest(c, '/services/participant/vote/conform', {'psid' : psid,
-                                                             'vote' : 'include',
-                                                             'uuid' : uuid3},
+                                                                'vote' : 'include',
+                                                                'uuid' : uuid3},
                       httplib.CREATED)
 
         self.srequest(c, '/services/participant/vote/conform', {'psid' : psid,
-                                                             'vote' : 'include',
-                                                             'uuid' : uuid3},
+                                                                'vote' : 'include',
+                                                                'uuid' : uuid3},
                       httplib.CREATED)
 
         # зашедщий друг пытается править друга и фейлится
         r = self.srequest(c, '/services/project/enter/invitation', {'uuid' : puuid,
-                                                           'token' : token3},
+                                                                    'token' : token3},
                           httplib.CREATED)
         resp = dec.decode(r)
         psid3 = resp['psid']
 
         r = self.srequest(c, '/services/participant/change', {'psid' : psid3,
-                                                     'uuid' : uuid2,
-                                                     'name' : 'loh'}, httplib.PRECONDITION_FAILED)
+                                                              'uuid' : uuid2,
+                                                              'name' : 'loh'},
+                          httplib.PRECONDITION_FAILED)
         resp = dec.decode(r)
         self.assertEqual(resp['code'], ACCESS_DENIED)
 
@@ -797,16 +892,16 @@ class mytest(TestCase):
 
         # первый друг удаляет второго друга
         self.srequest(c, '/services/participant/vote/conform', {'psid' : psid2,
-                                                       'uuid' : uuid3,
-                                                       'vote' : 'exclude',
-                                                       'comment' : 'dont like'},
+                                                                'uuid' : uuid3,
+                                                                'vote' : 'exclude',
+                                                                'comment' : 'dont like'},
                       httplib.CREATED)
 
         # инициатор это согласует
         self.srequest(c, '/services/participant/vote/conform', {'psid' : psid,
-                                                       'uuid' : uuid3,
-                                                       'vote' : 'exclude',
-                                                       'comment' : 'i dont like him too'},
+                                                                'uuid' : uuid3,
+                                                                'vote' : 'exclude',
+                                                                'comment' : 'i dont like him too'},
                       httplib.CREATED)
 
         # просматривается список участников - активный должно быть два
@@ -818,17 +913,17 @@ class mytest(TestCase):
 
         # второй друг пытается удалить первого, но он уже удален так что фейлится
         r = self.srequest(c, '/services/participant/vote/conform', {'psid' : psid3,
-                                                           'uuid' : uuid2,
-                                                           'vote' : 'exclude',
-                                                           'comment' : 'He deleted me !'},
+                                                                    'uuid' : uuid2,
+                                                                    'vote' : 'exclude',
+                                                                    'comment' : 'He deleted me !'},
                           httplib.PRECONDITION_FAILED)
         resp = dec.decode(r)
         self.assertEqual(resp['code'], ACCESS_DENIED)
 
         # инициатор удаляет первого друга
         self.srequest(c, '/services/participant/vote/conform', {'psid' : psid,
-                                                       'vote' : 'exclude',
-                                                       'uuid' : uuid2},
+                                                                'vote' : 'exclude',
+                                                                'uuid' : uuid2},
                       httplib.CREATED)
 
         # инициатор смотрит список участников - он один
@@ -840,12 +935,12 @@ class mytest(TestCase):
 
         # инициатор пытается добавить друга 1 еще раз и фейлится (повторно добавлять нельзя)
         self.srequest(c, '/services/participant/invite', {'psid' : psid,
-                                                 'name' : 'vasek'},
+                                                          'name' : 'vasek'},
                       httplib.PRECONDITION_FAILED)
 
         # 2 друг пытается повторно войти по приглашению и фейлится
         self.srequest(c, '/services/project/enter/invitation', {'uuid' : puuid,
-                                                       'token' : token3},
+                                                                'token' : token3},
                       httplib.PRECONDITION_FAILED)
 
         for p in psids:
@@ -855,14 +950,14 @@ class mytest(TestCase):
         enc, dec = getencdec()
         c = httplib.HTTPConnection(host, port)
         r = self.srequest(c, '/services/project/create', {'name' : '  ',
-                                                 'sharing' : 'open',
-                                                 'ruleset' : 'despot',
-                                                 'user_name' : 'asdf'},
+                                                          'sharing' : 'open',
+                                                          'ruleset' : 'despot',
+                                                          'user_name' : 'asdf'},
                           httplib.PRECONDITION_FAILED)
         self.srequest(c, '/services/project/create', {'name' : 'asdf',
-                                             'sharing' : 'open',
-                                             'ruleset' : 'despot',
-                                             'user_name' : ''},
+                                                      'sharing' : 'open',
+                                                      'ruleset' : 'despot',
+                                                      'user_name' : ''},
                       httplib.PRECONDITION_FAILED)
 
     def test_activities(self, ):
@@ -879,6 +974,9 @@ class mytest(TestCase):
         psid = resp['psid']
         puuid = resp['uuid']
         psids.append(psid)
+
+        # FIXME: нужно стать зарегистрированным пользователем чтобы
+        # приглашать других участников
 
         # создаем мероприятие
         r = self.srequest(c, '/services/activity/create', {'psid' : psid,
@@ -916,18 +1014,18 @@ class mytest(TestCase):
 
         # входим в мероприятие
         self.srequest(c, '/services/activity/participation', {'psid' : psid,
-                                                     'action' : 'include',
-                                                     'uuid' : auuid1},
+                                                              'action' : 'include',
+                                                              'uuid' : auuid1},
                       httplib.CREATED)
 
         self.srequest(c, '/services/project/status/change', {'psid' : psid,
-                                                    'status' : 'planning'},
+                                                             'status' : 'planning'},
                       httplib.CREATED)
 
         # приглашаем второго участника
         r = self.srequest(c, '/services/participant/invite', {'psid' : psid,
-                                                     'name' : 'part2',
-                                                     'descr' : 'blah blah'},
+                                                              'name' : 'part2',
+                                                              'descr' : 'blah blah'},
                           httplib.CREATED)
         resp = dec.decode(r)
         token2 = resp['token']
@@ -1956,7 +2054,7 @@ class mytest(TestCase):
                                                   'site' : 'external'},
                           httplib.CREATED)
         res1 = dec.decode(r)['uuid']
-        
+
         self.srequest(c, '/services/activity/resource/include', {'psid' : psid,
                                                         'uuid' : res1,
                                                         'activity' : auuid,
@@ -1993,7 +2091,7 @@ class mytest(TestCase):
                      ('external', 'site'),
                      ('common', 'use')]:
             self.assertEqual(a, rr[b])
-        
+
         self.srequest(c, '/services/contractor/resource/offer',
                       {'user' : cont1,
                        'uuid' : res1,
@@ -2044,14 +2142,14 @@ class mytest(TestCase):
         snd = [a for a in d if a['user'] == 'contr2'][0]
         self.assertEqual([{'type' : 'email',
                            'value' : 'mail@mail.ru'}], snd['contacts'])
-        
+
         # предлагает цену 9
         self.srequest(c, '/services/contractor/resource/offer',
                       {'user' : 'contr2',
                        'uuid' : res1,
                        'cost' : 9},
                       httplib.CREATED)
-        
+
         # в списке ресурсов участники проекта наблюдают два предложения по
         # ресурсу
         r = self.srequest(c, '/services/activity/resource/list',
@@ -2066,7 +2164,7 @@ class mytest(TestCase):
         cr2 = [a for a in ccs if a['user'] == 'contr2'][0]
         self.assertEqual(cr1['cost'], 10)
         self.assertEqual(cr2['cost'], 9)
-        
+
         # участники проекта создают второй ресурс в количестве 200
         r = self.srequest(c, '/services/resource/create',
                           {'psid' : psid,
@@ -2122,7 +2220,7 @@ class mytest(TestCase):
                      ('offer_amount', 100)
                      ]:
             self.assertEqual(cr2[a], b)
-        
+
         # первый поставщик снимает свое предложение во второму ресурсв
         self.srequest(c, '/services/contractor/resource/offer',
                       {'user' : 'contr1',
@@ -2179,8 +2277,8 @@ class mytest(TestCase):
         #                   {'psid' : psid}, httplib.OK)
         # d = dec.decode(r)
         # rs1 = [a for a in d if a['uuid'] == res1][0]
-        
-        
+
+
 
         # второй поставщик в списке ресурсов видит что проекту требуется уже только 50
         # едениц первого ресурса
@@ -2227,7 +2325,7 @@ class mytest(TestCase):
                        'resource' : res2,
                        'contractor' : 'contr2'},
                       httplib.CREATED)
-        
+
         # в списке ресурсов видно что второй ресурс доставляется вторым
         # поставщиком в количестве 100 из 200 необходимых на проекте, видно, что
         # цена за первый ресурс = 50 * 10 + 50 * 9 = 950 денег, за второй ресурс
@@ -2251,7 +2349,7 @@ class mytest(TestCase):
                       {'psid' : psid,
                        'status' : 'planning'},
                       httplib.CREATED)
-        
+
 
         # добавляется второе мероприятие и в него входят оба участника
         r = self.srequest(c, '/services/activity/create',
@@ -2442,7 +2540,7 @@ class mytest(TestCase):
                          ('site', 'external')
                          ]:
                 self.assertEqual(partre2[a], b)
-            
+
         p1re3 = [a for a in partic1['resources'] if a['uuid'] == res3][0]
         for a, b in [('amount', 25),
                      ('available', 25),
@@ -2475,8 +2573,8 @@ class mytest(TestCase):
         self.assertEqual(rdd['min_cost'], None)
         self.assertEqual(rdd['max_cost'], None)
         self.assertEqual(rdd['mean_cost'], None)
-        
-        
+
+
         for p in psids:
             self._delete_project(p)
 
@@ -2918,8 +3016,59 @@ class mytest(TestCase):
 
         self._delete_project(psid)
 
-    
-        
+
+    def test_authentication(self, ):
+        psid, puuid = self._create_project()
+        self._set_project_status(psid, 'planning')
+        self._user_check('somebody@mail.ru',
+                         evidence = 404)
+        self._user_check('sdfasd@sdfasd',
+                         evidence = 412)
+        ret = self._create_user_account('somebody@mail.ru',
+                                        'password',
+                                        'name')
+        self.assertEqual(ret['email'], 'somebody@mail.ru')
+        self.assertEqual(ret['name'], 'name')
+        self.assertEqual(ret['descr'], '')
+        self._create_user_account('somebody@mail.ru',
+                                  'password',
+                                  'name',
+                                  evidence = 409)
+        ret = self._ask_user_confirmation('somebody@mail.ru')
+        confirm = ret['confirmation']
+
+        self._authenticate_user('somebody@mail.ru',
+                                'password',
+                                evidence = httplib.PRECONDITION_FAILED)
+
+        self._confirm_account('somebody@mail.ru',
+                              'asdf',
+                              confirm,
+                              evidence = httplib.PRECONDITION_FAILED)
+        self._confirm_account('somebody@mail.ru',
+                              'password',
+                              '1234',
+                              evidence = httplib.PRECONDITION_FAILED)
+        self._confirm_account('somebody@mail.ru',
+                              'password',
+                              confirm)
+        self._confirm_account('somebody@mail.ru',
+                              'password',
+                              confirm,
+                              evidence = httplib.PRECONDITION_FAILED)
+
+        self._ask_user_confirmation('somebody@mail.ru',
+                                    evidence = 409) 
+
+        ret = self._authenticate_user('somebody@mail.ru',
+                                      'password')
+        for a, b in [('email', 'somebody@mail.ru'),
+                     ('name', 'name'),
+                     ('descr', '')]:
+            self.assertEqual(ret[a], b)
+        self.assertIn('token', ret)
+
+
 
 if __name__ == '__main__':
     main()

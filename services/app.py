@@ -7,7 +7,8 @@ from services.common import get_or_create_object, get_user, get_authorized_user,
     set_vote_for_object_parameter, get_vote_value_for_object_parameter, set_as_accepted_value_of_object_parameter, \
     get_or_create_object_parameter, get_resource_from_uuid, get_activity_resource_from_parameter, check_activity_resource_status, \
     get_authorized_activity_participant, get_resource_parameter_from_uuid, get_parameter_voter, am_i_creating_activity_now, \
-    create_user, get_database_user, get_acceptable_user, auth_user, generate_user_magic_link, send_mail, get_registered_user
+    create_user, get_database_user, get_acceptable_user, auth_user, generate_user_magic_link, send_mail, get_registered_user, \
+    return_if_debug
 from services.models import Project, Participant, hex4, ProjectParameter, ProjectParameterVl, ProjectParameterVal, \
     DefaultParameter,  DefaultParameterVl, ProjectRulesetDefaults, ProjectParameterVote, ActivityParticipant, \
     Activity, ActivityParameter, ActivityParameterVal, ActivityParameterVl, ActivityParameterVote, ParticipantParameterVal, \
@@ -51,7 +52,8 @@ def execute_create_project(parameters):
         try:
             u = User.objects.filter(token=parameters['user_id']).all()[0]
         except IndexError:
-            pass
+            return {'code' : AUTHENTICATION_FAILED,
+                    'caption' : 'This token is not allowerd'}, httplib.PRECONDITION_FAILED
         else:
             pr.user = u.uuid
     if parameters.get('user_descr') != None:
@@ -525,10 +527,7 @@ def execute_invite_participant(params, user):
               settings.EMAIL_HOST_USER,
               [params['email']])
 
-    if settings.DEBUG:
-        return {'token' : part.token}, httplib.CREATED
-    else:
-        return '', httplib.CREATED
+    return return_if_debug({'token' : part.token}), httplib.CREATED
 
 @get_user
 @get_object_by_uuid(Participant,
@@ -1953,7 +1952,7 @@ def execute_ask_user_confirmation(params):
         print(str(e))
         return {'code' : EMAIL_CAN_NOT_BE_SENT,
                 'caption' : 'Could not send the email'}, httplib.PRECONDITION_FAILED
-    return '', httplib.OK
+    return return_if_debug({'confirmation' : user.confirmation}), httplib.OK
 
 def execute_confirm_account(params):
     user = get_database_user(params['email'],

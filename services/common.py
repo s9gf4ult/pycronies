@@ -906,3 +906,9 @@ def get_registered_user(psid):
     except IndexError:
         return None
     return u
+
+def return_if_debug(data, normal_mode_data = ''):
+    if settings.DEBUG:
+        return data
+    else:
+        return normal_mode_data

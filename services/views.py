@@ -31,12 +31,12 @@ from svalidate import OrNone, Any, DateTimeString, RegexpMatch, Equal, JsonStrin
 from copy import copy
 from django.core.validators import email_re
 def is_valid_email(email):
-    return True if email_re.match(email) else False
+    return True if isinstance(email, basestring) and email_re.match(email) else False
 
 _good_string = RegexpMatch(r'^[^;:"''|\\/#&><]*$')
 _good_float = Each(Able(float), Checkable(lambda a: float(a) >=0, 'Value must not be >= 0'))
 _good_int = Each(Able(int), Checkable(lambda a: int(a) >= 0, 'Value must be >= 0'))
-_is_email = Each('', Checkable(is_valid_email, 'String must be email'))
+_is_email = Checkable(is_valid_email, 'String must be email')
 
 
 @transaction.commit_on_success
@@ -2169,6 +2169,11 @@ def ask_user_confirmation(params):
     Параметры запроса:
 
     - `email`: электронная почта зарегистрированного пользователя
+
+    В отладочном режиме возвращает словарь
+
+    - `confirmation`: код подтверждения который отправляется
+      на email пользователя
 
     Статусы возврата:
 

@@ -56,6 +56,11 @@ urlpatterns = patterns('',
                        url(r'^services/resource/contractor/use$', 'services.views.use_contractor_route'),
                        url(r'^services/resource/cost/change$', 'services.views.set_resource_costs_route'),
                        url(r'^services/resource/create$', 'services.views.create_project_resource_route'),
+                       url(r'^services/user/ask_confirm$', 'services.views.ask_user_confirmation'),
+                       url(r'^services/user/auth$', 'services.views.authenticate_user_route'),
+                       url(r'^services/user/check$', 'services.views.check_user_exists_route'),
+                       url(r'^services/user/confirm$', 'services.views.confirm_account_route'),
+                       url(r'^services/user/new$', 'services.views.create_user_account_route'),
                        
     # url(r'^pycronies/', include('pycronies.foo.urls')),
 
