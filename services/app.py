@@ -416,7 +416,7 @@ def execute_change_participant(params, user):
             return True
         if par.project != user.project:
             return False
-        if par.dt == None:
+        if par.dt == None:      # целевой участник проекта еще не входил
             return True
         return False
 
@@ -429,9 +429,15 @@ def execute_change_participant(params, user):
     if params.get('descr') != None:
         par.descr = params['descr']
     if params.get('user_id') != None:
-        par.user = params['user_id']
+        try:
+            u = User.objects.filter(token = params['user_id']).all()[0]
+        except IndexError:
+            return {'code' : AUTHENTICATION_FAILED,
+                    'caption' : 'Given token is not accepted'}, httplib.PRECONDITION_FAILED
+        else:
+            par.user = u
     try:
-        par.save()
+        par.save(force_update = True)
     except IntegrityError:
         return {'code' : PARTICIPANT_ALREADY_EXISTS,
                 'caption' : 'Participant with such name already exists'}, httplib.PRECONDITION_FAILED
