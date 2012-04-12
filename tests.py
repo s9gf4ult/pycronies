@@ -51,7 +51,7 @@ def string2datetime(val):
 
 class common_test(TestCase):
 
-    def srequest(self, conn, route, data, status=None, print_result=False):
+    def srequest(self, conn, route, data, status=None, print_result=False, get_status = False):
         dec = json.JSONDecoder()
         request(conn, route, data)
         r = conn.getresponse()
@@ -63,7 +63,11 @@ class common_test(TestCase):
                 print('>>>>>>>>> failed to parse response to {0}:\n{1}'.format(route, ret))
         if status != None:
             self.assertEqual(r.status, status)
-        return ret
+        if get_status:
+            return ret, r.status
+        else:
+            return ret
+    
 
     def _delete_project(self, psid):
         """
@@ -75,6 +79,40 @@ class common_test(TestCase):
         r = c.getresponse()
         self.assertEqual(r.status, httplib.OK)
 
+    def _auth_user_and_get_project(self,
+                                   project_name = 'project1',
+                                   project_descr = None,
+                                   sharing = 'open',
+                                   ruleset = 'despot',
+                                   project_user_name = 'root',
+                                   email = 'root@mail.ru',
+                                   password = '123',
+                                   name = 'root',
+                                   print_error = False):
+        """Get many arguments and return tuple of token, psid, and project uuid"""
+        c = httplib.HTTPConnection(host, port)
+        ret, st = self._user_check(email, evidence = None, print_error = print_error)
+        if st == 200:
+            ret = self._authenticate_user(email, password, print_error = print_error)
+            token = ret['token']
+        elif st == 404:
+            self._create_user_account(email, password, name, print_error = print_error)
+            ret = self._ask_user_confirmation(email, print_error = print_error)
+            self._confirm_account(email, password, ret['confirmation'], print_error = print_error)
+            ret = self._authenticate_user(email, password, print_error = print_error)
+            token = ret['token']
+        else:
+            print("fuck ! status is {0}".format(st))
+            assert(False)
+        ret = self._create_project(name = project_name,
+                                   descr = project_descr,
+                                   sharing = sharing,
+                                   ruleset = ruleset,
+                                   user_name = project_user_name,
+                                   user_id = token,
+                                   print_error = print_error)
+        return (token,) + ret
+            
     def _create_project(self,
                         name = 'project1',
                         descr = None,
@@ -94,32 +132,32 @@ class common_test(TestCase):
                                  'ruleset' : ruleset,
                                  'user_name' : user_name,
                                  'user_id' : user_id}),
-                          evidence, print_error)
+                          status = evidence, print_result = print_error)
         d = dec.decode(r)
         return d['psid'], d['uuid']
 
-    def _set_project_status(self, psid, status, comment = None, evidence = httplib.CREATED):
+    def _set_project_status(self, psid, status, comment = None, evidence = httplib.CREATED, print_error = False):
         c = httplib.HTTPConnection(host, port)
         self.srequest(c, '/services/project/status/change',
                       fnone({'psid' : psid,
                              'status' : status,
                              'comment' : comment}),
-                      evidence)
+                      status = evidence, print_result = print_error)
 
-    def _user_check(self, email, evidence = 200):
+    def _user_check(self, email, evidence = 200, print_error = False):
         c = httplib.HTTPConnection(host, port)
-        self.srequest(c, '/services/user/check',
-                      fnone({'email' : email}),
-                      evidence)
+        return self.srequest(c, '/services/user/check',
+                             fnone({'email' : email}),
+                             status = evidence, get_status = True, print_result = print_error)
 
-    def _create_user_account(self, email, password, name, evidence = 201):
+    def _create_user_account(self, email, password, name, evidence = 201, print_error = False):
         c = httplib.HTTPConnection(host, port)
         dec = json.JSONDecoder()
         r = self.srequest(c, '/services/user/new',
                           fnone({'email' : email,
                                  'password' : password,
                                  'name' : name}),
-                          evidence)
+                          status = evidence, print_result = print_error)
         d = dec.decode(r)
         return d
 
@@ -128,27 +166,27 @@ class common_test(TestCase):
         dec = json.JSONDecoder()
         r = self.srequest(c, '/services/user/ask_confirm',
                           fnone({'email' : email}),
-                          evidence, print_error)
+                          status = evidence, print_result = print_error)
         d = dec.decode(r)
         return d
 
-    def _authenticate_user(self, email, password, evidence = 200):
+    def _authenticate_user(self, email, password, evidence = 200, print_error = False):
         c = httplib.HTTPConnection(host, port)
         dec = json.JSONDecoder()
         r = self.srequest(c, '/services/user/auth',
                           fnone({'email' : email,
                                  'password' : password}),
-                          evidence)
+                          status = evidence, print_result = print_error)
         d = dec.decode(r)
         return d
 
-    def _confirm_account(self, email, password, confirmation, evidence = 202):
+    def _confirm_account(self, email, password, confirmation, evidence = 202, print_error = False):
         c = httplib.HTTPConnection(host, port)
         self.srequest(c, '/services/user/confirm',
                       fnone({'email' : email,
                              'password' : password,
                              'confirmation' : confirmation}),
-                      evidence)
+                      status = evidence, print_result = print_error)
 
 
 class mytest(common_test):
@@ -527,9 +565,9 @@ class mytest(common_test):
         enc, dec = getencdec()
         c = httplib.HTTPConnection(host, port)
         request(c, '/services/project/create', {'name' : 'adsadsf',
-                                       'sharing' : 'close',
-                                       'ruleset' : 'despot',
-                                       'user_name' : 'asdfadf'})
+                                                'sharing' : 'close',
+                                                'ruleset' : 'despot',
+                                                'user_name' : 'asdfadf'})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.CREATED)
         psid = dec.decode(r.read())['psid']
@@ -544,8 +582,8 @@ class mytest(common_test):
             if param['enum']:
                 posible = [a['value'] for a in param['values']]
                 request(c, '/services/project/parameter/change', {'psid' : psid,
-                                                        'uuid' : param['uuid'],
-                                                        'value' : '111222333'}) # не верное значение
+                                                                  'uuid' : param['uuid'],
+                                                                  'value' : '111222333'}) # не верное значение
                 r = c.getresponse()
                 self.assertEqual(r.status, httplib.PRECONDITION_FAILED)
 
@@ -557,8 +595,8 @@ class mytest(common_test):
                 self.assertNotEqual(vl, '111222333') # данные не поменялись
 
                 request(c, '/services/project/parameter/change', {'psid' : psid,
-                                                         'uuid' : param['uuid'],
-                                                         'value' : posible[0]})
+                                                                  'uuid' : param['uuid'],
+                                                                  'value' : posible[0]})
                 r = c.getresponse()
                 self.assertEqual(r.status, httplib.CREATED)
 
@@ -570,8 +608,8 @@ class mytest(common_test):
                 self.assertEqual(vl, posible[0]) # значение сменилось
             else:
                 request(c, '/services/project/parameter/change', {'psid' : psid,
-                                                         'uuid' : param['uuid'],
-                                                         'value' : 'asdjfasidfkaj'})
+                                                                  'uuid' : param['uuid'],
+                                                                  'value' : 'asdjfasidfkaj'})
                 r = c.getresponse()
                 self.assertEqual(r.status, httplib.CREATED)
 
@@ -701,20 +739,25 @@ class mytest(common_test):
             self._delete_project(pr)
 
     def test_invite_and_enter_participant(self, ):
+        psids = []
+        token, psid, puuid = self._auth_user_and_get_project()
+        psids.append(psid)
+
+        
         enc, dec = getencdec()
         c = httplib.HTTPConnection(host, port)
-        psids = []
-        request(c, '/services/project/create', {'name' : 'project1',
-                                                'sharing' : 'invitation',
-                                                'ruleset' : 'despot',
-                                                'user_name' : 'blah blah'})
-                                                # 'user_id' : 'blah blah'})
-        r = c.getresponse()
-        self.assertEqual(r.status, httplib.CREATED)
-        resp = dec.decode(r.read())
-        psid = resp['psid']
-        puuid = resp['uuid']
-        psids.append(psid)
+        # psids = []
+        # request(c, '/services/project/create', {'name' : 'project1',
+        #                                         'sharing' : 'invitation',
+        #                                         'ruleset' : 'despot',
+        #                                         'user_name' : 'blah blah'})
+        #                                         # 'user_id' : 'blah blah'})
+        # r = c.getresponse()
+        # self.assertEqual(r.status, httplib.CREATED)
+        # resp = dec.decode(r.read())
+        # psid = resp['psid']
+        # puuid = resp['uuid']
+        # psids.append(psid)
 
         #  FIXME: зарегистрироваться чтобы можно было приглашать (обязательное условие)
 

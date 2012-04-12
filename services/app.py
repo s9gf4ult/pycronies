@@ -55,7 +55,7 @@ def execute_create_project(parameters):
             return {'code' : AUTHENTICATION_FAILED,
                     'caption' : 'This token is not allowerd'}, httplib.PRECONDITION_FAILED
         else:
-            pr.user = u.uuid
+            pr.user = u
     if parameters.get('user_descr') != None:
         pr.descr = parameters['user_descr']
     pr.save(force_insert=True)
@@ -483,7 +483,8 @@ def execute_invite_participant(params, user):
         u = User.objects.filter(email = params['email']).all()[0]
     except IndexError:
         user_id = None
-    user_id = u.uuid
+    else:
+        user_id = u.uuid
     # создаем нового или берем существующего участника
     try:
         def check(p):
