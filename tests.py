@@ -208,7 +208,6 @@ class mytest(common_test):
                  'sharing' : 'open',
                  'ruleset' : 'despot',
                  'user_name' : u'Вася',
-                 'user_id' : 'some_id',
                  'user_descr' : u'местный дурачек'})
         r1 = c.getresponse()
         self.assertEqual(r1.status, httplib.CREATED)
@@ -749,20 +748,6 @@ class mytest(common_test):
         
         enc, dec = getencdec()
         c = httplib.HTTPConnection(host, port)
-        # psids = []
-        # request(c, '/services/project/create', {'name' : 'project1',
-        #                                         'sharing' : 'invitation',
-        #                                         'ruleset' : 'despot',
-        #                                         'user_name' : 'blah blah'})
-        #                                         # 'user_id' : 'blah blah'})
-        # r = c.getresponse()
-        # self.assertEqual(r.status, httplib.CREATED)
-        # resp = dec.decode(r.read())
-        # psid = resp['psid']
-        # puuid = resp['uuid']
-        # psids.append(psid)
-
-        #  FIXME: зарегистрироваться чтобы можно было приглашать (обязательное условие)
 
         # приглашаем участника в свой проект
         r = self.srequest(c, '/services/participant/invite', {'psid' : psid,
@@ -1014,19 +999,8 @@ class mytest(common_test):
         enc, dec = getencdec()
         c = httplib.HTTPConnection(host, port)
         psids = []
-        # создаем проект
-        r = self.srequest(c, '/services/project/create', {'name' : 'proj1',
-                                                 'sharing' : 'open',
-                                                 'ruleset' : 'despot',
-                                                 'user_name' : 'init'},
-                          httplib.CREATED)
-        resp = dec.decode(r)
-        psid = resp['psid']
-        puuid = resp['uuid']
+        token, psid, puuid = self._auth_user_and_get_project()
         psids.append(psid)
-
-        # FIXME: нужно стать зарегистрированным пользователем чтобы
-        # приглашать других участников
 
         # создаем мероприятие
         r = self.srequest(c, '/services/activity/create', {'psid' : psid,
@@ -1075,6 +1049,7 @@ class mytest(common_test):
         # приглашаем второго участника
         r = self.srequest(c, '/services/participant/invite', {'psid' : psid,
                                                               'name' : 'part2',
+                                                              'email' : 'second@mail.ru',
                                                               'descr' : 'blah blah'},
                           httplib.CREATED)
         resp = dec.decode(r)
@@ -3118,7 +3093,7 @@ class mytest(common_test):
             self.assertEqual(ret[a], b)
         self.assertIn('token', ret)
 
-
+        self._delete_project(psid)
 
 if __name__ == '__main__':
     main()
