@@ -79,18 +79,7 @@ class common_test(TestCase):
         r = c.getresponse()
         self.assertEqual(r.status, httplib.OK)
 
-    def _auth_user_and_get_project(self,
-                                   project_name = 'project1',
-                                   project_descr = None,
-                                   sharing = 'open',
-                                   ruleset = 'despot',
-                                   project_user_name = 'root',
-                                   email = 'root@mail.ru',
-                                   password = '123',
-                                   name = 'root',
-                                   print_error = False):
-        """Get many arguments and return tuple of token, psid, and project uuid"""
-        c = httplib.HTTPConnection(host, port)
+    def _get_authenticated_user(self, email, password, name, print_error = False):
         ret, st = self._user_check(email, evidence = None, print_error = print_error)
         if st == 200:
             ret = self._authenticate_user(email, password, print_error = print_error)
@@ -102,8 +91,22 @@ class common_test(TestCase):
             ret = self._authenticate_user(email, password, print_error = print_error)
             token = ret['token']
         else:
-            print("fuck ! status is {0}".format(st))
+            print("fuck ! Status is {0}".format(st))
             assert(False)
+        return token
+
+    def _auth_user_and_get_project(self,
+                                   project_name = 'project1',
+                                   project_descr = None,
+                                   sharing = 'open',
+                                   ruleset = 'despot',
+                                   project_user_name = 'root',
+                                   email = 'root@mail.ru',
+                                   password = '123',
+                                   name = 'root',
+                                   print_error = False):
+        """Get many arguments and return tuple of token, psid, and project uuid"""
+        token = self._get_authenticated_user(email, password, name, print_error = print_error)
         ret = self._create_project(name = project_name,
                                    descr = project_descr,
                                    sharing = sharing,
@@ -768,7 +771,6 @@ class mytest(common_test):
                                                               'email' : 'ololosh@mail.ru'},
                           httplib.PRECONDITION_FAILED)
         resp = dec.decode(r)
-        print(resp)
         self.assertEqual(resp['code'], PROJECT_STATUS_MUST_BE_PLANNING)
 
         r = self.srequest(c, '/services/project/status/change', {'psid' : psid,
@@ -838,20 +840,22 @@ class mytest(common_test):
         self.assertEqual([False], [a['me'] for a in resp if a['name'] != 'vasek'])
 
         self.assertIn('vasek', [a['name'] for a in resp])
-        uuid2 = [a['uuid'] for a in resp if a['name'] == 'vasek'][0] #взяли свой uuid
+        uuid2 = [a['uuid'] for a in resp if a['name'] == 'vasek'][0] #взяли свой
+                                        #uuid
+        usertoken2 = self._get_authenticated_user('vasek@mail.ru', 'pssword', 'vasek')
         r = self.srequest(c, '/services/participant/change', {'psid' : psid2,
                                                               'uuid' : uuid2,
-                                                              'name' : 'vasek'},
-                                                              # 'user_id' : 'barlam barlam'},
+                                                              'name' : 'vasek',
+                                                              'user_id' : usertoken2},
                           httplib.CREATED)
-
+        
         # зашедщий участник приглашает друга
         r = self.srequest(c, '/services/participant/invite', {'psid' : psid2,
                                                               'name' : 'second',
                                                               'descr' : 'just some stranger',
                                                               'email' : 'second@mail.ru'},
                                                      # 'user_id' : 'you you'},
-                          httplib.CREATED)
+                          status = httplib.CREATED)
         resp = dec.decode(r)
         token3 = resp['token']
 
@@ -870,20 +874,23 @@ class mytest(common_test):
 
         # участник повторно добавляет того же друга и ничего не происходит
         r = self.srequest(c, '/services/participant/invite', {'psid' : psid2,
-                                                              'name' : 'mister guy'},
-                          httplib.CREATED)
+                                                              'name' : 'mister guy',
+                                                              'email' : 'second@mail.ru'},
+                          status = httplib.CREATED)
 
         # участник повторно добавляет того же друго но указывает не верные данные
         self.srequest(c, '/services/participant/invite', {'psid' : psid2,
                                                           'name' : 'mister guy',
-                                                          'descr' : 'blah blah another description'},
+                                                          'descr' : 'blah blah another description',
+                                                          'email' : 'second@mail.ru'},
                       httplib.PRECONDITION_FAILED)
 
         # участни повторно дабавляет того же участника и указывает теже данные
         self.srequest(c, '/services/participant/invite', {'psid' : psid2,
                                                           'name' : 'mister guy',
                                                  # 'user_id' : 'you you',
-                                                          'descr' : 'the best fried of vasek'},
+                                                          'descr' : 'the best fried of vasek',
+                                                          'email' : 'second@mail.ru'},
                       httplib.CREATED)
 
 
