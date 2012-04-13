@@ -26,6 +26,7 @@ from services.app import execute_create_project, execute_list_projects, execute_
 from services.common import getencdec, standard_request_handler, typical_json_responder, translate_parameters, parse_json, \
     translate_values, translate_string, proceed_checks, naive_json_responder
 from services.models import Project, Resource
+from django.conf import settings
 from services.statuses import PARAMETERS_BROKEN
 from svalidate import OrNone, Any, DateTimeString, RegexpMatch, Equal, JsonString, Able, Validate, Checkable, Each
 from copy import copy
@@ -456,7 +457,6 @@ def delete_project_route(params): #  NOTE: метод для тестов
 
     just for testing
     """
-    from django.conf import settings
     if not settings.DEBUG:
         return http.HttpResponse('Works just in debug mode', status=httplib.INTERNAL_SERVER_ERROR)
     if Project.objects.filter(participant__psid=params['psid']).count() == 0:
@@ -2245,3 +2245,15 @@ def authenticate_user_route(params):
     - `500`: ошибка сервера
     """
     pass
+
+
+def invitation_response_route(request, invite):
+    r = http.HttpResponseRedirect(settings.MY_ROOT_PATH)
+    r.set_cookie('invitation', invite, httponly = False)
+    return r
+
+
+def confirmation_response_route(request, confirmation):
+    r = http.HttpResponseRedirect(settings.MY_ROOT_PATH)
+    r.set_cookie('confirmation', confirmation, httponly = False)
+    return r

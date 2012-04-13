@@ -523,16 +523,21 @@ def execute_invite_participant(params, user):
     set_vote_for_object_parameter(part, user, 'accepted', uuid = prmt.uuid, comment = params.get('comment'))
     # отправляем письмо на электронную почту участника
     site = Site.objects.get_current()
-    send_mail(u'Пользователь {0} пригласил вас на проект',
-              u"""вас пригласили на проект на сайт {1}, вот ваш ключ приглашения:
+    try:
+        send_mail(u'Пользователь {0} пригласил вас на проект',
+                  u"""вас пригласили на проект на сайт {1}, вот ваш ключ приглашения:
 {2}
 вы также можете воспользоваться ссылкой для входа в проект
 {3}""".format(reguser.name,
               site.name,
               part.token,
               generate_user_magic_link('invitation', part.token)),
-              settings.EMAIL_HOST_USER,
-              [params['email']])
+                  settings.EMAIL_HOST_USER,
+                  [params['email']])
+    except Exception as e:
+        print(str(e))
+        return {'code'    : EMAIL_CAN_NOT_BE_SENT,
+                'caption' : 'Email can not be sent because of {0}'.format(str(e))}, httplib.PRECONDITION_FAILED
 
     return return_if_debug({'token' : part.token}), httplib.CREATED
 
@@ -1952,7 +1957,7 @@ def execute_ask_user_confirmation(params):
 используйте его для подтверждения аккаунта или просто перйдите по ссылке
 {2}""".format(site.name,
               user.confirmation,
-              generate_user_magic_link('confirm', user.confirmation)),
+              generate_user_magic_link('confirmation', user.confirmation)),
                   settings.EMAIL_HOST_USER,
                   [user.email])
     except Exception as e:
