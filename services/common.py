@@ -63,19 +63,25 @@ class standard_request_handler(object):
         @wraps(func)
         def ret(*args, **kargs):
             request = args[0]
-            if request.method != 'POST':
+            if request.method == 'POST':
+                h = {}
+                for key, value in request.POST.iteritems():
+                    if self.white.match(value) == None:
+                        h[key] = value
+                r = self.v.validate(self._validator, h)
+                if r != None:
+                    enc = json.JSONEncoder()
+                    return http.HttpResponse(enc.encode({'code' : PARAMETERS_BROKEN,
+                                                         'error' : r,
+                                                         'caption' : 'Parameters of query is broken'}), status=httplib.PRECONDITION_FAILED, content_type='application/json')
+                return func(*tuple([h] + list(args[1:])), **kargs)
+            elif request.method == 'OPTIONS':
+                r = http.HttpResponse()
+                r['Allow'] = 'POST'
+                return r
+            else:
                 return http.HttpResponse('You must use POST request, not {0}'.format(request.method), status=httplib.NOT_IMPLEMENTED, content_type='application/json')
-            h = {}
-            for key, value in request.POST.iteritems():
-                if self.white.match(value) == None:
-                    h[key] = value
-            r = self.v.validate(self._validator, h)
-            if r != None:
-                enc = json.JSONEncoder()
-                return http.HttpResponse(enc.encode({'code' : PARAMETERS_BROKEN,
-                                                     'error' : r,
-                                                     'caption' : 'Parameters of query is broken'}), status=httplib.PRECONDITION_FAILED, content_type='application/json')
-            return func(*tuple([h] + list(args[1:])), **kargs)
+
 
         return ret
 
