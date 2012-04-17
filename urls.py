@@ -77,5 +77,5 @@ urlpatterns = patterns('',
 )
 
 if settings.DEBUG:
-    urlpatterns = tuple(list(urlpatterns).append(url(r'^static/(?P<path>.*)$', 'django.views.static.serve',
-                                                     {'document_root': settings.STATIC_ROOT})))
+    urlpatterns = tuple(list(urlpatterns) + [url(r'^static/(?P<path>.*)$', 'django.views.static.serve',
+                                                 {'document_root': settings.STATIC_ROOT})])

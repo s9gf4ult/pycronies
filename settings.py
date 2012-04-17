@@ -110,7 +110,7 @@ MIDDLEWARE_CLASSES = (
 )
 
 if DEBUG:
-    MIDDLEWARE_CLASSES = tuple(list(MIDDLEWARE_CLASSES).append('nocache.NoCache'))
+    MIDDLEWARE_CLASSES = tuple(list(MIDDLEWARE_CLASSES) + ['nocache.NoCache'])
 
 ROOT_URLCONF = 'pycronies.urls'
 
