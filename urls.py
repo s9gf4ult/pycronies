@@ -1,4 +1,6 @@
 from django.conf.urls.defaults import patterns, include, url
+from django.conf import settings
+
 
 # Uncomment the next two lines to enable the admin:
 # from django.contrib import admin
@@ -74,3 +76,6 @@ urlpatterns = patterns('',
                        url(r'^services/project/delete', 'services.views.delete_project_route'), # just for testing
 )
 
+if settings.DEBUG:
+    urlpatterns = tuple(list(urlpatterns).append(url(r'^static/(?P<path>.*)$', 'django.views.static.serve',
+                                                     {'document_root': settings.STATIC_ROOT})))
