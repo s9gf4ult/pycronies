@@ -113,7 +113,7 @@ if DEBUG:
 
 ROOT_URLCONF = 'pycronies.urls'
 
-MY_ROOT_PATH = '/static/project_app.html'
+MY_ROOT_PATH = '/static/index.html'
 
 TEMPLATE_DIRS = (
     # Put strings here, like "/home/html/django_templates" or "C:/www/django/templates".
