@@ -89,7 +89,7 @@ class standard_request_handler(object):
         def ret(*args, **kargs):
             request = args[0]
             if request.method == 'POST':
-                if request.META['CONTENT_TYPE'] == 'application/json':
+                if request.META['CONTENT_TYPE'].find('application/json') > -1:
                     h = get_json_from_body(request)
                 else:
                     h = get_json_from_parameters(request)
