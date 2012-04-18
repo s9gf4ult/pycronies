@@ -1951,12 +1951,11 @@ def execute_ask_user_confirmation(params):
     user.save(force_update=True)
     try:
         site = Site.objects.get_current()
-        send_mail(u'Подтверждение регистрации на сайте {0}',
+        send_mail(u'Подтверждение регистрации на сайте {0}'.format(site.name),
                   """Ваш код подтверждения
-{1}
+{0}
 используйте его для подтверждения аккаунта или просто перйдите по ссылке
-{2}""".format(site.name,
-              user.confirmation,
+{1}""".format(user.confirmation,
               generate_user_magic_link('confirmation', user.confirmation)),
                   settings.EMAIL_HOST_USER,
                   [user.email])
