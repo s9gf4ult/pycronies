@@ -49,6 +49,31 @@ def string2datetime(val):
     else:
         raise ValueError('Could not parse string as datetme')
 
+def get_json_from_body(request):
+    """
+    Arguments:
+    
+    - `request`: HttpRequest
+    """
+    dec = json.JSONDecoder()
+    try:
+        h = dec.decode(request.body)
+    except:
+        h = {}
+    return h
+    
+
+def get_json_from_parameters(request):
+    """
+    
+    Arguments:
+    - `request`:
+    """
+    h = {}
+    for key, value in request.POST.iteritems():
+        h[key] = value
+    return h
+    
 
 class standard_request_handler(object):
     """
@@ -64,10 +89,15 @@ class standard_request_handler(object):
         def ret(*args, **kargs):
             request = args[0]
             if request.method == 'POST':
-                h = {}
-                for key, value in request.POST.iteritems():
-                    if self.white.match(value) == None:
-                        h[key] = value
+                if request.META['CONTENT_TYPE'] == 'application/json':
+                    h = get_json_from_body(request)
+                else:
+                    h = get_json_from_parameters(request)
+                    if len(h) == 0:
+                        h = get_json_from_body(request)
+                h = dict([(key, val)
+                          for (key, val) in h.iteritems()
+                          if self.white.match(val) == None])
                 r = self.v.validate(self._validator, h)
                 if r != None:
                     enc = json.JSONEncoder()
