@@ -1994,7 +1994,7 @@ def execute_confirm_user_by_long_confirmation(confirmation):
     - `confirmaion`:
     """
     try:
-        u = User.objects.filter(confirmation=confirmation)
+        u = User.objects.filter(confirmation=confirmation).all()[0]
     except IndexError:
         return '', 409
     else:
