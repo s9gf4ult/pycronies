@@ -1986,3 +1986,18 @@ def execute_authenticate_user(params):
             'name' : user.name,
             'descr' : user.descr,
             'token' : user.token}, httplib.OK
+
+def execute_confirm_user_by_long_confirmation(confirmation):
+    """
+    Arguments:
+    
+    - `confirmaion`:
+    """
+    try:
+        u = User.objects.filter(confirmation=confirmation)
+    except IndexError:
+        return '', 409
+    else:
+        u.is_active = True
+        u.save(force_update=True)
+        return '', 200

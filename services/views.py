@@ -21,7 +21,7 @@ from services.app import execute_create_project, execute_list_projects, execute_
     execute_create_contractor, execute_use_contractor,  execute_participant_statistics, \
     execute_contractor_offer_resource, execute_contractor_list_project_resources, execute_list_contractors, \
     execute_set_resource_costs, execute_check_user_exists, execute_ask_user_confirmation, execute_create_user_account, \
-    execute_confirm_account, execute_authenticate_user
+    execute_confirm_account, execute_authenticate_user, execute_confirm_user_by_long_confirmation
 
 from services.common import getencdec, standard_request_handler, typical_json_responder, translate_parameters, parse_json, \
     translate_values, translate_string, proceed_checks, naive_json_responder
@@ -1041,7 +1041,7 @@ def conform_activity_route(params):
                            'enum' : JsonString(True),
                            'value' : OrNone(_good_string)})
 @translate_parameters({'name' : translate_string,
-                       'descr' : translate_string}) 
+                       'descr' : translate_string})
 def create_activity_parameter_route(params): # ++TESTED
     """
     **Создание параметра мероприятия**
@@ -1322,7 +1322,7 @@ def list_activity_resources_route(params): # ++TESTED
     - `amount`: Если указан `uuid`, то для общего ресурса - количество ресурса
       задействованное на конкретном мероприятии. Для персонального - количество
       ресурса задействованное конкретным участником.
-      
+
       Если `uuid` не указан то для общего ресурса показывает суммарное количество
       ресурса задействованное на всех мероприятиях. Для персонального
       ресурса показывает суммарное количество ресурса задйествованное всеми
@@ -2192,7 +2192,10 @@ def ask_user_confirmation(params):
 @transaction.commit_on_success
 @standard_request_handler({'email' : _is_email,
                            'password' : '',
-                           'confirmation' : ''})
+                           'confirmation' : ''}) #  FIXME: Этот метод одлжен
+                                        #  принимать специальный confirmation
+                                        #  для ручного ввода (типа короткий и
+                                        #  легко вводимый
 @typical_json_responder(execute_confirm_account, 202)
 def confirm_account_route(params):
     """
@@ -2207,7 +2210,7 @@ def confirm_account_route(params):
     - `confirmation`: ключ подтверждения (приходит на почту)
 
     При успешном создании пользователя ничего не возвращает в теле
-    
+
     Статусы возврата:
 
     - `202`: ok
@@ -2252,8 +2255,16 @@ def invitation_response_route(request, invite):
     r.set_cookie('invitation', invite, httponly = False)
     return r
 
-
+@transaction.commit_on_success
 def confirmation_response_route(request, confirmation):
+    ret, st = execute_confirm_user_by_long_confirmation(confirmation)
+    if st == 200:
+        cnf = True
+    else:
+        transaction.rollback()
+        cnf = False
+        
     r = http.HttpResponseRedirect(settings.MY_ROOT_PATH)
-    r.set_cookie('confirmation', confirmation, httponly = False)
+    r.set_cookie('confirmation', cnf, httponly = False)
     return r
+        
