@@ -183,6 +183,10 @@ def list_user_projects_route(params): # ++TESTED
        Если не найден ни один пользователь с указанным user_id или токеном,
        возвращаем пустой список
 
+    Статус 412
+
+       Только BROKEN_PARAMETERS
+
     Posible return status:
 
     - `200`: ok

@@ -95,9 +95,15 @@ class standard_request_handler(object):
                     h = get_json_from_parameters(request)
                     if len(h) == 0:
                         h = get_json_from_body(request)
-                h = dict([(key, val)
-                          for (key, val) in h.iteritems()
-                          if isinstance(val, basestring) and self.white.match(val) == None])
+                newh = {}
+                for k, v in h.iteritems():
+                    if v != None:
+                        if isinstance(v, basestring):
+                            if self.white.match(v) == None:
+                                newh[k] = v
+                        else:
+                            newh[k] = v
+                h = newh
                 r = self.v.validate(self._validator, h)
                 if r != None:
                     enc = json.JSONEncoder()
