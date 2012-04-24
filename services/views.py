@@ -597,6 +597,15 @@ def invite_participant_route(params): # ++TESTED
        email письмо с кодом приглашения, если email принадлежит зарегистрированному
        пользователю, то создает участника проекта из этого пользователя.
 
+    Статус 412:
+
+    - REGISTRATION_IS_REQUIRED: Необходима регистрация
+    - MUST_BE_INITIATOR: Пользователь должен быть инициатором проекта
+    - PROJECT_STATUS_MUST_BE_PLANNING: Не верный статус проекта
+    - PARTICIPANT_ALREADY_EXISTS: Пользователь уже есть в проекте
+    - PARTICIPANT_DENIED: Пользователь запрещен на проекте
+    - EMAIL_CAN_NOT_BE_SENT: Ошибка отправки письма
+
     Статусы возврата:
 
     - `201`: ok

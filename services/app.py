@@ -488,9 +488,7 @@ def execute_invite_participant(params, user):
     try:
         u = User.objects.filter(email = params['email']).all()[0]
     except IndexError:
-        user_id = None
-    else:
-        user_id = u.uuid
+        u = None
     # создаем нового или берем существующего участника
     try:
         def check(p):
@@ -500,7 +498,7 @@ def execute_invite_participant(params, user):
                                     {'name' : params['name'],
                                      'project' : prj},
                                     {'descr' : params.get('descr'),
-                                     'user' : user_id},
+                                     'user' : u},
                                     can_change = check)
     except IntegrityError:
         return {'code' : PARTICIPANT_ALREADY_EXISTS,
