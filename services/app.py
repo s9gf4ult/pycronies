@@ -523,12 +523,11 @@ def execute_invite_participant(params, user):
     # отправляем письмо на электронную почту участника
     site = Site.objects.get_current()
     try:
-        send_mail(u'Пользователь {0} пригласил вас на проект',
-                  u"""вас пригласили на проект на сайт {1}, вот ваш ключ приглашения:
-{2}
+        send_mail(u'Пользователь {0} пригласил вас на проект на сайте {1}'.format(reguser.name, site.name),
+                  u"""вас пригласили на проект на сайт {0}, вот ваш ключ приглашения:
+{1}
 вы также можете воспользоваться ссылкой для входа в проект
-{3}""".format(reguser.name,
-              site.name,
+{2}""".format(site.name,
               part.token,
               generate_user_magic_link('invitation', part.token)),
                   settings.EMAIL_HOST_USER,
