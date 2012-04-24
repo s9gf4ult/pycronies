@@ -589,7 +589,7 @@ def execute_enter_project_open(params, prj):   #++TESTED
         except IndexError:
             pass
         else:
-            prt.user = u.uuid
+            prt.user = u
     try:
         prt.save(force_insert = True)
     except IntegrityError:

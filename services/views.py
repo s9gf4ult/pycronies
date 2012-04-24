@@ -674,6 +674,12 @@ def enter_project_open_route(params): # ++TESTED
     - `psid`: ключ доступа
     - `token`: токен приглашения
 
+    Статус 412:
+
+    - PARTICIPANT_ALREADY_EXISTS: Пользователь с таким именем уже есть на проекте
+    - PROJECT_MUST_BE_OPEN: не верный тип проекта
+    - PROJECT_STATUS_MUST_BE_PLANNING: не верный статус проекта
+
     Статусы возврата:
 
     - `201`: ok
