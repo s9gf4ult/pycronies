@@ -159,6 +159,7 @@ def execute_list_user_projects(params):
                     'begin_date' : pr.begin_date.isoformat() if pr.begin_date != None else None,
                     'initiator' : part.is_initiator,
                     'status' : get_object_status(pr)})
+    ret.sort(lambda a, b: cmp(a['name'], b['name']))
     return ret, httplib.OK
 
 @get_user
