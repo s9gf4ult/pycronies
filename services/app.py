@@ -790,7 +790,7 @@ def execute_public_activity(params, act, user):
     if ast == 'accepted':
         vts = get_parameter_voter(act, 'voted', 'denied', tpclass = 'status')
         if len(vts) == 0:
-            return 'Already accepted'
+            return 'Already accepted', httplib.CREATED
         else:
             set_vote_for_object_parameter(act, user, 'accepted', tpclass = 'status', comment = params.get('comment'))
             return conform_activity(user, act)

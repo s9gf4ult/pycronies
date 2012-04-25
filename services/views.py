@@ -927,6 +927,12 @@ def public_activity_route(params): # ++TESTED
        мероприяте в проекте, инициатор в "despot" проектах сразу закрывает
        голоса против если вызовет public
 
+    Статус 412:
+
+    - ACTIVITY_IS_NOT_ACCEPTED
+    - ACCESS_DENIED
+    - ACTIVITY_NOT_FOUND
+
     Статусы возврата:
 
     - `201`: ok
