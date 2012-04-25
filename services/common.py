@@ -22,7 +22,7 @@ from services.models import Participant, Activity, ActivityParameter, parameter_
     ActivityResourceParameter, ParticipantResourceParameter, User, hex4
 
 yearmonthdayhour = ['year', 'month', 'day', 'hour', 'minute', 'second']
-formats = ['%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d', '%Y-%m-%dT%H:%M:%S.%f', '%Y-%m-%d %H:%M:%S.%f', '%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S']
+formats = ['%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d', '%Y-%m-%dT%H:%M:%S.%f', '%Y-%m-%d %H:%M:%S.%f', '%Y-%m-%d %H:%M', '%Y-%m-%dT%H:%M']
 
 def getencdec():
     """return json encoder and decoder
