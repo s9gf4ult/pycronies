@@ -56,6 +56,7 @@
              activity_delete_route,
              activity_deny_route,
              list_activities_route,
+             list_activity_participants_route,
              activity_participation_route,
              activity_list_participants_route,
              conform_activity_route,

@@ -1442,6 +1442,14 @@ def include_activity_resource_route(params): # ++TESTED
 
        Повторно добавление ресурсов заерещено
 
+    Статус 412:
+
+    - ACCESS_DENIED
+    - ACTIVITY_NOT_FOUND
+    - RESOURCE_NOT_FOUND
+    - ACTIVITY_RESOURCE_IS_NOT_ACCEPTED
+    
+
     Статусы возврата:
 
     - `201`: ok
