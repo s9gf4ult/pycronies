@@ -8,6 +8,8 @@ from django.conf import settings
 
 urlpatterns = patterns('',
                        # url(r'^$', 'pycronies.views.home', name='home'),
+                       url(r'^confirmation/(.*)$', 'services.views.confirmation_response_route'),
+                       url(r'^invitation/(.*)$', 'services.views.invitation_response_route'),
                        url(r'^services/activity/create$', 'services.views.create_activity_route'),
                        url(r'^services/activity/delete$', 'services.views.activity_delete_route'),
                        url(r'^services/activity/deny$', 'services.views.activity_deny_route'), 
@@ -58,13 +60,12 @@ urlpatterns = patterns('',
                        url(r'^services/resource/contractor/use$', 'services.views.use_contractor_route'),
                        url(r'^services/resource/cost/change$', 'services.views.set_resource_costs_route'),
                        url(r'^services/resource/create$', 'services.views.create_project_resource_route'),
+                       url(r'^services/token/check', 'services.views.check_token_route'),
                        url(r'^services/user/ask_confirm$', 'services.views.ask_user_confirmation'),
                        url(r'^services/user/auth$', 'services.views.authenticate_user_route'),
                        url(r'^services/user/check$', 'services.views.check_user_exists_route'),
                        url(r'^services/user/confirm$', 'services.views.confirm_account_route'),
                        url(r'^services/user/new$', 'services.views.create_user_account_route'),
-                       url(r'^invitation/(.*)$', 'services.views.invitation_response_route'),
-                       url(r'^confirmation/(.*)$', 'services.views.confirmation_response_route'),
                        
     # url(r'^pycronies/', include('pycronies.foo.urls')),
 

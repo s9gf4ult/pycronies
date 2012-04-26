@@ -1999,3 +1999,10 @@ def execute_confirm_user_by_long_confirmation(confirmation):
         u.is_active = True
         u.save(force_update=True)
         return '', 200
+
+def execute_check_token(params):
+    token = params['token']
+    if Participant.objects.filter(Q(token=token) | Q(user__token=token)).count() > 0:
+        return 'OK', 200
+    else:
+        return 'No such token', 409

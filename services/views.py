@@ -21,7 +21,7 @@ from services.app import execute_create_project, execute_list_projects, execute_
     execute_create_contractor, execute_use_contractor,  execute_participant_statistics, \
     execute_contractor_offer_resource, execute_contractor_list_project_resources, execute_list_contractors, \
     execute_set_resource_costs, execute_check_user_exists, execute_ask_user_confirmation, execute_create_user_account, \
-    execute_confirm_account, execute_authenticate_user, execute_confirm_user_by_long_confirmation
+    execute_confirm_account, execute_authenticate_user, execute_confirm_user_by_long_confirmation, execute_check_token
 
 from services.common import getencdec, standard_request_handler, typical_json_responder, translate_parameters, parse_json, \
     translate_values, translate_string, proceed_checks, naive_json_responder
@@ -2300,4 +2300,23 @@ def confirmation_response_route(request, confirmation):
     r = http.HttpResponseRedirect(settings.MY_ROOT_PATH)
     r.set_cookie('confirmation', cnf, httponly = False)
     return r
-        
+
+@transaction.commit_on_success
+@standard_request_handler({'token': ''})
+@typical_json_responder(execute_check_token, 200)
+def check_token_route(params):
+    """
+    ** Проверка токена авторизации **
+
+    Параметры запроса:
+
+    - `token`: токен для проверки
+    
+    Статусы возврата:
+
+    - `200`: ok
+    - `409`: токен не найден либо требуется перелогин
+    - `412`: не верные данные с описанием в теле ответа либо ошибка другого рода
+    - `500`: ошибка сервера
+    """
+    pass
