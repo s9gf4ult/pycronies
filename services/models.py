@@ -50,7 +50,7 @@ class BaseModel(models.Model):
         ordering = ['create_date']
 
 class User(BaseModel):
-    token = models.CharField(max_length = 40, default = hex4)
+    token = models.CharField(max_length = 40, default = hex4, null=True)
     last_login = models.DateTimeField(null=True)
     name = models.TextField()
     email = models.TextField()  # email and login as well

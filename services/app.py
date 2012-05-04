@@ -2002,7 +2002,35 @@ def execute_confirm_user_by_long_confirmation(confirmation):
 
 def execute_check_token(params):
     token = params['token']
-    if Participant.objects.filter(Q(token=token) | Q(user__token=token)).count() > 0:
-        return 'OK', 200
+    try:
+        user = User.objects.filter(token=token).all()[0]
+    except IndexError:
+        try:
+            partic = User.objects.filter(token=token).all()[0]
+        except IndexError:
+            return 'No such token', 409
+        else:
+            return {'temp' : True}, 200
     else:
-        return 'No such token', 409
+        return {'temp' : False}, 200
+    
+        
+        
+
+
+def execute_logout(params):
+    token = params['token']
+    try:
+        user = User.objects.filter(token=token).all()[0]
+    except IndexError:
+        try:
+            partic = Participant.objects.filter(token=token).all()[0]
+        except IndexError:
+            return 'user not found', 409
+        else:
+            partic.delete()
+            return 'Participant deleted', 201
+    else:
+        user.token = None
+        user.save(force_update=True)
+        return 'User token deleted', 201

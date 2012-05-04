@@ -954,3 +954,4 @@ def return_if_debug(data, normal_mode_data = ''):
         return data
     else:
         return normal_mode_data
+

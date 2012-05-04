@@ -67,7 +67,13 @@ class common_test(TestCase):
             return ret, r.status
         else:
             return ret
-    
+
+    def _logout(self, token, evidence = 201, print_error = False):
+        """
+        """
+        c = httplib.HTTPConnection(host, port)
+        return self.srequest(c, '/services/user/logout', {'token' : token}, status = evidence, print_result = print_error)
+        
 
     def _delete_project(self, psid):
         """
@@ -152,6 +158,13 @@ class common_test(TestCase):
         return self.srequest(c, '/services/user/check',
                              fnone({'email' : email}),
                              status = evidence, get_status = True, print_result = print_error)
+
+    def _token_check(self, token, evidence, print_error = False):
+        c = httplib.HTTPConnection(host, port)
+        return self.srequest(c, '/services/token/check',
+                             {'token': token},
+                             status = evidence, print_result = print_error)
+    
 
     def _create_user_account(self, email, password, name, evidence = 201, print_error = False):
         c = httplib.HTTPConnection(host, port)
@@ -3094,6 +3107,19 @@ class mytest(common_test):
         self.assertIn('token', ret)
 
         self._delete_project(psid)
+
+    def test_logout(self, ):
+        """Login logout test"""
+        self._token_check('000000000', 409)
+        self._logout('000000000', evidence = 409)
+        token = self._get_authenticated_user('asdf34@asdf.ru', '123', '123')
+        self._token_check(token, 200)
+        self._logout(token, evidence = 201)
+        self._token_check(token, 409)
+        
+        
+        
+        
 
 if __name__ == '__main__':
     main()

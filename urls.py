@@ -65,6 +65,7 @@ urlpatterns = patterns('',
                        url(r'^services/user/auth$', 'services.views.authenticate_user_route'),
                        url(r'^services/user/check$', 'services.views.check_user_exists_route'),
                        url(r'^services/user/confirm$', 'services.views.confirm_account_route'),
+                       url(r'^services/user/logout$', 'services.views.logout_route'),
                        url(r'^services/user/new$', 'services.views.create_user_account_route'),
                        
     # url(r'^pycronies/', include('pycronies.foo.urls')),
