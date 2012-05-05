@@ -795,7 +795,10 @@ def exclude_participant_route(params): # ++TESTED
     """
 
 @transaction.commit_on_success
-@standard_request_handler({'psid' : _good_string})
+@standard_request_handler({'psid' : OrNone(''),
+                           'uuid' : OrNone('')})
+@proceed_checks({'lambda' : lambda a: a.get('psid') != None or a.get('uuid') != None,
+                 'caption' : 'psid or uuid must be declared'})
 @typical_json_responder(execute_list_activities, httplib.OK)
 def list_activities_route(params): # ++TESTED
     """
@@ -805,7 +808,8 @@ def list_activities_route(params): # ++TESTED
 
     Параметры запроса:
 
-    - `psid`: (строка) код доступа
+    - `psid`: (не обязательная строка) код доступа
+    - `uuid`: (не обязательная строка) uuid проекта 
 
     Возвращает JSON список словарей с ключами:
 
@@ -833,6 +837,10 @@ def list_activities_route(params): # ++TESTED
        Если статус мероприятия 'accepted', 'denied' или 'voted' то мероприятие
        показывается всем участникам. Если статус == 'created' то мероприятие
        будет показано только тому пользователю, который его создал.
+
+       Если тип доступа проекта sharing == 'open' то можно посмотреть список
+       мероприятий указав только uuid проекта. Если указан psid, то uuid игнорируется в
+       любом случае. Если тип sharing != 'open' то psid обязателен
 
     Статусы возврата:
 

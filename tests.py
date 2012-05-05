@@ -49,11 +49,19 @@ def string2datetime(val):
     else:
         raise ValueError('Could not parse string as datetme')
 
+def filterNone(data):
+    ret = {}
+    for k, v in data.iteritems():
+        if v != None:
+            ret[k] = v
+    return ret
+    
+
 class common_test(TestCase):
 
     def srequest(self, conn, route, data, status=None, print_result=False, get_status = False):
         dec = json.JSONDecoder()
-        request(conn, route, data)
+        request(conn, route, filterNone(data))
         r = conn.getresponse()
         ret = r.read()
         if print_result:
@@ -121,6 +129,44 @@ class common_test(TestCase):
                                    user_id = token,
                                    print_error = print_error)
         return (token,) + ret
+
+    def _create_activity(self, psid, name = 'default', begin = '2010-10-10 10:10:10', end = '2010-10-11 10:10:10', descr = None, evidence = 201, print_error = False):
+        """
+        return uuid of new activity
+        """
+        c = httplib.HTTPConnection(host, port)
+        dec = json.JSONDecoder()
+        ret = self.srequest(c, '/services/activity/create',
+                            {'psid' : psid,
+                             'name' : name,
+                             'descr' : descr,
+                             'begin' : begin,
+                             'end' : end}, status = evidence, print_result = print_error)
+        if evidence == 201:
+            return dec.decode(ret)['uuid']
+        else:
+            return ret
+
+    def _public_activity(self, psid, uuid, comment = None, evidence = 201, print_error = False):
+        c = httplib.HTTPConnection(host, port)
+        self.srequest(c, '/services/activity/public',
+                      {'psid' : psid,
+                       'uuid' : uuid,
+                       'comment' : comment},
+                      status = evidence, print_result = print_error)
+
+    def _list_activities(self, psid = None, uuid = None, evidence = 200, print_error = False):
+        c = httplib.HTTPConnection(host, port)
+        dec = json.JSONDecoder()
+        r = self.srequest(c, '/services/activity/list',
+                          {'psid' : psid,
+                           'uuid' : uuid},
+                          status = evidence, print_result = print_error)
+        if evidence == 200:
+            return dec.decode(r)
+        else:
+            return r
+        
             
     def _create_project(self,
                         name = 'project1',
@@ -3116,6 +3162,21 @@ class mytest(common_test):
         self._token_check(token, 200)
         self._logout(token, evidence = 201)
         self._token_check(token, 409)
+
+    def test_open_project_list_activities(self):
+        token = self._get_authenticated_user('asdf@asdf.ru', '1234', '1234')
+        psid, puuid = self._create_project()
+        auuid = self._create_activity(psid)
+        self._public_activity(psid, auuid)
+        self._list_activities(evidence = 412)
+        acts = self._list_activities(uuid = puuid)
+        acts2 = self._list_activities(psid = psid)
+        self.assertEqual(len(acts), 1)
+        self.assertEqual(len(acts2), 1)
+        self.assertEqual(acts[0], acts2[0])
+        self.assertEqual(acts[0]['uuid'], auuid)
+        self._delete_project(psid)
+        
         
         
         

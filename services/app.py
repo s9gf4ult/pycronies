@@ -677,15 +677,38 @@ def execute_conform_participant_vote(params, user):
     return execute_conform_participant({'psid' : params['psid'],
                                         'uuid' : part.uuid})
 
-@get_user
-def execute_list_activities(params, user):
-    prj = user.project
+def execute_list_activities(params):
+    psid = params.get('psid')
+    uuid = params.get('uuid')
+    user = None
+    prj = None
+    if psid != None:
+        user = get_authorized_user(psid)
+        if not isinstance(user, Participant):
+            return {'code' : ACCESS_DENIED,
+                    'caption' : 'This psid is not acceptable'}, httplib.PRECONDITION_FAILED
+        prj = user.project
+    else:
+        try:
+            prj = Project.objects.filter(uuid = uuid).all()[0]
+        except IndexError:
+            return {'code' : PROJECT_NOT_FOUND,
+                    'caption' : 'Project with such uuid is not found'}, httplib.PRECONDITION_FAILED
+
     ret = []
-    for act in prj.activity_set.filter(Q(activityparameter__tpclass='status') &
-                                       Q(activityparameter__activityparameterval__status='accepted') &
-                                       (Q(activityparameter__activityparameterval__value__in=['voted', 'accepted', 'denied']) |
-                                        (Q(activityparameter__activityparameterval__value='created') &
-                                         Q(activityparameter__activityparameterval__activityparametervote__voter=user)))).distinct().all():
+
+    if isinstance(user, Participant):
+        activityset = prj.activity_set.filter(Q(activityparameter__tpclass='status') &
+                                              Q(activityparameter__activityparameterval__status='accepted') &
+                                              (Q(activityparameter__activityparameterval__value__in=['voted', 'accepted', 'denied']) |
+                                               (Q(activityparameter__activityparameterval__value='created') &
+                                                Q(activityparameter__activityparameterval__activityparametervote__voter=user)))).distinct().all()
+    else:
+        activityset = prj.activity_set.filter(Q(activityparameter__tpclass='status') &
+                                              Q(activityparameter__activityparameterval__status='accepted') &
+                                              Q(activityparameter__activityparameterval__value__in=['voted', 'accepted', 'denied'])).distinct().all()
+
+    for act in activityset:
 
         a = {'uuid' : act.uuid,
              'name' : act.name,
@@ -705,12 +728,15 @@ def execute_list_activities(params, user):
                             'comment' : vtss.comment,
                             'dt' : vtss.create_date.isoformat()})
         a['votes'] = vts
-        a['participant'] = ActivityParticipant.objects.filter(Q(participant=user) &
-                                                              Q(activity=act) &
-                                                              Q(activityparticipantparameter__tpclass='status') &
-                                                              Q(activityparticipantparameter__activityparticipantparameterval__status='accepted') &
-                                                              Q(activityparticipantparameter__activityparticipantparameterval__value='accepted')).count() > 0
-
+        if isinstance(user, Participant):
+            a['participant'] = ActivityParticipant.objects.filter(Q(participant=user) &
+                                                                  Q(activity=act) &
+                                                                  Q(activityparticipantparameter__tpclass='status') &
+                                                                  Q(activityparticipantparameter__activityparticipantparameterval__status='accepted') &
+                                                                  Q(activityparticipantparameter__activityparticipantparameterval__value='accepted')).count() > 0
+        else:
+            a['participant'] = False
+            
         ret.append(a)
 
     return ret, httplib.OK
@@ -858,7 +884,7 @@ def activate_all_activity_resouces(act, user):
             if len(vtvals) == 1:
                 set_vote_for_object_parameter(ares, user, vtvals[0].value, uuid = aresparam.uuid)
                 conform_resource_parameter(None, aresparam, user)
-        
+
 def activate_all_activity_parameters(act, user):
     for aparam in act.activityparameter_set.filter(Q(activityparameterval__status = 'voted')).distinct().all():
         vls = aparam.activityparameterval_set.filter(status='voted').all()
@@ -1038,14 +1064,14 @@ def despot_conform_activity_parameter(params, ap, user):
     if not user.is_initiator:
         return 'You are not initiator, just ignore', httplib.CREATED
     return just_change_activity_parameter(params, ap, user)
-    
+
 def just_change_activity_parameter(params, ap, user):
     apvt = get_vote_value_for_object_parameter(ap.obj, user, uuid=ap.uuid)
     if apvt == None:
         return 'Nothing to conform', httplib.CREATED
     set_as_accepted_value_of_object_parameter(apvt)
     return 'Value changed', httplib.CREATED
-    
+
 
 @get_user
 def execute_create_project_resource(params, user):
@@ -1187,7 +1213,7 @@ def list_project_resources(params, user):
             q &= Q(participantresource__amount__gt = 0)
         p['used'] = res.activityresource_set.filter(q).count() > 0
         p['amount'] = get_full_resource_amount(res)
-        
+
         cnt = []
         for c in Contractor.objects.filter(Q(contractoroffer__resource = res)).distinct().all():
             cc = {'name' : c.name,
@@ -1609,14 +1635,14 @@ def execute_use_contractor(params, user):
     prmt = get_or_create_object_parameter(cntu, 'amount', True, descr = 'amount of resource to use with contractor')
     set_vote_for_object_parameter(cntu, user, am, uuid = prmt.uuid)
     return conform_use_contractor(params, cntu, res, user)
-    
+
 def conform_use_contractor(params, cntu, res, user):
     prj = user.project
     if prj.ruleset == 'despot' :
         return despot_conform_use_contractor(params, cntu, res, user)
     else:
         return 'Conform contractor usage is not implemented for project ruleset = {0}'.format(prj.ruleset), httplib.NOT_IMPLEMENTED
-        
+
 def despot_conform_use_contractor(params, cntu, res, user):
     if not user.is_initiator:
         return 'You are not initiator, ignore conforming', httplib.CREATED
@@ -1656,7 +1682,7 @@ def despot_conform_use_contractor(params, cntu, res, user):
 #     ret['resources'] = res
 #     ret['cost'] = sum([a['cost'] for a in res])
 #     return ret, httplib.OK
-        
+
 
 # @get_user
 # def execute_activity_statistics(params, user):
@@ -1780,7 +1806,7 @@ def get_full_resource_cost(res):
             ret += amount * float(off.cost)
     return ret
 
-        
+
 def get_participant_personal_resouce_stats(part, res):
     ares = res.activityresource_set.filter(Q(activity__activityparameter__tpclass = 'status') &
                                            Q(activity__activityparameter__activityparameterval__status = 'accepted')&
@@ -1835,7 +1861,7 @@ def execute_contractor_offer_resource(params):
     except IndexError:
         return {'code' : RESOURCE_NOT_FOUND,
                 'caption' : 'Resource is not found'}, httplib.PRECONDITION_FAILED
-    
+
     try:
         cnt = Contractor.objects.filter(user_id = params['user']).all()[0]
     except IndexError:
@@ -1850,7 +1876,7 @@ def execute_contractor_offer_resource(params):
     else:
         ContractorOffer.objects.filter(Q(contractor=cnt) & Q(resource=res)).delete()
     return 'Created', httplib.CREATED
-                                                 
+
 
 def execute_contractor_list_project_resources(params):
     try:
@@ -1990,7 +2016,7 @@ def execute_authenticate_user(params):
 def execute_confirm_user_by_long_confirmation(confirmation):
     """
     Arguments:
-    
+
     - `confirmaion`:
     """
     try:
@@ -2015,9 +2041,9 @@ def execute_check_token(params):
             return {'temp' : True}, 200
     else:
         return {'temp' : False}, 200
-    
-        
-        
+
+
+
 
 
 def execute_logout(params):
