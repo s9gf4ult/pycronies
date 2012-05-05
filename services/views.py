@@ -118,6 +118,7 @@ def list_projects_route(pars):  # ++TESTED
        - `budget`: Формирование бюджета
        - `control`: Контроль
        - `closed`: Закрыт
+    - `participants`: integer: количество участников проекта
     - `begin_date`: возвратить только проекты позже этой даты, дата - строка в ISO формате
     - `search`: строка поиска, должна встречаться в имени или описании проекта
 
@@ -185,6 +186,7 @@ def list_user_projects_route(params): # ++TESTED
        - `budget`: Формирование бюджета
        - `control`: Контроль
        - `closed`: Закрыт
+    - `participants`: integer: количество участников проекта
 
     Поведение:
 

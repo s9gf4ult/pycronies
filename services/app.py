@@ -133,6 +133,7 @@ def execute_list_projects(props):
                            'descr' : a.descr,
                            'sharing' : a.sharing,
                            'ruleset': a.ruleset,
+                           'participants' : a.participant_set.count(),
                            'begin_date' : a.begin_date.isoformat() if a.begin_date != None else None,
                            'end_date' : a.end_date.isoformat() if a.end_date != None else None} for a in ret]}
 
@@ -158,6 +159,7 @@ def execute_list_user_projects(params):
         ret.append({'uuid' : pr.uuid,
                     'name' : pr.name,
                     'descr' : pr.descr,
+                    'participants' : pr.participant_set.count(),
                     'begin_date' : pr.begin_date.isoformat() if pr.begin_date != None else None,
                     'initiator' : part.is_initiator,
                     'status' : get_object_status(pr)})
