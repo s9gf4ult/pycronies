@@ -131,6 +131,8 @@ def execute_list_projects(props):
             'projects' : [{'uuid' : a.uuid,
                            'name' : a.name,
                            'descr' : a.descr,
+                           'sharing' : a.sharing,
+                           'ruleset': a.ruleset,
                            'begin_date' : a.begin_date.isoformat() if a.begin_date != None else None,
                            'end_date' : a.end_date.isoformat() if a.end_date != None else None} for a in ret]}
 

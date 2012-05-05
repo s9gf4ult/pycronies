@@ -126,9 +126,17 @@ def list_projects_route(pars):  # ++TESTED
     - `pages`: (целое) число страниц при указанном количестве проектов на страницу, если количество проектов
       не указано, возвращает количество проектов вообще, то есть совпадает с длинной списка `projects`
     - `projects` : список словарей с ключами:
-       - `uuid`: string with uuid of project
-       - `name`: name of project
-       - `descr`: description of project
+       - `uuid`: uuid проекта
+       - `name`: строка, имя проекта
+       - `sharing`: вход в проект
+          - `open`: проект открытый
+          - `close`: проект закрытый
+          - `invitation`: проект по приглашению
+       - `ruleset`: строка, тип управления проекта
+          - `despot`: управление инициатором
+          - `vote`: управление голосованием
+          - `auto`: управление автоматически
+       - `descr`: описание проекта
        - `begin_date`: datetime table, begin date of project
        - `end_date`: дата время окончания проекта строка в ISO формате
        - `participants`: количество участников в проекте
