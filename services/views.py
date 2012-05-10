@@ -98,7 +98,8 @@ def create_project_route(prs):  # ++TESTED
                            'projects_per_page' : OrNone(_good_int),
                            'status' : OrNone(Any(*[Equal(a[0]) for a in Project.PROJECT_STATUS])),
                            'begin_date' : OrNone(DateTimeString()),
-                           'search' : OrNone(_good_string)})
+                           'search' : OrNone(_good_string),
+                           'uuid' : OrNone('')})
 @translate_parameters({'search' : translate_string})
 def list_projects_route(pars):  # ++TESTED
     """
@@ -121,6 +122,7 @@ def list_projects_route(pars):  # ++TESTED
     - `participants`: integer: количество участников проекта
     - `begin_date`: возвратить только проекты позже этой даты, дата - строка в ISO формате
     - `search`: строка поиска, должна встречаться в имени или описании проекта
+    - `uuid`: uuid проекта, если нужно вывести информацию только об одном проекте
 
     Возвращает JSON словарь с ключами:
 

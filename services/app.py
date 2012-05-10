@@ -100,6 +100,8 @@ def execute_list_projects(props):
         qry = none_and(qry, Q(begin_date__gte = string2datetime(props['begin_date'])))
     if props.get('search') != None:
         qry = none_and(qry, (Q(name__contains=props['search']) | Q(descr__contains=props['search'])))
+    if props.get('uuid') != None:
+        qry = none_and(qry, Q(uuid=props['uuid']))
 
     qr = None                   # сформированный запрос для выборки
     if qry == None:

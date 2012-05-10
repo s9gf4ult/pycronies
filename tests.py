@@ -6,6 +6,7 @@ import httplib, urllib
 import json
 from services.statuses import *
 import datetime
+import random
 
 host = '127.0.0.1'
 port = 8000
@@ -298,22 +299,36 @@ class mytest(common_test):
         enc, dec = getencdec()
         c = httplib.HTTPConnection(host, port)
         psids=[]
+        puuids = []
         for x in range(0, 50):
             request(c, '/services/project/create', {'name' : u'test project {0}'.format(x),
-                                           'descr' : u'description blah blah',
-                                           'begin_date' : datetime.datetime(2012, 3, 13, 12, 12, x).isoformat(),
-                                           'sharing' : 'open',
-                                           'ruleset' : 'despot',
-                                           'user_name' : u'Spiderman'})
+                                                    'descr' : u'description blah blah',
+                                                    'begin_date' : datetime.datetime(2012, 3, 13, 12, 12, x).isoformat(),
+                                                    'sharing' : 'open',
+                                                    'ruleset' : 'despot',
+                                                    'user_name' : u'Spiderman'})
             r = c.getresponse()
             self.assertEqual(r.status, httplib.CREATED)
-            psids.append(dec.decode(r.read())['psid'])
+            d = dec.decode(r.read())
+            psids.append(d['psid'])
+            puuids.append(d['uuid'])
         # пробуем посмотреть все проекты
         request(c, '/services/project/list', {})
         r = c.getresponse()
         self.assertEqual(r.status, httplib.OK)
         resp = dec.decode(r.read())
-        self.assertEqual(len(resp['projects']), 50) # мы не знаем выполнился ли тест на создание проектов раньше
+        self.assertEqual(len(resp['projects']), 50) # мы не знаем выполнился ли
+# тест на создание проектов раньше
+
+        # пробуем смотреть только определенные проекты
+        puuid = random.choice(puuids)
+        r = self.srequest(c, '/services/project/list',
+                          {'uuid' : puuid}, httplib.OK)
+        d = dec.decode(r)
+        self.assertEqual(len(d['projects']), 1)
+        self.assertEqual(d['projects'][0]['uuid'], puuid)
+        
+        
 
         # пробуем посмотреть проекты по строке поиска
         request(c, '/services/project/list', {'search' : 'test project'})
@@ -355,37 +370,7 @@ class mytest(common_test):
         for psid in psids:
             self._delete_project(psid)
 
-    # def test_list_user_projects_route(self, ):
-    #     """
-    #     """
-    #     enc, dec = getencdec()
-    #     c = httplib.HTTPConnection(host, port)
-    #     request(c, '/services/project/create', {'name' : 'test',
-    #                                             'sharing' : 'open',
-    #                                             'ruleset' : 'despot',
-    #                                             'user_name' : 'mega_user',
-    #                                             'user_id' : 'test_id'})
-    #     r = c.getresponse()
-    #     self.assertEqual(r.status, httplib.CREATED)
-    #     psid = dec.decode(r.read())['psid']
-    #     request(c, '/services/project/list/userid', {'user_id' : 'test_id'})
-    #     r = c.getresponse()
-    #     self.assertEqual(r.status, httplib.OK)
-    #     resp = dec.decode(r.read())
-    #     self.assertEqual(1, len(resp))
-    #     self.assertEqual(resp[0]['name'], 'test')
-    #     self.assertEqual(resp[0]['initiator'], True)
-    #     self.assertEqual(resp[0]['status'], 'opened')
-
-    #     r = self.srequest(c, '/services/project/list/userid', {'user_id' : '11111111111'}, httplib.OK) # такого ид в базе нет
-    #     self.assertEqual(0, len(dec.decode(r)))
-
-    #     self._delete_project(psid)
-    # так как мы должны указывать token пользователя либо token приглашения то
-    # этот тест не может быть выполнен без выполнения приглашения или
-    # регистрации пользователя
-
-
+            
     def test_change_project_status(self, ):
         """
         """
@@ -3177,7 +3162,7 @@ class mytest(common_test):
         self.assertEqual(acts[0]['uuid'], auuid)
         self._delete_project(psid)
         
-        
+
         
         
         
