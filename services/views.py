@@ -21,7 +21,8 @@ from services.app import execute_create_project, execute_list_projects, execute_
     execute_create_contractor, execute_use_contractor,  execute_participant_statistics, \
     execute_contractor_offer_resource, execute_contractor_list_project_resources, execute_list_contractors, \
     execute_set_resource_costs, execute_check_user_exists, execute_ask_user_confirmation, execute_create_user_account, \
-    execute_confirm_account, execute_authenticate_user, execute_confirm_user_by_long_confirmation, execute_check_token, execute_logout
+    execute_confirm_account, execute_authenticate_user, execute_confirm_user_by_long_confirmation, execute_check_token, execute_logout, \
+    execute_check_project_participation, execute_exit_project
 
 from services.common import getencdec, standard_request_handler, typical_json_responder, translate_parameters, parse_json, \
     translate_values, translate_string, proceed_checks, naive_json_responder
@@ -2344,6 +2345,59 @@ def check_token_route(params):
     - `500`: ошибка сервера
     """
     pass
+
+
+@transaction.commit_on_success
+@standard_request_handler({'token' : ''})
+@typical_json_responder(execute_check_project_participation, 200)
+def check_project_participation_route(params):
+    """
+    ** Проверка участия пользователя в проекте **
+
+    путь запроса: **/project/participation/check**
+
+    Параметры запроса:
+
+    - `token`: токен пользователя или участника проекта
+    - `uuid`: uuid проекта
+
+    Статусы возврата:
+
+    - `200`: ok
+    - `409`: токен не найден либо токен не участвует в проекте
+    - `412`: не верные данные с описанием в теле ответа либо ошибка другого рода
+    - `500`: ошибка сервера
+    """
+    pass
+
+@transaction.commit_on_success
+@standard_request_handler({'token' : '',
+                           'uuid' : ''})
+@typical_json_responder(execute_exit_project, 201)
+def exit_project_route(params):
+    """
+    ** Выйти из проекта **
+
+    путь запроса: **/project/exit**
+
+    Параметры запроса:
+
+    - `token`: токен пользователя или участника проекта
+    - `uuid`: uuid проекта
+
+    Статус 412:
+
+    - `ACCESS_DENIED`: нельзя менять проект
+    
+    Статусы возврата:
+
+    - `201`: ok
+    - `409`: не найден проект или пользователь
+    - `412`: не верные данные с описанием в теле ответа либо ошибка другого рода
+    - `500`: ошибка сервера
+    """
+    pass
+
 
 @transaction.commit_on_success
 @standard_request_handler({'token' : ''})

@@ -251,6 +251,65 @@ class common_test(TestCase):
                              'confirmation' : confirmation}),
                       status = evidence, print_result = print_error)
 
+    def _enter_open_project(self, uuid, name, descr = None, user_id = None, evidence = 201, print_error = False):
+        """Eneter to open project and return psid and auth token"""
+        c = httplib.HTTPConnection(host, port)
+        dec = json.JSONDecoder()
+        r = self.srequest(c, '/services/project/enter/open',
+                          {'uuid' : uuid,
+                           'name' : name,
+                           'descr' : descr,
+                           'user_id' : user_id}, status = evidence, print_result = print_error)
+        if evidence == 201:
+            d = dec.decode(r)
+            return d['psid'], d['token']
+        else:
+            return r
+
+    def _list_projects(self, page_number = 0, projects_per_page = None,
+                       status = None, participants = None,
+                       begin_date = None,
+                       search = None, uuid = None,
+                       evidence = 200, print_error = False):
+        """Return Projects list and pages count"""
+        c = httplib.HTTPConnection(host, port)
+        dec = json.JSONDecoder()
+        r = self.srequest(c, '/services/project/list',
+                          {'page_number' : page_number,
+                           'projects_per_page' : projects_per_page,
+                           'status' : status,
+                           'participants' : participants,
+                           'begin_date' : begin_date,
+                           'search' : search,
+                           'uuid' : uuid},
+                          status = evidence, print_result = print_error)
+        if evidence == 200:
+            d = dec.decode(r)
+            return d['projects'], d['pages']
+        else:
+            return r
+
+    def _exit_project(self, token, uuid, evidence = 201, print_error = False):
+        c = httplib.HTTPConnection(host, port)
+        self.srequest(c, '/services/project/exit',
+                      {'token' : token,
+                       'uuid' : uuid},
+                      status = evidence, print_result = print_error)
+
+    def _check_project_participation(self, token, uuid, evidence = 200, print_error = False):
+        c = httplib.HTTPConnection(host, port)
+        self.srequest(c, '/services/project/participation/check',
+                      {'token' : token,
+                       'uuid' : uuid},
+                      status = evidence, print_result = print_error)
+
+    def _change_project_status(self, psid, status, evidence = 201, print_error = False):
+        c = httplib.HTTPConnection(host, port)
+        self.srequest(c, '/services/project/status/change',
+                      {'psid' : psid,
+                       'status' : status},
+                      status = evidence, print_result = print_error)
+        
 
 class mytest(common_test):
     """
@@ -3162,9 +3221,21 @@ class mytest(common_test):
         self.assertEqual(acts[0]['uuid'], auuid)
         self._delete_project(psid)
         
-
-        
-        
+    def test_enter_exit_project(self):
+        token, psid, uuid = self._auth_user_and_get_project()
+        self._change_project_status(psid, 'planning')
+        psid2, token2 = self._enter_open_project(uuid, 'name1')
+        self._check_project_participation(token, uuid, evidence = 200)
+        self._check_project_participation(token2, uuid, evidence = 200)
+        prjs, pages = self._list_projects()
+        self.assertEqual(len(prjs), 1)
+        self._exit_project(token2, uuid)
+        self._check_project_participation(token2, uuid, evidence = 409) # больше не участник
+        self._exit_project(token, uuid) # вышел последний участник - проект
+# уничтожается
+        self._check_project_participation(token, uuid, evidence = 409)
+        prjs, pages = self._list_projects()
+        self.assertEqual(len(prjs), 0)
         
 
 if __name__ == '__main__':

@@ -2060,9 +2060,65 @@ def execute_logout(params):
         except IndexError:
             return 'user not found', 409
         else:
-            partic.delete()
-            return 'Participant deleted', 201
+            proj = partic.project
+            if can_change_project(proj):
+                partic.delete()
+                kill_project_if_need(proj)
+                return 'Participant deleted', 201
+            else:
+                return 'Project can not be changed', 201
     else:
         user.token = None
         user.save(force_update=True)
         return 'User token deleted', 201
+
+def execute_check_project_participation(params):
+    token = params['token']
+    uuid = params['uuid']
+    if Project.objects.filter(Q(uuid=uuid) & (Q(participant__token = token) | Q(participant__user__token = token))).count() == 0:
+        return '', 409
+    else:
+        return '', 200
+    
+
+def execute_exit_project(params):
+    token = params['token']
+    uuid = params['uuid']
+    try:
+        proj = Project.objects.filter(uuid=uuid).all()[0]
+    except IndexError:
+        return {'code' : PROJECT_NOT_FOUND,
+                'caption' : 'Can not find project'}, 409
+    else:
+        try:
+            user = User.objects.filter(token = token).all()[0]
+        except IndexError:
+            try:
+                partic = Participant.objects.filter(token = token).all()[0]
+            except IndexError:
+                return {'code' : PARTICIPANT_NOT_FOUND,
+                        'caption' : 'Can not find such participant'}, 409
+            else:
+                if can_change_project(proj):
+                    partic.delete()
+                    kill_project_if_need(proj)
+                    return 'Participant deleted', httplib.CREATED
+                else:
+                    return {'code' : ACCESS_DENIED,
+                            'caption' : 'Can not change project'}, httplib.PRECONDITION_FAILED
+        else:
+            if can_change_project(proj):
+                Participant.objects.filter(Q(user=user) & Q(project=proj)).delete()
+                kill_project_if_need(proj)
+                return 'User exited', httplib.CREATED
+            else:
+                return {'code' : ACCESS_DENIED,
+                        'caption' : 'Can not change project'}, httplib.PRECONDITION_FAILED
+            
+def kill_project_if_need(proj):
+    if proj.participant_set.count() == 0:
+        proj.delete()
+
+def can_change_project(proj):
+    st = get_object_status(proj)
+    return st != 'closed'
