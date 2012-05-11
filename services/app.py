@@ -93,7 +93,7 @@ def execute_list_projects(props):
         else:
             return (fst & snd)
 
-    qry = Q(sharing='open')     # сформированное условие для отбора
+    qry = None     # сформированное условие для отбора
     if props.get('status') != None:
         qry = none_and(qry, (Q(projectparameter__tpclass='status') & Q(projectparameter__projectparameterval__status='accepted') & Q(projectparameter__projectparameterval__value=props['status'])))
     if props.get('begin_date') != None:
@@ -102,6 +102,8 @@ def execute_list_projects(props):
         qry = none_and(qry, (Q(name__contains=props['search']) | Q(descr__contains=props['search'])))
     if props.get('uuid') != None:
         qry = none_and(qry, Q(uuid=props['uuid']))
+    else:
+        qry = none_and(qry, Q(sharing='open'))
 
     qr = None                   # сформированный запрос для выборки
     if qry == None:
