@@ -578,24 +578,55 @@ def despot_conform_participant(voter, prt, params):
                     PROJECT_NOT_FOUND,
                     u'No such project')
 def execute_enter_project_open(params, prj):   #++TESTED
+    if params.get('name') == None and params.get('user_id') == None:
+        return {'code' : PARAMETERS_BROKEN,
+                'caption' : 'You must define at least  `user_id` or `name` parameter'}, httplib.PRECONDITION_FAILED
     if prj.sharing != 'open':
         return {'code' : PROJECT_MUST_BE_OPEN,
                 'caption' : 'You can join just to open projects'}, httplib.PRECONDITION_FAILED
     if get_object_status(prj) != 'planning':
         return {'code' : PROJECT_STATUS_MUST_BE_PLANNING,
                 'caption' : 'Project status is not "planning"'}, httplib.PRECONDITION_FAILED
+    
     prt = Participant(project=prj, dt=datetime.now(),
-                      is_initiator=False, psid=hex4(), token=hex4(), name=params['name'])
-
-    if params.get('descr') != None:
-        prt.descr = params['descr']
+                      is_initiator=False, psid=hex4(), token=hex4())
+    
     if params.get('user_id') != None:
         try:
-            u = User.objects.filter(token = params['user_id']).all()[0]
+            u = Participant.objects.filter(token = params['user_id']).all()[0]
         except IndexError:
-            pass
+            try:
+                u = User.objects.filter(token = params['user_id']).all()[0]
+            except IndexError:
+                if params.get('name') == None:
+                    return {'code' : USER_NOT_FOUND,
+                            'caption' : 'Can not find participant or user'}, httplib.PRECONDITION_FAILED
+                else:
+                    prt.name = params['name']
+                if params.get('descr') != None:
+                    prt.descr = params['descr']
+            else:
+                prt.user = u
+                
+                if params.get('name') == None:
+                    prt.name = u.name
+                else:
+                    prt.name = params['name']
+
+                if params.get('descr') == None:
+                    prt.descr = u.descr
+                else:
+                    prt.descr = params['descr']
         else:
-            prt.user = u
+            u.psid = hex4()
+            u.save(force_update=True)
+            return {'psid' : u.psid, # u - is an existing participant
+                    'token' : u.token}, httplib.CREATED
+    else:
+        prt.name = params['name']
+        if params.get('descr') != None:
+            prt.descr = params['descr']
+            
     try:
         prt.save(force_insert = True)
     except IntegrityError:

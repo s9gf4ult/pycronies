@@ -676,7 +676,7 @@ def conform_participant_vote_route(params):
 
 @transaction.commit_on_success
 @standard_request_handler({'uuid' : _good_string,
-                           'name' : '',
+                           'name' : OrNone(''),
                            'descr' : OrNone(''),
                            'user_id' : OrNone('')})
 @translate_parameters({'name' : translate_string,
@@ -692,14 +692,23 @@ def enter_project_open_route(params): # ++TESTED
     Параметры запроса:
 
     - `uuid`: ид проекта
-    - `name`: имя участника
-    - `descr`: описание участника может быть None
+    - `name`: не обязательное имя участника
+    - `descr`: не обазательное описание участника
     - `user_id`: не обязательный token зарегистрированного пользователя
 
     возвращает JSON словарь:
 
     - `psid`: ключ доступа
     - `token`: токен приглашения
+
+    Поведение:
+
+       Если указан user_id, то имя пользователя и описание берутся из
+       пользователя в том случае, если не указаны `name` и `descr`
+       соответственно не указаны. Используется `name` и `descr` только тогда,
+       когда `user_id` не указан, либо пользователь с таким `user_id` не
+       найден. Один из параметров `name` или `user_id` должен быть указан, в
+       противном случае исключение
 
     Статус 412:
 
