@@ -2108,12 +2108,31 @@ def execute_logout(params):
 def execute_check_project_participation(params):
     token = params['token']
     uuid = params['uuid']
-    if Project.objects.filter(Q(uuid=uuid) & (Q(participant__token = token) | Q(participant__user__token = token))).count() == 0:
-        return '', 409
+    try:
+        prj = Project.objects.filter(uuid = uuid).all()[0]
+    except IndexError:
+        return 'There is no such project', 409
+        
+    try:
+        prt = Participant.objects.filter(token = token).all()[0]
+    except IndexError:
+        try:
+            u = User.objects.filter(token = token).all()[0]
+        except IndexError:
+            return 'There is no such user', 409
+        else:
+            try:
+                prt = Participant.objects.filter(Q(project = prj) & Q(user = u)).all()[0]
+            except IndexError:
+                return 'Do not participate', 409
+            else:
+                return {'initiator' : prt.is_initiator}, 200
     else:
-        return '', 200
-    
-
+        if prt.project == prj:
+            return {'initiator' : prt.is_initiator}, 200
+        else:
+            return 'Do not particiapate', 409
+                
 def execute_exit_project(params):
     token = params['token']
     uuid = params['uuid']
