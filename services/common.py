@@ -1,21 +1,22 @@
 #! /bin/env python
 # -*- coding: utf-8 -*-
 
-import django.http as http
-from django.db.models import Q
-from django.db import transaction, IntegrityError
+from copy import copy
+from django.conf import settings
 from django.contrib.auth.hashers import make_password, check_password
 from django.contrib.sites.models import Site
-from django.conf import settings
-import django.core.mail
-import httplib
-import datetime
-import re
-import cgi
-import json
+from django.db import transaction, IntegrityError
+from django.db.models import Q
+from django.utils import simplejson
 from functools import wraps
 from svalidate import Validate
-from copy import copy
+import cgi
+import datetime
+import django.core.mail
+import django.http as http
+import httplib
+import json
+import re
 from services.statuses import PARAMETERS_BROKEN, ACCESS_DENIED, ACTIVITY_PARAMETER_NOT_FOUND, ACTIVITY_IS_NOT_ACCEPTED, \
     ACTIVITY_NOT_FOUND, RESOURCE_NOT_FOUND, ACTIVITY_RESOURCE_NOT_FOUND, ACTIVITY_RESOURCE_IS_NOT_ACCEPTED, RESOURCE_PARAMETER_NOT_FOUND
 from services.models import Participant, Activity, ActivityParameter, parameter_class_map, DefaultParameterVl, Resource, \
@@ -55,12 +56,21 @@ def get_json_from_body(request):
     
     - `request`: HttpRequest
     """
-    dec = json.JSONDecoder()
     try:
-        h = dec.decode(request.body)
-    except:
-        h = {}
-    return h
+        h = simplejson.loads(request.body, encoding = request.encoding)
+    except ValueError, TypeError:
+        return {}
+    else:
+        return h
+
+
+    
+    # dec = json.JSONDecoder()
+    # try:
+    #     h = dec.decode(request.body)
+    # except:
+    #     h = {}
+    # return h
     
 
 def get_json_from_parameters(request):

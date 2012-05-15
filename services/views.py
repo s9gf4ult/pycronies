@@ -1,10 +1,15 @@
 # Create your views here.
 # -*- coding: utf-8 -*-
 
-import django.http as http
+from copy import copy
+from django.conf import settings
+from django.core.validators import email_re
 from django.db import transaction
-import json
+from svalidate import OrNone, Any, DateTimeString, RegexpMatch, Equal, JsonString, Able, Validate, Checkable, Each
+import django.http as http
 import httplib
+import json
+
 from services.app import execute_create_project, execute_list_projects, execute_list_user_projects, \
     execute_change_project_status, execute_list_default_parameters, execute_create_project_parameter, \
     execute_list_project_parameters, execute_create_project_parameter_from_default, execute_change_participant, \
@@ -27,11 +32,9 @@ from services.app import execute_create_project, execute_list_projects, execute_
 from services.common import getencdec, standard_request_handler, typical_json_responder, translate_parameters, parse_json, \
     translate_values, translate_string, proceed_checks, naive_json_responder
 from services.models import Project, Resource
-from django.conf import settings
 from services.statuses import PARAMETERS_BROKEN
-from svalidate import OrNone, Any, DateTimeString, RegexpMatch, Equal, JsonString, Able, Validate, Checkable, Each
-from copy import copy
-from django.core.validators import email_re
+
+
 def is_valid_email(email):
     return True if isinstance(email, basestring) and email_re.match(email) else False
 
