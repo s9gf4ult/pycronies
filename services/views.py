@@ -539,7 +539,8 @@ def change_participant_route(params): # ++TESTED
     return http.HttpResponse(enc.encode(ret), status=stat, content_type='application/json')
 
 @transaction.commit_on_success
-@standard_request_handler({'psid' : _good_string})
+@standard_request_handler({'psid' : OrNone(''),
+                           'uuid' : OrNone('')})
 @typical_json_responder(execute_list_participants, httplib.OK)
 def list_participants_route(params): # ++TESTED
     """
@@ -549,7 +550,8 @@ def list_participants_route(params): # ++TESTED
 
     Параметры запроса:
 
-    - `psid`: ключ доступа
+    - `psid`: не обязательный ключ доступа
+    - `uuid`: не обязательный uuid проекта
 
     Возвращает список json словарей с ключами:
 
@@ -569,6 +571,12 @@ def list_participants_route(params): # ++TESTED
        - `dt`: Дата и время предложения, строка в ISO формате
     - `me`: Bool признак того что этот пользователь - и есть мы
 
+    Поведение:
+
+       Если `psid` не указан, то проект берется из `uuid` проекта. Можно
+       просматривать список пользователей только для открытых проектов
+       (`sharing` == "open"), если проект не является открытым, то возвращается
+       PROJECT_MUST_BE_OPEN
 
     Статусы возврата:
 

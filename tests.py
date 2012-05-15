@@ -309,6 +309,18 @@ class common_test(TestCase):
                       {'psid' : psid,
                        'status' : status},
                       status = evidence, print_result = print_error)
+
+    def _list_participants(self, psid = None, uuid = None, evidence = 200, print_error = False):
+        c = httplib.HTTPConnection(host, port)
+        dec = json.JSONDecoder()
+        r = self.srequest(c, '/services/participant/list',
+                          {'psid' : psid,
+                           'uuid' : uuid},
+                          status = evidence, print_result = print_error)
+        if evidence == 200:
+            return dec.decode(r)
+        else:
+            return r
         
 
 class mytest(common_test):
@@ -3236,6 +3248,18 @@ class mytest(common_test):
         self._check_project_participation(token, uuid, evidence = 409)
         prjs, pages = self._list_projects()
         self.assertEqual(len(prjs), 0)
+
+    def test_list_participants_open_project(self):
+        token, psid, puuid = self._auth_user_and_get_project()
+        self._change_project_status(psid, 'planning')
+        psid2, token2 = self._enter_open_project(puuid, 'name1')
+        prts = self._list_participants(psid = psid)
+        prts2 = self._list_participants(psid = psid, uuid = puuid)
+        prts3 = self._list_participants(uuid = puuid)
+        self.assertEqual(prts, prts2)
+        self.assertEqual(set([a['uuid'] for a in prts]), set([a['uuid'] for a in prts3]))
+        self._delete_project(psid)
+        
         
 
 if __name__ == '__main__':

@@ -453,16 +453,38 @@ def execute_change_participant(params, user):
 
     return 'OK', httplib.CREATED
 
-@get_user
-def execute_list_participants(params, part):
-    prj = part.project
+# @get_user
+def execute_list_participants(params):
+    user = None
+    if params.get('psid') != None:
+        user = get_authorized_user(params['psid'])
+        if user == None:
+            return 'Participant not found', httplib.NOT_FOUND
+        elif user == False:
+            return {'code' : ACCESS_DENIED,
+                    'caption' : 'This user is not allowed'}, httplib.PRECONDITION_FAILED
+        prj = user.project
+    elif params.get('uuid') != None:
+        try:
+            prj = Project.objects.filter(uuid = params['uuid']).all()[0]
+        except IndexError:
+            return {'code' : PROJECT_NOT_FOUND,
+                    'caption' : 'Project not found'}, httplib.PRECONDITION_FAILED
+        else:
+            if prj.sharing != 'open':
+                return {'code' : PROJECT_MUST_BE_OPEN,
+                        'caption' : 'You can not see this project'}, httplib.PRECONDITION_FAILED
+    else:
+        return {'code' : PARAMETERS_BROKEN,
+                'caption' : 'You must specify at least `psid` or `uuid` parameter'}, httplib.PRECONDITION_FAILED
+    
     ret = []
     # получаем список участников проекта
     for par in Participant.objects.filter(project=prj).all():
         a = {'uuid' : par.uuid,
              'name' : par.name,
              'descr' : par.descr,
-             'me' : part.uuid == par.uuid,
+             'me' : user.uuid == par.uuid if user != None else False,
              'status' : get_object_status(par)}
 
         # смотрим список предложений по участнику
