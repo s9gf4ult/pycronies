@@ -1171,15 +1171,45 @@ def execute_include_personal_resource(params, actres, resource, act, user):
         ParticipantResource.objects.filter(resource = actres, participant = ap).delete()
         return 'Deleted', httplib.CREATED
 
-@get_user
-def execute_list_activity_resources(params, user):
-    if isinstance(params.get('uuid'), basestring):
-        return list_activity_resources(params, user)
+# @get_user
+def execute_list_activity_resources(params):
+    user = None
+    if params.get('psid') != None:
+        user = get_authorized_user(params['psid'])
+        if user == None:
+            return {'code' : PARTICIPANT_NOT_FOUND,
+                    'caption' : 'Participant is not found'}, httplib.PRECONDITION_FAILED
+        elif user == False:
+            return {'code' : ACCESS_DENIED,
+                    'caption' : 'Participant is not allowed'}, httplib.PRECONDITION_FAILED
+        proj = user.project
+    elif params.get('project') != None:
+        try:
+            proj = Project.objects.filter(uuid = params['project']).all()[0]
+        except IndexError:
+            return {'code' : PROJECT_NOT_FOUND,
+                    'caption' : 'Project not found'}, httplib.PRECONDITION_FAILED
+        if proj.sharing != 'open':
+            return {'code' : PROJECT_MUST_BE_OPEN,
+                    'caption' : 'Project must be open'}, httplib.PRECONDITION_FAILED
     else:
-        return list_project_resources(params, user)
+        return {'code' : PARAMETERS_BROKEN,
+                'caption' : 'Must be declared at least `project` or `psid`'}, httplib.PRECONDITION_FAILED
+    
+    if isinstance(params.get('uuid'), basestring):
+        return list_activity_resources(params, user, proj)
+    else:
+        return list_project_resources(params, proj)
 
-@get_activity_from_uuid()
-def list_activity_resources(params, act, user):
+# @get_activity_from_uuid()
+def list_activity_resources(params, user, proj):
+    try:
+        act = Activity.objects.filter(Q(project = proj) & Q(uuid = params['uuid'])).all()[0]
+    except IndexError:
+        return {'code' : ACTIVITY_NOT_FOUND,
+                'caption' : 'Activity not found'}, httplib.PRECONDITION_FAILED
+    
+    
     ret = []
     for ar in act.activityresource_set.all():
         res = ar.resource
@@ -1215,7 +1245,9 @@ def list_activity_resources(params, act, user):
         else:
             p['used'] = False
             p['amount'] = 0
-            apar = get_authorized_activity_participant(user, act)
+            apar = None
+            if user != None:
+                apar = get_authorized_activity_participant(user, act)
             if isinstance(apar, ActivityParticipant):
                 try:
                     pres = ar.participantresource_set.filter(participant=apar).distinct().all()[0]
@@ -1249,8 +1281,8 @@ def get_full_resource_amount(res):
         return float(x['amount__sum']) if x['amount__sum'] != None else 0
 
 
-def list_project_resources(params, user):
-    prj = user.project
+def list_project_resources(params, prj):
+    # prj = user.project
     ret = []
     for res in prj.resource_set.all():
         p = {'uuid' : res.uuid,

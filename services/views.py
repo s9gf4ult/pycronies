@@ -1333,8 +1333,9 @@ def include_personal_resource_route(params): # ++TESTED
 
 
 @transaction.commit_on_success
-@standard_request_handler({'psid' : _good_string,
-                           'uuid' : OrNone(_good_string)})
+@standard_request_handler({'psid' : OrNone(''),
+                           'project' : OrNone(''),
+                           'uuid' : OrNone('')})
 @typical_json_responder(execute_list_activity_resources, httplib.OK)
 def list_activity_resources_route(params): # ++TESTED
     """
@@ -1345,6 +1346,7 @@ def list_activity_resources_route(params): # ++TESTED
     Параметры запроса:
 
     - `psid`: ключ доступа
+    - `project`: не обязательный uuid проекта
     - `uuid`: не обязательный uuid мероприятия, если не указан, то
       вернет все ресурсы проекта
 
@@ -1408,6 +1410,12 @@ def list_activity_resources_route(params): # ++TESTED
     - `max_cost_sum`: максимальная цена за весь объем заказанного ресурса
     - `mean_cost`: предполагаемая цена за еденицу ресурса выставленная инициатором
     - `mean_cost_sum`: предполагаемая цена за весь объем заказанного ресурса
+
+    Поведение:
+
+       Если не указан `psid` то список ресуров возвращается для проекта с uuid
+       == `project`. Если проект не является открытым, то возвращается
+       PROJECT_MUST_BE_OPEN
 
     Статусы возврата:
 

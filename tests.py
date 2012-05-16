@@ -321,6 +321,69 @@ class common_test(TestCase):
             return dec.decode(r)
         else:
             return r
+
+    def _create_project_resource(self, psid, name = 'resource1', descr = None,
+                                 units = 'kg', use = 'common', site = 'external',
+                                 evidence = 201, print_error = False):
+        c = httplib.HTTPConnection(host, port)
+        dec = json.JSONDecoder()
+        r = self.srequest(c, '/services/resource/create',
+                          {'psid' : psid,
+                           'name' : name,
+                           'descr' : descr,
+                           'units' : units,
+                           'use' : use,
+                           'site' : site},
+                          status = evidence, print_result = print_error)
+        if evidence == 201:
+            return dec.decode(r)['uuid']
+        else:
+            return r
+
+    def _include_activity_resource(self, psid, activity, uuid, need = False,
+                                   amount = 1, evidence = 201, print_error = False):
+        c = httplib.HTTPConnection(host, port)
+        enc, dec = getencdec()
+        r = self.srequest(c, '/services/activity/resource/include',
+                          {'psid' : psid,
+                           'uuid' : uuid,
+                           'activity' : activity,
+                           'need' : enc.encode(need),
+                           'amount' : amount},
+                          status = evidence, print_result = print_error)
+
+    def _include_personal_resource(self, psid, activity, uuid, amount,
+                                   evidence = 201, print_error = False):
+        c = httplib.HTTPConnection(host, port)
+        r = self.srequest(c, '/services/participant/resource/use',
+                          {'psid' : psid,
+                           'activity' : activity,
+                           'uuid' : uuid,
+                           'amount' : amount},
+                          status = evidence, print_result = print_error)
+
+    def _list_activity_resources(self, psid = None, project = None, activity = None,
+                                 evidence = 200, print_error = False):
+        c = httplib.HTTPConnection(host, port)
+        dec = json.JSONDecoder()
+        r = self.srequest(c, '/services/activity/resource/list',
+                          {'psid' : psid,
+                           'project' : project,
+                           'uuid' : activity},
+                          status = evidence, print_result = print_error)
+        if evidence == 200:
+            return dec.decode(r)
+        else:
+            return r
+
+    def _activity_participation(self, psid, uuid, action = 'include',
+                                evidence = 201, print_error = False):
+        c = httplib.HTTPConnection(host, port)
+        self.srequest(c, '/services/activity/participation',
+                      {'psid' : psid,
+                       'uuid' : uuid,
+                       'action' : action},
+                      status = evidence, print_result = print_error)
         
 
 class mytest(common_test):
@@ -3259,6 +3322,39 @@ class mytest(common_test):
         self.assertEqual(prts, prts2)
         self.assertEqual(set([a['uuid'] for a in prts]), set([a['uuid'] for a in prts3]))
         self._delete_project(psid)
+
+    def test_list_activity_resources_open_project(self):
+        token, psid, puuid = self._auth_user_and_get_project()
+        self._change_project_status(psid, 'planning')
+        auuid = self._create_activity(psid)
+        self._public_activity(psid, auuid)
+        self._activity_participation(psid, auuid)
+        res1 = self._create_project_resource(psid)
+        res2 = self._create_project_resource(psid, name = 'res2')
+        self._include_activity_resource(psid, auuid, res1)
+        l1 = self._list_activity_resources(psid)
+        l2 = self._list_activity_resources(project = puuid)
+        self._list_activity_resources(evidence = 412)
+        self.assertEqual(l1, l2)
+        l3 = self._list_activity_resources(psid, activity = auuid)
+        l4 = self._list_activity_resources(project = puuid, activity = auuid)
+        self.assertEqual(l3, l4)
+
+        self._delete_project(psid)
+
+        token2, psid2, puuid2 = self._auth_user_and_get_project(sharing = 'close')
+        self._change_project_status(psid2, 'planning')
+        auuid2 = self._create_activity(psid2)
+        self._public_activity(psid2, auuid2)
+        self._activity_participation(psid2, auuid2)
+        res3 = self._create_project_resource(psid2)
+        res4 = self._create_project_resource(psid2, name = 'asdf')
+        self._include_activity_resource(psid2, auuid2, res3)
+        self._list_activity_resources(project = puuid2, activity = auuid2, evidence = 412)
+        self._list_activity_resources(project = puuid2, evidence = 412)
+
+        self._delete_project(psid2)
+        
         
         
 
