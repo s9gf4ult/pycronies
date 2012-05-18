@@ -567,7 +567,12 @@ def execute_invite_participant(params, user):
         return {'code'    : EMAIL_CAN_NOT_BE_SENT,
                 'caption' : 'Email can not be sent because of {0}'.format(str(e))}, httplib.PRECONDITION_FAILED
 
-    return return_if_debug({'token' : part.token}), httplib.CREATED
+    r, st = execute_conform_participant({'psid' : params['psid'],
+                                         'uuid' : part.uuid})
+    if st == httplib.CREATED:
+        return return_if_debug({'token' : part.token}), httplib.CREATED
+    else:
+        return r, st
 
 @get_user
 @get_object_by_uuid(Participant,

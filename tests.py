@@ -948,28 +948,6 @@ class mytest(common_test):
         resp = dec.decode(r)
         self.assertIn('token', resp)
         token = resp['token']
-        # проверяем что участник приглашен
-
-        r = self.srequest(c, '/services/participant/list', {'psid' : psid}, httplib.OK)
-        prtsps = dec.decode(r)
-        self.assertEqual(2, len(prtsps))
-        notme = [a for a in prtsps if not a['me']][0] # должен быть тот самый участник
-        for (a, b) in [('ololosh', notme['name']),
-                       ('voted', notme['status']),
-                       (1, len(notme['votes'])),
-                       ('include', notme['votes'][0]['vote']),
-                       ('This is the test', notme['votes'][0]['comment'])]:
-            self.assertEqual(a, b)
-
-        # подтверждаем приглашение
-        r = self.srequest(c, '/services/participant/list', {'psid' : psid}, httplib.OK)
-        pts = dec.decode(r)
-        uuid2 = [a['uuid'] for a in pts if a['name'] == 'ololosh'][0]
-
-        self.srequest(c, '/services/participant/vote/conform', {'psid' : psid,
-                                                       'uuid' : uuid2,
-                                                       'vote' : 'include'},
-                      httplib.CREATED)
 
         # проверяем что участник доступен
         r = self.srequest(c, '/services/participant/list', {'psid' : psid}, httplib.OK)
@@ -3261,7 +3239,7 @@ class mytest(common_test):
                               evidence = httplib.PRECONDITION_FAILED)
 
         self._ask_user_confirmation('somebody@mail.ru',
-                                    evidence = 409) 
+                                    evidence = 409)
 
         ret = self._authenticate_user('somebody@mail.ru',
                                       'password')
