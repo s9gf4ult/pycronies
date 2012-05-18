@@ -30,7 +30,7 @@ from services.app import execute_create_project, execute_list_projects, execute_
     execute_check_project_participation, execute_exit_project, execute_view_user
 
 from services.common import getencdec, standard_request_handler, typical_json_responder, translate_parameters, parse_json, \
-    translate_values, translate_string, proceed_checks, naive_json_responder
+    translate_values, translate_string, proceed_checks, naive_json_responder, clear_last_slash
 from services.models import Project, Resource
 from services.statuses import PARAMETERS_BROKEN
 
@@ -2338,7 +2338,7 @@ def authenticate_user_route(params):
 
 def invitation_response_route(request, invite):
     r = http.HttpResponseRedirect(settings.MY_ROOT_PATH)
-    r.set_cookie('invite', invite, httponly=False, path=settings.STATIC_URL)
+    r.set_cookie('invite', invite, path = clear_last_slash(settings.STATIC_URL))
     return r
 
 @transaction.commit_on_success
@@ -2348,7 +2348,7 @@ def confirmation_response_route(request, confirmation):
     if st == 200:
         pass
     else:
-        r.set_cookie('fail', u'Не удалось выполнить подтверждение пользователя', httponly = False, path=settings.STATIC_URL)
+        r.set_cookie('fail', u'Не удалось выполнить подтверждение пользователя', httponly = False, path = clear_last_slash(settings.STATIC_URL))
         transaction.rollback()
         
     r = http.HttpResponseRedirect(settings.MY_ROOT_PATH)

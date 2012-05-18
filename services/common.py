@@ -965,3 +965,5 @@ def return_if_debug(data, normal_mode_data = ''):
     else:
         return normal_mode_data
 
+def clear_last_slash(string):
+    return re.sub('/+$', lambda x: '', string)
