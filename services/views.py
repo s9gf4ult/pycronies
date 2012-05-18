@@ -2336,23 +2336,22 @@ def authenticate_user_route(params):
     """
     pass
 
-
 def invitation_response_route(request, invite):
     r = http.HttpResponseRedirect(settings.MY_ROOT_PATH)
-    r.set_cookie('invitation', invite, httponly = False)
+    r.set_cookie('invite', invite, httponly=False)
     return r
 
 @transaction.commit_on_success
 def confirmation_response_route(request, confirmation):
+    r = http.HttpResponseRedirect(settings.MY_ROOT_PATH)
     ret, st = execute_confirm_user_by_long_confirmation(confirmation)
     if st == 200:
-        cnf = True
+        pass
     else:
+        r.set_cookie('fail', u'Не удалось выполнить подтверждение пользователя', httponly = False)
         transaction.rollback()
-        cnf = False
         
     r = http.HttpResponseRedirect(settings.MY_ROOT_PATH)
-    r.set_cookie('confirmation', cnf, httponly = False)
     return r
 
 @transaction.commit_on_success
