@@ -94,13 +94,13 @@ class common_test(TestCase):
         r = c.getresponse()
         self.assertEqual(r.status, httplib.OK)
 
-    def _get_authenticated_user(self, email, password, name, print_error = False):
+    def _get_authenticated_user(self, email, password, name, descr = None, print_error = False):
         ret, st = self._user_check(email, evidence = None, print_error = print_error)
         if st == 200:
             ret = self._authenticate_user(email, password, print_error = print_error)
             token = ret['token']
         elif st == 404:
-            self._create_user_account(email, password, name, print_error = print_error)
+            self._create_user_account(email, password, name, descr = descr, print_error = print_error)
             ret = self._ask_user_confirmation(email, print_error = print_error)
             self._confirm_account(email, password, ret['confirmation'], print_error = print_error)
             ret = self._authenticate_user(email, password, print_error = print_error)
@@ -213,16 +213,20 @@ class common_test(TestCase):
                              status = evidence, print_result = print_error)
     
 
-    def _create_user_account(self, email, password, name, evidence = 201, print_error = False):
+    def _create_user_account(self, email, password, name, descr = None, evidence = 201, print_error = False):
         c = httplib.HTTPConnection(host, port)
         dec = json.JSONDecoder()
         r = self.srequest(c, '/services/user/new',
                           fnone({'email' : email,
                                  'password' : password,
-                                 'name' : name}),
+                                 'name' : name,
+                                 'descr' : descr}),
                           status = evidence, print_result = print_error)
-        d = dec.decode(r)
-        return d
+        if evidence == 201:
+            d = dec.decode(r)
+            return d
+        else:
+            return r
 
     def _ask_user_confirmation(self, email, evidence = 200, print_error = False):
         c = httplib.HTTPConnection(host, port)
@@ -230,8 +234,11 @@ class common_test(TestCase):
         r = self.srequest(c, '/services/user/ask_confirm',
                           fnone({'email' : email}),
                           status = evidence, print_result = print_error)
-        d = dec.decode(r)
-        return d
+        if evidence == 200:
+            d = dec.decode(r)
+            return d
+        else:
+            return r
 
     def _authenticate_user(self, email, password, evidence = 200, print_error = False):
         c = httplib.HTTPConnection(host, port)
@@ -384,6 +391,17 @@ class common_test(TestCase):
                        'uuid' : uuid,
                        'action' : action},
                       status = evidence, print_result = print_error)
+
+    def _user_view(self, token, evidence = 200, print_error = False):
+        c = httplib.HTTPConnection(host, port)
+        r = self.srequest(c, '/services/user/view',
+                          {'token' : token},
+                          status = evidence, print_result = print_error)
+        if evidence == 200:
+            dec = json.JSONDecoder()
+            return dec.decode(r)
+        else:
+            return r
         
 
 class mytest(common_test):
@@ -3332,7 +3350,18 @@ class mytest(common_test):
         self._list_activity_resources(project = puuid2, evidence = 412)
 
         self._delete_project(psid2)
-        
+
+    def test_view_user(self):
+        email = 'iejad@iejnvasdf.com'
+        name = 'jiejnzc.skdjfaiefjaiiiiiiuewr'
+        descr = 'jaidfn;zjiejfa;kdjieryqe'
+        # self._create_user_account(email, 'asdf', name, descr = descr)
+        # token = self._authenticate_user(email, 'asdf', print_error = True)['token']
+        token = self._get_authenticated_user(email, 'asdf', name, descr = descr) 
+        user = self._user_view(token)
+        self.assertEqual(user['name'], name)
+        self.assertEqual(user['email'], email)
+        self.assertEqual(user['descr'], descr)
         
         
 

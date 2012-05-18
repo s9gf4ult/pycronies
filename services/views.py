@@ -27,7 +27,7 @@ from services.app import execute_create_project, execute_list_projects, execute_
     execute_contractor_offer_resource, execute_contractor_list_project_resources, execute_list_contractors, \
     execute_set_resource_costs, execute_check_user_exists, execute_ask_user_confirmation, execute_create_user_account, \
     execute_confirm_account, execute_authenticate_user, execute_confirm_user_by_long_confirmation, execute_check_token, execute_logout, \
-    execute_check_project_participation, execute_exit_project
+    execute_check_project_participation, execute_exit_project, execute_view_user
 
 from services.common import getencdec, standard_request_handler, typical_json_responder, translate_parameters, parse_json, \
     translate_values, translate_string, proceed_checks, naive_json_responder
@@ -2448,6 +2448,37 @@ def logout_route(params):
 
     - `token`: token пользователя или участника проекта
     
+    Статусы возврата:
+
+    - `201`: ok
+    - `409`: токен не найден либо требуется перелогин
+    - `412`: не верные данные с описанием в теле ответа либо ошибка другого рода
+    - `500`: ошибка сервера
+    """
+    pass
+
+
+@transaction.commit_on_success
+@standard_request_handler({'token' : ''})
+@typical_json_responder(execute_view_user, 200)
+def view_user_route(params):
+    """
+    ** Просмотр пользователя **
+
+    путь запроса: **/user/view**
+
+    Параметры запроса:
+
+    - `token`: токен пользователя для просмотра данных
+
+    Возвращает JSON словарь
+
+    - `last_login`: последнее дата время входа строка в ISO формате
+    - `name` : имя пользователя
+    - `email`: мыло пользователя
+    - `descr`: описание
+    - `is_active`: Bool, признак доступности пользователя дла входа
+
     Статусы возврата:
 
     - `201`: ok

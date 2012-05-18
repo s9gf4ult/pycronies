@@ -2233,3 +2233,15 @@ def kill_project_if_need(proj):
 def can_change_project(proj):
     st = get_object_status(proj)
     return st != 'closed'
+
+def execute_view_user(params):
+    try:
+        u = User.objects.filter(token = params['token']).all()[0]
+    except IndexError:
+        return 'User not found', 409
+    return {'name' : u.name,
+            'last_login' : u.last_login.isoformat() if u.last_login != None else None,
+            'email' : u.email,
+            'descr' : u.descr,
+            'is_active' : u.is_active}, 200
+    
