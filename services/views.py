@@ -2338,7 +2338,7 @@ def authenticate_user_route(params):
 
 def invitation_response_route(request, invite):
     r = http.HttpResponseRedirect(settings.MY_ROOT_PATH)
-    r.set_cookie('invite', invite, httponly=False)
+    r.set_cookie('invite', invite, httponly=False, path=settings.STATIC_URL)
     return r
 
 @transaction.commit_on_success
@@ -2348,7 +2348,7 @@ def confirmation_response_route(request, confirmation):
     if st == 200:
         pass
     else:
-        r.set_cookie('fail', u'Не удалось выполнить подтверждение пользователя', httponly = False)
+        r.set_cookie('fail', u'Не удалось выполнить подтверждение пользователя', httponly = False, path=settings.STATIC_URL)
         transaction.rollback()
         
     r = http.HttpResponseRedirect(settings.MY_ROOT_PATH)
