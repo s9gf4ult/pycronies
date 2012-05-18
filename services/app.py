@@ -2130,7 +2130,7 @@ def execute_check_token(params):
         user = User.objects.filter(token=token).all()[0]
     except IndexError:
         try:
-            partic = User.objects.filter(token=token).all()[0]
+            partic = Participant.objects.filter(token=token).all()[0]
         except IndexError:
             return 'No such token', 409
         else:
